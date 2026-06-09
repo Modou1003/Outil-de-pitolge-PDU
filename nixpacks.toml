@@ -1,0 +1,10 @@
+# Configuration de déploiement Railway (Nixpacks) pour Laravel + Vue/Vite.
+# - Railway construit automatiquement les assets (npm install + npm run build).
+# - Au démarrage : on applique les migrations sur la base MySQL, on met en
+#   cache la config, puis on lance le serveur sur le port fourni par Railway.
+
+[phases.setup]
+nixPkgs = ["...", "nodejs_20"]
+
+[start]
+cmd = "php artisan migrate --force && php artisan optimize && php artisan serve --host=0.0.0.0 --port=$PORT"
