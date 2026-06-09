@@ -1,10 +1,13 @@
 # Configuration de déploiement Railway (Nixpacks) pour Laravel + Vue/Vite.
-# On laisse Nixpacks servir l'appli avec son serveur web intégré (Caddy),
-# qui écoute automatiquement sur le port fourni par Railway (évite les 502).
-# Les migrations sont lancées à la fin de la construction.
+# - Build : assets (npm) + migrations (sans effacer les données existantes).
+# - Start : on sert l'appli sur un port FIXE (8080). Le domaine Railway doit
+#   viser ce même port (Settings > Networking > target port = 8080).
 
 [phases.setup]
 nixPkgs = ["...", "nodejs_20"]
 
 [phases.build]
-cmds = ["...", "php artisan migrate:fresh --force --seed || true"]
+cmds = ["...", "php artisan migrate --force || true"]
+
+[start]
+cmd = "php artisan serve --host=0.0.0.0 --port=8080"
