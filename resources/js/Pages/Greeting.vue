@@ -101,7 +101,7 @@ onUnmounted(() => {
 
             <p class="mx-auto mt-6 max-w-md text-base leading-relaxed text-gray-600">
                 Bienvenue sur la plateforme de suivi-évaluation des projets du
-                <span class="font-semibold text-gray-800">Programme de Développement des Universités de Côte d'Ivoire</span>.
+                <span class="font-semibold text-gray-800">Programme de Décentralisation des Universités de Côte d'Ivoire</span>.
             </p>
 
             <button

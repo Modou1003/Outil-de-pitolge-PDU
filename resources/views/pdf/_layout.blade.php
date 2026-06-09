@@ -49,7 +49,7 @@
                 <td style="padding-left: 10px;">
                     <h1>@yield('title', 'Rapport PDU-CI')</h1>
                     <p class="muted" style="margin: 0; font-size: 9px;">
-                        Projet de Développement des Universités de Côte d'Ivoire &middot; PDU Tracker
+                        Programme de Décentralisation des Universités de Côte d'Ivoire &middot; Outil de pilotage
                     </p>
                 </td>
                 <td class="right" style="width: 200px;">
@@ -63,7 +63,7 @@
     @yield('content')
 
     <footer class="pdf-footer">
-        PDU Tracker &middot; Document confidentiel &middot; Page <span class="page-number"></span> / <span class="page-total"></span>
+        Outil de pilotage &middot; Document confidentiel &middot; Page <span class="page-number"></span> / <span class="page-total"></span>
     </footer>
 </body>
 </html>

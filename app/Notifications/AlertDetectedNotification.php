@@ -24,7 +24,7 @@ class AlertDetectedNotification extends Notification
         $projectTitle = $this->alert->project?->title ?? 'Projet';
 
         return (new MailMessage)
-            ->subject('[PDU Tracker] Nouvelle alerte: ' . $this->alert->title)
+            ->subject('[Outil de pilotage] Nouvelle alerte: ' . $this->alert->title)
             ->greeting('Bonjour ' . ($notifiable->name ?? ''))
             ->line('Une nouvelle alerte a ete detectee sur la plateforme.')
             ->line('Projet: ' . $projectCode . ' - ' . $projectTitle)
