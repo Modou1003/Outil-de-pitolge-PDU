@@ -1,0 +1,2 @@
+No syntax errors detected in routes\web.php
+No syntax errors detected in app\Http\Controllers\RapportController.php

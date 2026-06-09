@@ -1,0 +1,2 @@
+FINDSTR : Impossible d’ouvrir Directory\ /c:\File\ /c:\DIR\  
+EXITCODE=0 
