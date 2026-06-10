@@ -23,7 +23,7 @@ const submit = () => {
 <template>
     <Head title="Connexion" />
 
-    <div class="relative h-screen overflow-hidden bg-[#1d4038]">
+    <div class="relative min-h-screen overflow-y-auto bg-[#1d4038] lg:h-screen lg:overflow-hidden">
         <div
             class="absolute inset-0 bg-cover bg-center bg-no-repeat"
             style="background-image: url('/images/login/background-droite.png');"
@@ -44,7 +44,7 @@ const submit = () => {
             </div>
         </div>
 
-        <div class="relative z-10 grid h-screen lg:grid-cols-2">
+        <div class="relative z-10 grid min-h-screen lg:h-screen lg:grid-cols-2">
             <section class="hidden lg:flex flex-col px-8 py-7 text-white xl:px-10">
                 <div class="mt-[140px] max-w-[500px]">
                     <h1 class="text-[57px] font-bold leading-[1.06] tracking-[-0.01em]">
@@ -60,7 +60,21 @@ const submit = () => {
                 </div>
             </section>
 
-            <section class="relative flex items-center justify-center px-4 py-6 sm:px-8 lg:px-12 lg:pt-[140px]">
+            <section class="relative flex flex-col items-center justify-center px-4 py-8 sm:px-8 lg:px-12 lg:py-6 lg:pt-[140px]">
+
+                <!-- En-tete mobile : logos + titre (visible uniquement sur telephone) -->
+                <div class="mb-6 flex w-full max-w-[520px] flex-col items-center gap-4 lg:hidden">
+                    <div class="flex items-center justify-center gap-4">
+                        <img src="/images/login/logo-armoiries.png" alt="Armoiries" class="h-[72px] w-[72px] object-contain drop-shadow-md" />
+                        <img src="/images/login/logo-pdu.png" alt="Logo PDU" class="h-[72px] w-auto object-contain drop-shadow-md" />
+                        <div class="flex items-center rounded-md bg-white/80 px-3 py-2 shadow-md">
+                            <img src="/images/login/logo-ministere.png" alt="Logo ministère" class="h-[48px] object-contain" />
+                        </div>
+                    </div>
+                    <h1 class="text-center text-[22px] font-bold leading-tight text-white drop-shadow-md">
+                        Programme de Décentralisation des Universités
+                    </h1>
+                </div>
 
                 <div class="w-full max-w-[520px] rounded-xl border border-orange-400/30 bg-[rgba(255,165,0,0.25)] px-6 py-6 shadow-[0_16px_40px_rgba(0,0,0,0.22)] backdrop-blur-[6px] sm:px-7">
                     <h2 class="text-[32px] font-semibold leading-none tracking-[-0.015em] text-black">Connexion</h2>
