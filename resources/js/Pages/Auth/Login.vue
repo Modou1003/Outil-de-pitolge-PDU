@@ -39,7 +39,7 @@ const submit = () => {
             </div>
             <div class="flex items-center justify-center">
                 <div class="flex items-center gap-3 rounded-md bg-white/80 px-4 py-2 shadow-md">
-                    <img src="/images/login/logo-ministere.png" alt="Logo ministere" class="h-[66px] object-contain" />
+                    <img src="/images/login/logo-ministere.png" alt="Logo ministère" class="h-[66px] object-contain" />
                 </div>
             </div>
         </div>
@@ -50,12 +50,12 @@ const submit = () => {
                     <h1 class="text-[57px] font-bold leading-[1.06] tracking-[-0.01em]">
                         Programme de
                         <br />
-                        Decentralisation des Universites
+                        Décentralisation des Universités
                         <br />
                         
                     </h1>
                     <p class="mt-5 max-w-[470px] text-[17px] leading-[1.38] text-white/74">
-                        Plateforme de pilotage et de suivi-evaluation des projets d'infrastructures universitaires du MESRS de Cote d'Ivoire
+                        Plateforme de pilotage et de suivi-évaluation des projets d'infrastructures universitaires du MESRS de Côte d'Ivoire
                     </p>
                 </div>
             </section>
@@ -64,7 +64,7 @@ const submit = () => {
 
                 <div class="w-full max-w-[520px] rounded-xl border border-orange-400/30 bg-[rgba(255,165,0,0.25)] px-6 py-6 shadow-[0_16px_40px_rgba(0,0,0,0.22)] backdrop-blur-[6px] sm:px-7">
                     <h2 class="text-[32px] font-semibold leading-none tracking-[-0.015em] text-black">Connexion</h2>
-                    <p class="mt-1.5 text-[18px] leading-[1.13] text-black/78">Accedez a la plateforme avec vos identifiants.</p>
+                    <p class="mt-1.5 text-[18px] leading-[1.13] text-black/78">Accédez à la plateforme avec vos identifiants.</p>
 
                     <div v-if="status" class="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                         {{ status }}
@@ -116,7 +116,7 @@ const submit = () => {
                                 :href="route('password.request')"
                                 class="text-black/80 hover:text-black hover:underline"
                             >
-                                Mot de passe oublie ?
+                                Mot de passe oublié ?
                             </Link>
                         </div>
 
@@ -130,7 +130,7 @@ const submit = () => {
                         </button>
                     </form>
 
-                    <p class="mt-4 text-[13px] text-black/75">Accès reservé aux utilisateurs autorises.</p>
+                    <p class="mt-4 text-[13px] text-black/75">Accès réservé aux utilisateurs autorisés.</p>
                 </div>
             </section>
         </div>
