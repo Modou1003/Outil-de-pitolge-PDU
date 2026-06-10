@@ -55,7 +55,7 @@ return new class extends Migration
             $table->index(['measurement_date']);
             $table->index(['status']);
             $table->index(['period']);
-            $table->unique(['indicator_id', 'pdu_project_id', 'measurement_date', 'period']);
+            $table->unique(['indicator_id', 'pdu_project_id', 'measurement_date', 'period'], 'it_indicator_project_date_period_unique');
         });
     }
 
