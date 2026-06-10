@@ -67,10 +67,10 @@ const submit = () => {
                     <!-- Ligne 1 : armoiries de la Republique + logo ministere -->
                     <div class="flex w-full items-center justify-between gap-4">
                         <img src="/images/login/logo-armoiries.png" alt="Armoiries" class="h-[88px] w-[88px] object-contain drop-shadow-md" />
-                        <img src="/images/login/logo-ministere.png" alt="Logo ministère" class="h-[88px] w-auto object-contain drop-shadow-md" />
+                        <img src="/images/login/logo-ministere.png" alt="Logo ministère" class="h-[64px] w-auto object-contain drop-shadow-md" />
                     </div>
                     <!-- Logo PDU en dessous, bords arrondis -->
-                    <img src="/images/login/logo-pdu.png" alt="Logo PDU" class="mt-3 h-[88px] w-auto rounded-2xl object-contain drop-shadow-md" />
+                    <img src="/images/login/logo-pdu.png" alt="Logo PDU" class="mt-3 h-[64px] w-auto rounded-2xl object-contain drop-shadow-md" />
                     <h1 class="mt-1 text-center text-[18px] font-semibold leading-snug text-white drop-shadow-md">
                         Plateforme de pilotage et de suivi-évaluation des projets d'infrastructures universitaires du MESRS de Côte d'Ivoire
                     </h1>
