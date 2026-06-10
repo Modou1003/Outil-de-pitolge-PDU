@@ -6,7 +6,6 @@ import TabGeneral from '@/Components/Projects/Tabs/TabGeneral.vue';
 import TabPhysical from '@/Components/Projects/Tabs/TabPhysical.vue';
 import TabFinancial from '@/Components/Projects/Tabs/TabFinancial.vue';
 import TabPlanning from '@/Components/Projects/Tabs/TabPlanning.vue';
-import TabIndicators from '@/Components/Projects/Tabs/TabIndicators.vue';
 import TabDocuments from '@/Components/Projects/Tabs/TabDocuments.vue';
 
 const props = defineProps({
@@ -45,7 +44,6 @@ const tabs = [
     { id: 'physical', label: 'Avancement physique', icon: 'chart' },
     { id: 'financial', label: 'Avancement financier', icon: 'coins' },
     { id: 'planning', label: 'Planning', icon: 'calendar' },
-    { id: 'indicators', label: 'Indicateurs PDU', icon: 'target' },
     { id: 'documents', label: 'Documents', icon: 'file' },
 ];
 
@@ -54,7 +52,6 @@ const icons = {
     chart: 'M3 3v18h18M7 14l4-4 4 4 5-5',
     coins: 'M12 8c-2.21 0-4 1.12-4 2.5S9.79 13 12 13s4 1.12 4 2.5S14.21 18 12 18m0-10V6m0 14v-2m0 0c-2.76 0-5-1.79-5-4m10 0c0 2.21-2.24 4-5 4',
     calendar: 'M8 7V3m8 4V3M3 11h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z',
-    target: 'M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20zm0 4a6 6 0 100 12 6 6 0 000-12zm0 4a2 2 0 100 4 2 2 0 000-4z',
     file: 'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z M13 2v7h7',
 };
 
@@ -164,13 +161,6 @@ const exportExcel = () => {
             <TabPhysical v-else-if="activeTab === 'physical'" :project="project" :progresses="physical_progresses" :lots="lots" />
             <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" />
             <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :lots="lots" :milestones="milestones" />
-            <TabIndicators
-                v-else-if="activeTab === 'indicators'"
-                :project="project"
-                :trackings="indicator_trackings"
-                :indicator-catalog="indicator_catalog"
-                :can-manage-indicators="can_manage_indicators"
-            />
             <TabDocuments v-else-if="activeTab === 'documents'" :project="project" :documents="documents" :categories="document_categories" />
         </div>
     </AuthenticatedLayout>
