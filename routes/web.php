@@ -21,6 +21,47 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// ⚠️ ROUTE DE DIAGNOSTIC TEMPORAIRE — À SUPPRIMER APRÈS LE TEST DES MAILS.
+// Visite : https://<ton-domaine-railway>/debug-mail?key=pdu-test-2026
+Route::get('/debug-mail', function (\Illuminate\Http\Request $request) {
+    if ($request->query('key') !== 'pdu-test-2026') {
+        abort(403);
+    }
+
+    $to = $request->query('to', config('mail.from.address'));
+
+    $config = [
+        'MAIL_MAILER'       => config('mail.default'),
+        'MAIL_HOST'         => config('mail.mailers.smtp.host'),
+        'MAIL_PORT'         => config('mail.mailers.smtp.port'),
+        'MAIL_USERNAME'     => config('mail.mailers.smtp.username'),
+        'MAIL_PASSWORD_set' => config('mail.mailers.smtp.password') ? 'OUI ('.strlen((string) config('mail.mailers.smtp.password')).' caractères)' : 'NON',
+        'MAIL_FROM_ADDRESS' => config('mail.from.address'),
+        'destinataire_test' => $to,
+    ];
+
+    try {
+        \Illuminate\Support\Facades\Mail::raw(
+            'Test d\'envoi depuis le site en ligne (PDU Tracker). Si tu reçois ce message, la configuration SMTP fonctionne.',
+            function ($message) use ($to) {
+                $message->to($to)->subject('[PDU Tracker] Test SMTP');
+            }
+        );
+
+        return response()->json([
+            'resultat' => '✅ Envoi accepté par le serveur SMTP sans erreur. Vérifie ta boîte de réception (et les SPAMS).',
+            'config'   => $config,
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'resultat'        => '❌ ÉCHEC de l\'envoi.',
+            'erreur_classe'   => get_class($e),
+            'erreur_message'  => $e->getMessage(),
+            'config'          => $config,
+        ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+});
+
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
