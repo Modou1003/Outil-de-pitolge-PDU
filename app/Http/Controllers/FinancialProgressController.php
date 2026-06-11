@@ -83,7 +83,7 @@ class FinancialProgressController extends Controller
     {
         $user = $request->user();
         abort_unless(
-            $user && $user->hasAnyRole(['admin', 'directeur', 'agent_financier']),
+            $user && $user->can('manage_finances'),
             403,
             'Réservé aux agents financiers, directeurs et administrateurs.',
         );

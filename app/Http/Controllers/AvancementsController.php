@@ -12,15 +12,10 @@ class AvancementsController extends Controller
 {
     public function index()
     {
-        // Get all projects accessible to the current user
-        $query = PduProject::query();
-
-        // If user is not admin, filter by their role or permissions
-        if (!Auth::user()->hasRole('admin')) {
-            $query->where('created_by', Auth::id());
-        }
-
-        $projects = $query->with(['lots', 'university'])->get();
+        // Le portefeuille de projets est consultable par tous les rôles (cf. matrice
+        // des permissions). La saisie d'avancement reste protégée au niveau des routes
+        // (permissions manage_physical / manage_finances).
+        $projects = PduProject::query()->with(['lots', 'university'])->get();
 
         // Get all physical and financial progresses
         $physicalProgresses = PhysicalProgress::whereIn('project_id', $projects->pluck('id'))->get();

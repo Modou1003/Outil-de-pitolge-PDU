@@ -19,6 +19,7 @@ class UserController extends Controller
         'admin',
         'directeur',
         'chef_projet',
+        'comite_pilotage',
         'agent_financier',
         'visiteur',
     ];

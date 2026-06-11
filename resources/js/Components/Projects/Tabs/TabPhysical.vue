@@ -17,8 +17,8 @@ const props = defineProps({
     lots: { type: Array, default: () => [] },
 });
 
-const { hasRole } = useAuth();
-const canWrite = computed(() => hasRole(['admin', 'directeur', 'chef_projet']));
+const { hasPermission } = useAuth();
+const canWrite = computed(() => hasPermission('manage_physical'));
 
 const showModal = ref(false);
 const editing = ref(null);

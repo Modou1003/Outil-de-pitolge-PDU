@@ -17,8 +17,8 @@ const props = defineProps({
     kpis: { type: Object, required: true },
 });
 
-const { hasRole } = useAuth();
-const canWrite = computed(() => hasRole(['admin', 'directeur', 'agent_financier']));
+const { hasPermission } = useAuth();
+const canWrite = computed(() => hasPermission('manage_finances'));
 
 const showModal = ref(false);
 const editing = ref(null);

@@ -115,7 +115,7 @@ class AlerteController extends Controller
         }
 
         $isOwner = $comment->user_id === $request->user()->id;
-        $isSupervisor = $request->user()->hasAnyRole(['admin', 'directeur']);
+        $isSupervisor = $request->user()->can('manage_alerts');
 
         if (! $isOwner && ! $isSupervisor) {
             abort(403, 'Accès refusé.');
@@ -128,7 +128,7 @@ class AlerteController extends Controller
 
     public function destroy(Request $request, Alert $alert): RedirectResponse
     {
-        if (!$request->user()->hasAnyRole(['admin', 'directeur'])) {
+        if (! $request->user()->can('manage_alerts')) {
             abort(403, 'Accès refusé.');
         }
 

@@ -95,8 +95,8 @@ class ProjectController extends Controller
                 'id' => $u->id,
                 'name' => $u->name,
             ])->values()->all(),
-            'can_manage_team' => (bool) request()->user()?->can('create_project'),
-            'can_manage_indicators' => (bool) request()->user()?->can('create_project'),
+            'can_manage_team' => (bool) request()->user()?->can('edit_project'),
+            'can_manage_indicators' => (bool) request()->user()?->can('edit_project'),
         ]);
     }
 
@@ -300,7 +300,7 @@ class ProjectController extends Controller
 
     public function updateStatus(Request $request, PduProject $project): RedirectResponse
     {
-        if (! $request->user() || ! $request->user()->can('create_project')) {
+        if (! $request->user() || ! $request->user()->can('edit_project')) {
             abort(403);
         }
 
@@ -326,7 +326,7 @@ class ProjectController extends Controller
 
     public function updateTeam(Request $request, PduProject $project): RedirectResponse
     {
-        if (! $request->user() || ! $request->user()->can('create_project')) {
+        if (! $request->user() || ! $request->user()->can('edit_project')) {
             abort(403);
         }
 
@@ -385,7 +385,7 @@ class ProjectController extends Controller
 
     public function updateTeamMembers(Request $request, PduProject $project): RedirectResponse
     {
-        if (! $request->user() || ! $request->user()->can('create_project')) {
+        if (! $request->user() || ! $request->user()->can('edit_project')) {
             abort(403);
         }
 
@@ -463,7 +463,7 @@ class ProjectController extends Controller
 
     public function addIndicator(Request $request, PduProject $project): RedirectResponse
     {
-        if (! $request->user() || ! $request->user()->can('create_project')) {
+        if (! $request->user() || ! $request->user()->can('edit_project')) {
             abort(403);
         }
 
@@ -494,7 +494,7 @@ class ProjectController extends Controller
 
     public function removeIndicator(Request $request, PduProject $project, Indicator $indicator): RedirectResponse
     {
-        if (! $request->user() || ! $request->user()->can('create_project')) {
+        if (! $request->user() || ! $request->user()->can('edit_project')) {
             abort(403);
         }
 

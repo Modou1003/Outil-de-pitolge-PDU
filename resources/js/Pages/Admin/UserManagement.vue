@@ -35,8 +35,9 @@ const roleSearchEdit = ref('');
 const roleLabel = (name) => {
     const map = {
         admin: 'Admin',
-        directeur: 'Directeur',
+        directeur: 'Resp. UGP',
         chef_projet: 'Chef de projet',
+        comite_pilotage: 'Comité de pilotage',
         agent_financier: 'Agent financier',
         visiteur: 'Visiteur',
         gc_maitre_ouvrage: "Maître d'ouvrage",
@@ -97,6 +98,7 @@ const roleColors = {
     admin: 'bg-red-100 text-red-700',
     directeur: 'bg-purple-100 text-purple-700',
     chef_projet: 'bg-blue-100 text-blue-700',
+    comite_pilotage: 'bg-amber-100 text-amber-700',
     agent_financier: 'bg-green-100 text-green-700',
     visiteur: 'bg-gray-100 text-gray-700',
 };

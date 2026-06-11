@@ -148,9 +148,9 @@ class RapportController extends Controller
     {
         $user = request()->user();
         abort_unless(
-            $user && ! $user->hasRole('visiteur'),
+            $user && $user->can('export_reports'),
             403,
-            'Les visiteurs ne peuvent pas générer de rapports.',
+            'Vous n\'avez pas le droit d\'exporter ou de générer des rapports.',
         );
     }
 }

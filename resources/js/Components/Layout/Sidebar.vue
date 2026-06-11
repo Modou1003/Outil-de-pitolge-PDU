@@ -9,7 +9,7 @@ defineProps({
 });
 
 const page = usePage();
-const { hasRole } = useAuth();
+const { hasPermission } = useAuth();
 
 const counters = computed(() => page.props.counters ?? { active_projects: 0, active_alerts: 0 });
 
@@ -50,7 +50,7 @@ const items = computed(() => [
         route: 'admin.users.index',
         href: route('admin.users.index'),
         icon: 'settings',
-        show: hasRole('admin'),
+        show: hasPermission('manage_users'),
         disabled: false,
     },
 ]);

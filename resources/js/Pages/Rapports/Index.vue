@@ -9,8 +9,8 @@ const props = defineProps({
     stats: { type: Object, required: true },
 });
 
-const { hasRole } = useAuth();
-const canGenerate = computed(() => !hasRole('visiteur'));
+const { hasPermission } = useAuth();
+const canGenerate = computed(() => hasPermission('export_reports'));
 
 const selectedProjectId = ref(props.projects[0]?.id ?? null);
 const selectedProject = computed(() => props.projects.find((p) => p.id === selectedProjectId.value));
@@ -114,7 +114,7 @@ const downloadGlobalExcel = () => {
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
                         {{ generatingProject ? 'Génération…' : 'Télécharger le PDF' }}
                     </button>
-                    <p v-if="!canGenerate" class="mt-2 text-center text-xs text-red-600">Les visiteurs ne peuvent pas générer de rapports.</p>
+                    <p v-if="!canGenerate" class="mt-2 text-center text-xs text-red-600">Vous n'avez pas le droit de générer des rapports.</p>
                 </div>
 
                 <!-- Rapport global -->
@@ -179,7 +179,7 @@ const downloadGlobalExcel = () => {
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
                         {{ generatingExcelProject ? 'Génération…' : 'Télécharger le XLSX' }}
                     </button>
-                    <p v-if="!canGenerate" class="mt-2 text-center text-xs text-red-600">Les visiteurs ne peuvent pas générer d'exports.</p>
+                    <p v-if="!canGenerate" class="mt-2 text-center text-xs text-red-600">Vous n'avez pas le droit de générer d'exports.</p>
                 </div>
 
                 <!-- Excel global -->

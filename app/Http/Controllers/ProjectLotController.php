@@ -72,7 +72,7 @@ class ProjectLotController extends Controller
     {
         $user = $request->user();
         abort_unless(
-            $user && $user->hasAnyRole(['admin', 'directeur', 'chef_projet']),
+            $user && $user->can('manage_physical'),
             403,
         );
     }

@@ -18,8 +18,9 @@ class RoleSeeder extends Seeder
 
         // Créer les rôles PDU (idempotent)
         $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        $directeurRole = Role::firstOrCreate(['name' => 'directeur', 'guard_name' => 'web']);
+        $directeurRole = Role::firstOrCreate(['name' => 'directeur', 'guard_name' => 'web']); // Resp. UGP
         $chefProjetRole = Role::firstOrCreate(['name' => 'chef_projet', 'guard_name' => 'web']);
+        $comitePilotageRole = Role::firstOrCreate(['name' => 'comite_pilotage', 'guard_name' => 'web']);
         $agentFinancierRole = Role::firstOrCreate(['name' => 'agent_financier', 'guard_name' => 'web']);
         $visiteurRole = Role::firstOrCreate(['name' => 'visiteur', 'guard_name' => 'web']);
 
@@ -54,58 +55,71 @@ class RoleSeeder extends Seeder
 
         $civilRoleModels = collect($civilRoles)->map(fn ($name) => Role::firstOrCreate(['name' => $name, 'guard_name' => 'web']))->all();
 
-        // Créer les permissions générales
+        // Créer les permissions générales (alignées sur la matrice des permissions)
         $permissions = [
-            'view_dashboard',
-            'manage_projects',
-            'manage_users',
-            'view_reports',
-            'manage_finances',
-            'edit_project',
-            'delete_project',
-            'create_project',
-            'view_project',
-            'export_reports',
+            'view_dashboard',   // Tableau de bord
+            'manage_projects',  // (conservée pour compatibilité)
+            'manage_users',     // Gestion des utilisateurs
+            'view_reports',     // Rapports & exports (lecture)
+            'export_reports',   // Rapports & exports (export/génération)
+            'manage_finances',  // Suivi financier (écriture)
+            'manage_physical',  // Avancement physique / lots / jalons (écriture)
+            'manage_alerts',    // Alertes & anomalies (résolution/génération/commentaires)
+            'view_project',     // Portefeuille projets (lecture)
+            'create_project',   // Portefeuille projets (création)
+            'edit_project',     // Portefeuille projets (modification)
+            'delete_project',   // Portefeuille projets (suppression)
         ];
 
         foreach ($permissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
-        // Attribuer les permissions aux rôles
-        // Admin: tous les droits
+        // Attribuer les permissions aux rôles (conformément à la matrice des permissions)
+
+        // Administrateur : tous les droits
         $adminRole->syncPermissions(Permission::all());
 
-        // Directeur: gestion des projets et rapports
+        // Resp. UGP (directeur) : tout sauf gestion des utilisateurs et suppression de projet
         $directeurRole->syncPermissions([
             'view_dashboard',
-            'view_reports',
-            'manage_projects',
-            'edit_project',
-            'create_project',
             'view_project',
+            'create_project',
+            'edit_project',
+            'manage_projects',
+            'manage_physical',
+            'manage_finances',
+            'manage_alerts',
+            'view_reports',
             'export_reports',
         ]);
 
-        // Chef de projet: gestion détaillée des projets
+        // Chef de projet : avancement physique en écriture ; finances/alertes/rapports en lecture ; portefeuille en lecture
         $chefProjetRole->syncPermissions([
             'view_dashboard',
             'view_project',
-            'edit_project',
+            'manage_physical',
+            'view_reports',
+        ]);
+
+        // Comité de pilotage : tout en lecture, + export des rapports
+        $comitePilotageRole->syncPermissions([
+            'view_dashboard',
+            'view_project',
             'view_reports',
             'export_reports',
         ]);
 
-        // Agent financier: gestion des finances
+        // Agent financier (hors matrice, conservé) : écriture finances + export
         $agentFinancierRole->syncPermissions([
             'view_dashboard',
-            'view_reports',
-            'manage_finances',
             'view_project',
+            'manage_finances',
+            'view_reports',
             'export_reports',
         ]);
 
-        // Visiteur: consultation seulement (lecture seule)
+        // Visiteur : consultation seulement (lecture seule)
         $visiteurRole->syncPermissions([
             'view_dashboard',
             'view_project',
@@ -122,8 +136,9 @@ class RoleSeeder extends Seeder
             ['Rôle', 'Permissions'],
             [
                 ['admin', count($adminRole->permissions)],
-                ['directeur', count($directeurRole->permissions)],
+                ['directeur (Resp. UGP)', count($directeurRole->permissions)],
                 ['chef_projet', count($chefProjetRole->permissions)],
+                ['comite_pilotage', count($comitePilotageRole->permissions)],
                 ['agent_financier', count($agentFinancierRole->permissions)],
                 ['visiteur', count($visiteurRole->permissions)],
             ]

@@ -12,8 +12,9 @@ const props = defineProps({
     financialProgresses: { type: Array, default: () => [] },
 });
 
-const { hasRole } = useAuth();
-const canWrite = computed(() => hasRole(['admin', 'directeur', 'chef_projet', 'agent_financier']));
+const { hasPermission } = useAuth();
+const canWrite = computed(() => hasPermission('manage_physical'));        // tableau avancement physique
+const canWriteFinancial = computed(() => hasPermission('manage_finances')); // tableau avancement financier
 
 const activeTab = ref('physical');
 const showPhysicalModal = ref(false);
@@ -266,7 +267,7 @@ const latestFinancial = computed(() => {
                             <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3">
                                 <h3 class="text-sm font-semibold text-gray-700">Historique des mesures financières</h3>
                                 <button
-                                    v-if="canWrite"
+                                    v-if="canWriteFinancial"
                                     type="button"
                                     class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700"
                                     @click="openFinancialCreate(selectedProject)"
@@ -287,7 +288,7 @@ const latestFinancial = computed(() => {
                                             <th class="px-4 py-2 text-right">Réel</th>
                                             <th class="px-4 py-2 text-right">Écart</th>
                                             <th class="px-4 py-2">Observations</th>
-                                            <th v-if="canWrite" class="px-4 py-2 text-right">Actions</th>
+                                            <th v-if="canWriteFinancial" class="px-4 py-2 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-50">
@@ -300,7 +301,7 @@ const latestFinancial = computed(() => {
                                                 {{ p.variance >= 0 ? '+' : '' }}{{ p.variance.toFixed(1) }}
                                             </td>
                                             <td class="px-4 py-2 text-xs text-gray-600">{{ p.observations || '—' }}</td>
-                                            <td v-if="canWrite" class="px-4 py-2 text-right">
+                                            <td v-if="canWriteFinancial" class="px-4 py-2 text-right">
                                                 <div class="flex justify-end gap-1">
                                                     <button
                                                         class="rounded p-1 text-gray-500 hover:bg-indigo-50 hover:text-indigo-700"
@@ -324,7 +325,7 @@ const latestFinancial = computed(() => {
                                             </td>
                                         </tr>
                                         <tr v-if="!projectFinancialProgresses.length">
-                                            <td :colspan="canWrite ? 7 : 6" class="px-4 py-6 text-center text-sm text-gray-500">
+                                            <td :colspan="canWriteFinancial ? 7 : 6" class="px-4 py-6 text-center text-sm text-gray-500">
                                                 Aucune mesure d'avancement financier.
                                             </td>
                                         </tr>

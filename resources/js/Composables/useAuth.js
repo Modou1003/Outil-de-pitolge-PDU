@@ -19,7 +19,7 @@ export function useAuth() {
     };
 
     const primaryRole = computed(() => {
-        const order = ['admin', 'directeur', 'chef_projet', 'agent_financier', 'visiteur'];
+        const order = ['admin', 'directeur', 'chef_projet', 'comite_pilotage', 'agent_financier', 'visiteur'];
         for (const r of order) {
             if (roles.value.includes(r)) return r;
         }
@@ -29,8 +29,9 @@ export function useAuth() {
     const roleLabel = computed(() => {
         const labels = {
             admin: 'Administrateur',
-            directeur: 'Directeur',
+            directeur: 'Resp. UGP',
             chef_projet: 'Chef de projet',
+            comite_pilotage: 'Comité de pilotage',
             agent_financier: 'Agent financier',
             visiteur: 'Visiteur',
         };

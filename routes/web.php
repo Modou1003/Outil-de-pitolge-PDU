@@ -73,45 +73,45 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/carte', [CarteController::class, 'index'])->name('carte');
 
     Route::get('/alertes', [AlerteController::class, 'index'])->name('alertes.index');
-    Route::post('/alertes/{alert}/resolve', [AlerteController::class, 'resolve'])->name('alertes.resolve');
-    Route::delete('/alertes/{alert}', [AlerteController::class, 'destroy'])->name('alertes.destroy');
-    Route::post('/alertes/generer', [AlerteController::class, 'generate'])->name('alertes.generate');
-    Route::post('/alertes/{alert}/commentaires', [AlerteController::class, 'addComment'])->name('alertes.comments.store');
-    Route::delete('/alertes/{alert}/commentaires/{comment}', [AlerteController::class, 'deleteComment'])->name('alertes.comments.destroy');
+    Route::post('/alertes/{alert}/resolve', [AlerteController::class, 'resolve'])->middleware('permission:manage_alerts')->name('alertes.resolve');
+    Route::delete('/alertes/{alert}', [AlerteController::class, 'destroy'])->middleware('permission:manage_alerts')->name('alertes.destroy');
+    Route::post('/alertes/generer', [AlerteController::class, 'generate'])->middleware('permission:manage_alerts')->name('alertes.generate');
+    Route::post('/alertes/{alert}/commentaires', [AlerteController::class, 'addComment'])->middleware('permission:manage_alerts')->name('alertes.comments.store');
+    Route::delete('/alertes/{alert}/commentaires/{comment}', [AlerteController::class, 'deleteComment'])->middleware('permission:manage_alerts')->name('alertes.comments.destroy');
 
     Route::get('/avancements', [AvancementsController::class, 'index'])->name('avancements.index');
 
     Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
-    Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
-    Route::patch('/projects/{project}/status', [ProjectController::class, 'updateStatus'])->name('projects.status.update');
-    Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
-    Route::patch('/projects/{project}/team', [ProjectController::class, 'updateTeam'])->name('projects.team.update');
-    Route::patch('/projects/{project}/team-members', [ProjectController::class, 'updateTeamMembers'])->name('projects.team-members.update');
-    Route::post('/projects/{project}/indicators', [ProjectController::class, 'addIndicator'])->name('projects.indicators.store');
-    Route::delete('/projects/{project}/indicators/{indicator}', [ProjectController::class, 'removeIndicator'])->name('projects.indicators.destroy');
-    Route::get('/projects/{project}/export-excel', [ProjectController::class, 'exportExcel'])->name('projects.export');
+    Route::post('/projects', [ProjectController::class, 'store'])->middleware('permission:create_project')->name('projects.store');
+    Route::patch('/projects/{project}/status', [ProjectController::class, 'updateStatus'])->middleware('permission:edit_project')->name('projects.status.update');
+    Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->middleware('permission:delete_project')->name('projects.destroy');
+    Route::patch('/projects/{project}/team', [ProjectController::class, 'updateTeam'])->middleware('permission:edit_project')->name('projects.team.update');
+    Route::patch('/projects/{project}/team-members', [ProjectController::class, 'updateTeamMembers'])->middleware('permission:edit_project')->name('projects.team-members.update');
+    Route::post('/projects/{project}/indicators', [ProjectController::class, 'addIndicator'])->middleware('permission:edit_project')->name('projects.indicators.store');
+    Route::delete('/projects/{project}/indicators/{indicator}', [ProjectController::class, 'removeIndicator'])->middleware('permission:edit_project')->name('projects.indicators.destroy');
+    Route::get('/projects/{project}/export-excel', [ProjectController::class, 'exportExcel'])->middleware('permission:export_reports')->name('projects.export');
 
     // Saisie avancement physique
-    Route::post('/projects/{project}/physical', [PhysicalProgressController::class, 'store'])->name('projects.physical.store');
-    Route::put('/projects/{project}/physical/{progress}', [PhysicalProgressController::class, 'update'])->name('projects.physical.update');
-    Route::delete('/projects/{project}/physical/{progress}', [PhysicalProgressController::class, 'destroy'])->name('projects.physical.destroy');
+    Route::post('/projects/{project}/physical', [PhysicalProgressController::class, 'store'])->middleware('permission:manage_physical')->name('projects.physical.store');
+    Route::put('/projects/{project}/physical/{progress}', [PhysicalProgressController::class, 'update'])->middleware('permission:manage_physical')->name('projects.physical.update');
+    Route::delete('/projects/{project}/physical/{progress}', [PhysicalProgressController::class, 'destroy'])->middleware('permission:manage_physical')->name('projects.physical.destroy');
 
     // Saisie avancement financier
-    Route::post('/projects/{project}/financial', [FinancialProgressController::class, 'store'])->name('projects.financial.store');
-    Route::put('/projects/{project}/financial/{progress}', [FinancialProgressController::class, 'update'])->name('projects.financial.update');
-    Route::delete('/projects/{project}/financial/{progress}', [FinancialProgressController::class, 'destroy'])->name('projects.financial.destroy');
+    Route::post('/projects/{project}/financial', [FinancialProgressController::class, 'store'])->middleware('permission:manage_finances')->name('projects.financial.store');
+    Route::put('/projects/{project}/financial/{progress}', [FinancialProgressController::class, 'update'])->middleware('permission:manage_finances')->name('projects.financial.update');
+    Route::delete('/projects/{project}/financial/{progress}', [FinancialProgressController::class, 'destroy'])->middleware('permission:manage_finances')->name('projects.financial.destroy');
 
     // Lots
-    Route::post('/projects/{project}/lots', [ProjectLotController::class, 'store'])->name('projects.lots.store');
-    Route::put('/projects/{project}/lots/{lot}', [ProjectLotController::class, 'update'])->name('projects.lots.update');
-    Route::delete('/projects/{project}/lots/{lot}', [ProjectLotController::class, 'destroy'])->name('projects.lots.destroy');
-    Route::patch('/projects/{project}/lots/{lot}/progress', [ProjectLotController::class, 'updateProgress'])->name('projects.lots.progress');
+    Route::post('/projects/{project}/lots', [ProjectLotController::class, 'store'])->middleware('permission:manage_physical')->name('projects.lots.store');
+    Route::put('/projects/{project}/lots/{lot}', [ProjectLotController::class, 'update'])->middleware('permission:manage_physical')->name('projects.lots.update');
+    Route::delete('/projects/{project}/lots/{lot}', [ProjectLotController::class, 'destroy'])->middleware('permission:manage_physical')->name('projects.lots.destroy');
+    Route::patch('/projects/{project}/lots/{lot}/progress', [ProjectLotController::class, 'updateProgress'])->middleware('permission:manage_physical')->name('projects.lots.progress');
 
     // Jalons
-    Route::post('/projects/{project}/milestones', [ProjectMilestoneController::class, 'store'])->name('projects.milestones.store');
-    Route::put('/projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'update'])->name('projects.milestones.update');
-    Route::delete('/projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'destroy'])->name('projects.milestones.destroy');
-    Route::patch('/projects/{project}/milestones/{milestone}/reach', [ProjectMilestoneController::class, 'markReached'])->name('projects.milestones.reach');
+    Route::post('/projects/{project}/milestones', [ProjectMilestoneController::class, 'store'])->middleware('permission:manage_physical')->name('projects.milestones.store');
+    Route::put('/projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'update'])->middleware('permission:manage_physical')->name('projects.milestones.update');
+    Route::delete('/projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'destroy'])->middleware('permission:manage_physical')->name('projects.milestones.destroy');
+    Route::patch('/projects/{project}/milestones/{milestone}/reach', [ProjectMilestoneController::class, 'markReached'])->middleware('permission:manage_physical')->name('projects.milestones.reach');
 
     // Documents
     Route::post('/projects/{project}/documents', [DocumentController::class, 'store'])->name('projects.documents.store');
@@ -124,11 +124,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/rapports/global', [RapportController::class, 'globalReport'])->name('rapports.global');
 
     // Exports Excel
-    Route::get('/rapports/excel/projet/{project}', [RapportController::class, 'excelProjet'])->name('rapports.excel.projet');
-    Route::get('/rapports/excel/global', [RapportController::class, 'excelGlobal'])->name('rapports.excel.global');
+    Route::get('/rapports/excel/projet/{project}', [RapportController::class, 'excelProjet'])->middleware('permission:export_reports')->name('rapports.excel.projet');
+    Route::get('/rapports/excel/global', [RapportController::class, 'excelGlobal'])->middleware('permission:export_reports')->name('rapports.excel.global');
 
-    // Administration (Admin seulement)
-    Route::middleware([App\Http\Middleware\CheckRole::class . ':admin'])->group(function () {
+    // Administration (Gestion des utilisateurs)
+    Route::middleware('permission:manage_users')->group(function () {
         Route::get('/admin/users', [App\Http\Controllers\Admin\UserController::class, 'index'])->name('admin.users.index');
         Route::post('/admin/users', [App\Http\Controllers\Admin\UserController::class, 'store'])->name('admin.users.store');
         Route::put('/admin/users/{user}', [App\Http\Controllers\Admin\UserController::class, 'update'])->name('admin.users.update');

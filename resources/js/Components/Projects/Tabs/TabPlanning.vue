@@ -11,8 +11,8 @@ const props = defineProps({
     milestones: { type: Array, required: true },
 });
 
-const { hasRole } = useAuth();
-const canManage = computed(() => hasRole(['admin', 'directeur', 'chef_projet']));
+const { hasPermission } = useAuth();
+const canManage = computed(() => hasPermission('manage_physical'));
 
 const showLotModal = ref(false);
 const editingLot = ref(null);
