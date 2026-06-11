@@ -242,10 +242,16 @@ class AlerteService
             $project->financial_agent_id,
         ])->filter()->unique()->values();
 
+        $supervisorIds = User::query()
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'directeur']))
+            ->pluck('id');
+
+        $recipientIds = $principalMemberIds->merge($supervisorIds)->unique()->values();
+
         $users = User::query()
             ->where('is_active', true)
             ->whereNotNull('email')
-            ->when($principalMemberIds->isNotEmpty(), fn ($q) => $q->whereIn('id', $principalMemberIds))
+            ->when($recipientIds->isNotEmpty(), fn ($q) => $q->whereIn('id', $recipientIds))
             ->get();
 
         $notification = new AlertDetectedNotification($alert->loadMissing('project:id,code,title'));

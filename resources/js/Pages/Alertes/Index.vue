@@ -12,7 +12,9 @@ const props = defineProps({
 });
 
 const page = usePage();
-const canDeleteAlert = computed(() => page.props.auth?.roles?.some((role) => ['admin', 'directeur'].includes(role)));
+const isSupervisor = computed(() => page.props.auth?.roles?.some((role) => ['admin', 'directeur'].includes(role)));
+const canDeleteAlert = isSupervisor;
+const currentUserId = computed(() => page.props.auth?.user?.id ?? null);
 
 
 const status = ref(props.filters.status);
@@ -53,6 +55,27 @@ const submitResolve = () => {
         preserveScroll: true,
     });
 };
+
+const commentBody = ref({});
+const commentProcessing = ref(null);
+
+const submitComment = (alert) => {
+    const body = (commentBody.value[alert.id] || '').trim();
+    if (!body) return;
+    commentProcessing.value = alert.id;
+    router.post(route('alertes.comments.store', alert.id), { body }, {
+        preserveScroll: true,
+        onSuccess: () => { commentBody.value[alert.id] = ''; },
+        onFinish: () => { commentProcessing.value = null; },
+    });
+};
+
+const deleteComment = (alert, comment) => {
+    if (!confirm('Supprimer cette observation ?')) return;
+    router.delete(route('alertes.comments.destroy', [alert.id, comment.id]), { preserveScroll: true });
+};
+
+const canDeleteComment = (comment) => isSupervisor.value || comment.user_id === currentUserId.value;
 
 const severityStyle = {
     critical: 'border-red-300 bg-red-50 text-red-800',
@@ -193,6 +216,50 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
                             Supprimer
                         </button>
                     </div>
+                </div>
+
+                <!-- Observations / fil de discussion -->
+                <div class="mt-3 border-t border-gray-200/70 pt-3">
+                    <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Observations<span v-if="a.comments && a.comments.length"> ({{ a.comments.length }})</span>
+                    </p>
+
+                    <ul v-if="a.comments && a.comments.length" class="space-y-2">
+                        <li v-for="c in a.comments" :key="c.id" class="rounded-lg bg-white/70 px-3 py-2 ring-1 ring-gray-200">
+                            <div class="flex items-start justify-between gap-2">
+                                <p class="text-sm text-gray-800 whitespace-pre-line">{{ c.body }}</p>
+                                <button
+                                    v-if="canDeleteComment(c)"
+                                    type="button"
+                                    class="shrink-0 text-xs text-gray-400 hover:text-red-600"
+                                    title="Supprimer l'observation"
+                                    @click="deleteComment(a, c)"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                            <p class="mt-1 text-[11px] text-gray-500">
+                                {{ c.author }} — {{ formatDate(c.created_at) }}
+                            </p>
+                        </li>
+                    </ul>
+                    <p v-else class="text-xs italic text-gray-400">Aucune observation pour le moment.</p>
+
+                    <form class="mt-2 flex items-start gap-2" @submit.prevent="submitComment(a)">
+                        <textarea
+                            v-model="commentBody[a.id]"
+                            rows="1"
+                            placeholder="Ajouter une observation…"
+                            class="min-h-[38px] flex-1 rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                        <button
+                            type="submit"
+                            class="shrink-0 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
+                            :disabled="commentProcessing === a.id || !(commentBody[a.id] || '').trim()"
+                        >
+                            Envoyer
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

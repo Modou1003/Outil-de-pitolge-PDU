@@ -35,6 +35,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/alertes/{alert}/resolve', [AlerteController::class, 'resolve'])->name('alertes.resolve');
     Route::delete('/alertes/{alert}', [AlerteController::class, 'destroy'])->name('alertes.destroy');
     Route::post('/alertes/generer', [AlerteController::class, 'generate'])->name('alertes.generate');
+    Route::post('/alertes/{alert}/commentaires', [AlerteController::class, 'addComment'])->name('alertes.comments.store');
+    Route::delete('/alertes/{alert}/commentaires/{comment}', [AlerteController::class, 'deleteComment'])->name('alertes.comments.destroy');
 
     Route::get('/avancements', [AvancementsController::class, 'index'])->name('avancements.index');
 

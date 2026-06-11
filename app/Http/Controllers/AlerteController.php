@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Alert;
+use App\Models\AlertComment;
 use App\Services\AlerteService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,10 @@ class AlerteController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = Alert::with('project:id,code,title,status')
+        $query = Alert::with([
+                'project:id,code,title,status',
+                'comments.author:id,name',
+            ])
             ->orderByDesc('severity')
             ->orderByDesc('detected_at');
 
@@ -50,6 +54,13 @@ class AlerteController extends Controller
                     'title' => $a->project->title,
                     'status' => $a->project->status,
                 ] : null,
+                'comments' => $a->comments->map(fn ($c) => [
+                    'id' => $c->id,
+                    'body' => $c->body,
+                    'author' => $c->author?->name ?? 'Utilisateur supprimé',
+                    'user_id' => $c->user_id,
+                    'created_at' => $c->created_at?->toIso8601String(),
+                ])->values(),
             ]),
             'filters' => [
                 'status' => $request->input('status', ''),
@@ -81,6 +92,38 @@ class AlerteController extends Controller
         ]);
 
         return back()->with('success', 'Alerte marquée comme résolue.');
+    }
+
+    public function addComment(Request $request, Alert $alert): RedirectResponse
+    {
+        $validated = $request->validate([
+            'body' => 'required|string|max:2000',
+        ]);
+
+        $alert->comments()->create([
+            'user_id' => $request->user()->id,
+            'body' => $validated['body'],
+        ]);
+
+        return back()->with('success', 'Observation ajoutée.');
+    }
+
+    public function deleteComment(Request $request, Alert $alert, AlertComment $comment): RedirectResponse
+    {
+        if ($comment->alert_id !== $alert->id) {
+            abort(404);
+        }
+
+        $isOwner = $comment->user_id === $request->user()->id;
+        $isSupervisor = $request->user()->hasAnyRole(['admin', 'directeur']);
+
+        if (! $isOwner && ! $isSupervisor) {
+            abort(403, 'Accès refusé.');
+        }
+
+        $comment->delete();
+
+        return back()->with('success', 'Observation supprimée.');
     }
 
     public function destroy(Request $request, Alert $alert): RedirectResponse
