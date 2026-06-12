@@ -75,46 +75,32 @@ class RoleSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
-        // Attribuer les permissions aux rôles (conformément à la matrice des permissions)
+        // Attribuer les permissions aux rôles
 
-        // Administrateur : tous les droits
+        // Administrateur : TOUS les droits
         $adminRole->syncPermissions(Permission::all());
 
-        // Resp. UGP (directeur) : tout sauf gestion des utilisateurs et suppression de projet
-        $directeurRole->syncPermissions([
-            'view_dashboard',
-            'view_project',
-            'create_project',
-            'edit_project',
-            'manage_projects',
-            'manage_physical',
-            'manage_finances',
-            'manage_alerts',
-            'view_reports',
-            'export_reports',
-        ]);
+        // Directeur : tous les droits SAUF la gestion des utilisateurs
+        $directeurRole->syncPermissions(
+            Permission::whereNotIn('name', ['manage_users'])->get()
+        );
 
-        // Chef de projet : avancement physique en écriture ; finances/alertes/rapports en lecture ; portefeuille en lecture
-        $chefProjetRole->syncPermissions([
-            'view_dashboard',
-            'view_project',
-            'manage_physical',
-            'view_reports',
-        ]);
+        // Chef de projet : tous les droits SAUF la gestion des utilisateurs
+        // et l'intervention sur le suivi financier (manage_finances)
+        $chefProjetRole->syncPermissions(
+            Permission::whereNotIn('name', ['manage_users', 'manage_finances'])->get()
+        );
+
+        // Agent financier : tous les droits SAUF la gestion des utilisateurs
+        // et l'intervention sur l'avancement physique / lots / jalons (manage_physical)
+        $agentFinancierRole->syncPermissions(
+            Permission::whereNotIn('name', ['manage_users', 'manage_physical'])->get()
+        );
 
         // Comité de pilotage : tout en lecture, + export des rapports
         $comitePilotageRole->syncPermissions([
             'view_dashboard',
             'view_project',
-            'view_reports',
-            'export_reports',
-        ]);
-
-        // Agent financier (hors matrice, conservé) : écriture finances + export
-        $agentFinancierRole->syncPermissions([
-            'view_dashboard',
-            'view_project',
-            'manage_finances',
             'view_reports',
             'export_reports',
         ]);
