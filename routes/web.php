@@ -21,6 +21,34 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// ⚠️ ROUTE DE DIAGNOSTIC TEMPORAIRE — état des rôles/permissions en base.
+// Visite : https://<ton-domaine-railway>/debug-perms?key=pdu-test-2026
+Route::get('/debug-perms', function (\Illuminate\Http\Request $request) {
+    if ($request->query('key') !== 'pdu-test-2026') {
+        abort(403);
+    }
+
+    $roles = \Spatie\Permission\Models\Role::with('permissions')
+        ->orderBy('name')
+        ->get()
+        ->mapWithKeys(fn ($r) => [
+            $r->name => $r->permissions->pluck('name')->sort()->values()->all(),
+        ]);
+
+    $user = $request->user();
+
+    return response()->json([
+        'total_permissions' => \Spatie\Permission\Models\Permission::count(),
+        'roles' => $roles,
+        'utilisateur_connecte' => $user ? [
+            'name' => $user->name,
+            'roles' => $user->getRoleNames()->values()->all(),
+            'permissions' => $user->getAllPermissions()->pluck('name')->sort()->values()->all(),
+            'peut_manage_physical' => $user->can('manage_physical'),
+        ] : 'non connecté',
+    ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+});
+
 // ⚠️ ROUTE DE DIAGNOSTIC TEMPORAIRE — À SUPPRIMER APRÈS LE TEST DES MAILS.
 // Visite : https://<ton-domaine-railway>/debug-mail?key=pdu-test-2026
 Route::get('/debug-mail', function (\Illuminate\Http\Request $request) {
