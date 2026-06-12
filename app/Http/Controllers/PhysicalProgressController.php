@@ -91,8 +91,8 @@ class PhysicalProgressController extends Controller
             'project_lot_id' => ['nullable', 'integer', 'exists:project_lots,id'],
             'period' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'measurement_date' => ['required', 'date'],
-            'planned_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
-            'actual_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
+            'planned_percentage' => ['required', 'numeric', 'max:100'],
+            'actual_percentage' => ['required', 'numeric', 'max:100'],
             'observations' => ['nullable', 'string', 'max:1000'],
         ]);
     }

@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -38,22 +38,6 @@ const resetFilters = () => {
 
 const regenerate = () => {
     router.post(route('alertes.generate'), {}, { preserveScroll: true });
-};
-
-const resolveForm = useForm({ note: '' });
-const activeAlert = ref(null);
-
-const openResolve = (alert) => {
-    activeAlert.value = alert;
-    resolveForm.reset();
-};
-
-const submitResolve = () => {
-    if (!activeAlert.value) return;
-    resolveForm.post(route('alertes.resolve', activeAlert.value.id), {
-        onSuccess: () => { activeAlert.value = null; },
-        preserveScroll: true,
-    });
 };
 
 const commentBody = ref({});
@@ -98,7 +82,7 @@ const deleteAlert = (alert) => {
     router.delete(route('alertes.destroy', alert.id), { preserveScroll: true });
 };
 
-const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '';
 </script>
 
 <template>
@@ -185,7 +169,6 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
                                 {{ severityLevelLabel[a.severity] ?? a.severity_label }}
                             </span>
                             <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">{{ a.type_label }}</span>
-                            <span v-if="a.is_resolved" class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">Résolue</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold text-gray-900">{{ a.title }}</p>
                         <p class="mt-1 text-sm text-gray-700">{{ a.message }}</p>
@@ -195,18 +178,9 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
                                 — {{ a.project.title }}
                             </span>
                             <span>Détectée le {{ formatDate(a.detected_at) }}</span>
-                            <span v-if="a.resolved_at">Résolue le {{ formatDate(a.resolved_at) }}</span>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button
-                            v-if="!a.is_resolved"
-                            type="button"
-                            class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700"
-                            @click="openResolve(a)"
-                        >
-                            Résoudre
-                        </button>
                         <button
                             v-if="canDeleteAlert"
                             type="button"
@@ -218,16 +192,26 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
                     </div>
                 </div>
 
-                <!-- Observations / fil de discussion -->
+                <!-- Observations -->
                 <div class="mt-3 border-t border-gray-200/70 pt-3">
                     <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                         Observations<span v-if="a.comments && a.comments.length"> ({{ a.comments.length }})</span>
                     </p>
 
                     <ul v-if="a.comments && a.comments.length" class="space-y-2">
-                        <li v-for="c in a.comments" :key="c.id" class="rounded-lg bg-white/70 px-3 py-2 ring-1 ring-gray-200">
+                        <li v-for="c in a.comments" :key="c.id" class="rounded-lg bg-gray-50 px-4 py-3 ring-1 ring-gray-200">
                             <div class="flex items-start justify-between gap-2">
-                                <p class="text-sm text-gray-800 whitespace-pre-line">{{ c.body }}</p>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold uppercase">
+                                            {{ (c.author || '?').charAt(0) }}
+                                        </span>
+                                        <span class="text-sm font-semibold text-gray-900">{{ c.author }}</span>
+                                        <span class="text-[11px] text-gray-400">•</span>
+                                        <span class="text-[11px] text-gray-500">{{ formatDate(c.created_at) }}</span>
+                                    </div>
+                                    <p class="text-sm text-gray-700 whitespace-pre-line pl-9">{{ c.body }}</p>
+                                </div>
                                 <button
                                     v-if="canDeleteComment(c)"
                                     type="button"
@@ -238,9 +222,6 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
                                     ✕
                                 </button>
                             </div>
-                            <p class="mt-1 text-[11px] text-gray-500">
-                                {{ c.author }} — {{ formatDate(c.created_at) }}
-                            </p>
                         </li>
                     </ul>
                     <p v-else class="text-xs italic text-gray-400">Aucune observation pour le moment.</p>
@@ -275,24 +256,6 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
                 :class="[link.active ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50', !link.url ? 'pointer-events-none opacity-40' : '']"
             />
         </div>
-
-        <!-- Modal resolve -->
-        <div v-if="activeAlert" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="activeAlert = null">
-            <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-                <h3 class="text-lg font-semibold text-gray-900">Résoudre l'alerte</h3>
-                <p class="mt-1 text-sm text-gray-600">{{ activeAlert.title }}</p>
-                <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700">Note de résolution (optionnelle)</label>
-                    <textarea v-model="resolveForm.note" rows="3" class="mt-1 w-full rounded-md border-gray-300 text-sm" placeholder="Cause identifiée, action corrective…" />
-                    <p v-if="resolveForm.errors.note" class="mt-1 text-xs text-red-600">{{ resolveForm.errors.note }}</p>
-                </div>
-                <div class="mt-4 flex justify-end gap-2">
-                    <button type="button" class="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100" @click="activeAlert = null">Annuler</button>
-                    <button type="button" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700" :disabled="resolveForm.processing" @click="submitResolve">
-                        Confirmer
-                    </button>
-                </div>
-            </div>
-        </div>
     </AuthenticatedLayout>
 </template>
+

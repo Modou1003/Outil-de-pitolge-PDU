@@ -16,6 +16,7 @@ class AlerteController extends Controller
     {
         $query = Alert::with([
                 'project:id,code,title,status',
+                'resolver:id,name',
                 'comments.author:id,name',
             ])
             ->orderByDesc('severity')
@@ -48,6 +49,8 @@ class AlerteController extends Controller
                 'is_resolved' => $a->is_resolved,
                 'detected_at' => $a->detected_at?->toIso8601String(),
                 'resolved_at' => $a->resolved_at?->toIso8601String(),
+                'resolved_by_name' => $a->resolver?->name,
+                'resolution_note' => $a->resolution_note,
                 'project' => $a->project ? [
                     'id' => $a->project->id,
                     'code' => $a->project->code,

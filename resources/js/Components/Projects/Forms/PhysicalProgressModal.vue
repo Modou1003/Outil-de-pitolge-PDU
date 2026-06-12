@@ -82,12 +82,12 @@ const submit = () => {
                 <div />
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-700">Avancement prévu (%)</label>
-                    <input v-model.number="form.planned_percentage" type="number" min="0" max="100" step="0.1" class="w-full rounded-md border-gray-300 text-sm" required />
+                    <input v-model.number="form.planned_percentage" type="number" max="100" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.planned_percentage" class="mt-1 text-xs text-red-600">{{ form.errors.planned_percentage }}</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-700">Avancement réel (%)</label>
-                    <input v-model.number="form.actual_percentage" type="number" min="0" max="100" step="0.1" class="w-full rounded-md border-gray-300 text-sm" required />
+                    <input v-model.number="form.actual_percentage" type="number" max="100" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.actual_percentage" class="mt-1 text-xs text-red-600">{{ form.errors.actual_percentage }}</p>
                 </div>
             </div>

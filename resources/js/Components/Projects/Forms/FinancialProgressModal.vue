@@ -88,17 +88,17 @@ const submit = () => {
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-700">Planned Value (PV) — FCFA</label>
-                    <input v-model.number="form.planned_value" type="number" min="0" step="1" class="w-full rounded-md border-gray-300 text-sm" required />
+                    <input v-model.number="form.planned_value" type="number" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.planned_value" class="mt-1 text-xs text-red-600">{{ form.errors.planned_value }}</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-700">Earned Value (EV) — FCFA</label>
-                    <input v-model.number="form.earned_value" type="number" min="0" step="1" class="w-full rounded-md border-gray-300 text-sm" required />
+                    <input v-model.number="form.earned_value" type="number" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.earned_value" class="mt-1 text-xs text-red-600">{{ form.errors.earned_value }}</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-700">Actual Cost (AC) — FCFA</label>
-                    <input v-model.number="form.actual_cost" type="number" min="0" step="1" class="w-full rounded-md border-gray-300 text-sm" required />
+                    <input v-model.number="form.actual_cost" type="number" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.actual_cost" class="mt-1 text-xs text-red-600">{{ form.errors.actual_cost }}</p>
                 </div>
             </div>

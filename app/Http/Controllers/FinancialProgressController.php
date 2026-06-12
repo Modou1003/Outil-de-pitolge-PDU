@@ -94,9 +94,9 @@ class FinancialProgressController extends Controller
         return $request->validate([
             'period' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'measurement_date' => ['required', 'date'],
-            'planned_value' => ['required', 'numeric', 'min:0'],
-            'earned_value' => ['required', 'numeric', 'min:0'],
-            'actual_cost' => ['required', 'numeric', 'min:0'],
+            'planned_value' => ['required', 'numeric'],
+            'earned_value' => ['required', 'numeric'],
+            'actual_cost' => ['required', 'numeric'],
             'observations' => ['nullable', 'string', 'max:1000'],
         ]);
     }
