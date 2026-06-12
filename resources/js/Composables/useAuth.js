@@ -14,6 +14,8 @@ export function useAuth() {
     };
 
     const hasPermission = (perm) => {
+        // L'administrateur a tous les droits.
+        if (roles.value.includes('admin')) return true;
         const p = Array.isArray(perm) ? perm : [perm];
         return p.some((x) => permissions.value.includes(x));
     };
