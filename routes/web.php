@@ -35,17 +35,53 @@ Route::get('/debug-perms', function (\Illuminate\Http\Request $request) {
             $r->name => $r->permissions->pluck('name')->sort()->values()->all(),
         ]);
 
+    $expected = [
+        'view_dashboard', 'manage_projects', 'manage_users', 'view_reports', 'export_reports',
+        'manage_finances', 'manage_physical', 'manage_alerts', 'view_project',
+        'create_project', 'edit_project', 'delete_project',
+    ];
+    $existing = \Spatie\Permission\Models\Permission::pluck('name')->sort()->values()->all();
     $user = $request->user();
 
     return response()->json([
-        'total_permissions' => \Spatie\Permission\Models\Permission::count(),
+        'total_permissions' => count($existing),
+        'permissions_attendues' => count($expected),
+        'permissions_manquantes' => array_values(array_diff($expected, $existing)),
+        'permissions_en_base' => $existing,
         'roles' => $roles,
         'utilisateur_connecte' => $user ? [
             'name' => $user->name,
             'roles' => $user->getRoleNames()->values()->all(),
             'permissions' => $user->getAllPermissions()->pluck('name')->sort()->values()->all(),
             'peut_manage_physical' => $user->can('manage_physical'),
+            'peut_manage_finances' => $user->can('manage_finances'),
+            'peut_manage_alerts' => $user->can('manage_alerts'),
         ] : 'non connecté',
+    ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+});
+
+// ⚠️ ROUTE TEMPORAIRE — exécute le seed des rôles/permissions sur la base en ligne.
+// Visite UNE FOIS : https://<ton-domaine-railway>/debug-seed?key=pdu-test-2026
+Route::get('/debug-seed', function (\Illuminate\Http\Request $request) {
+    if ($request->query('key') !== 'pdu-test-2026') {
+        abort(403);
+    }
+
+    \Illuminate\Support\Facades\Artisan::call('permissions:sync');
+
+    $roles = \Spatie\Permission\Models\Role::with('permissions')
+        ->whereIn('name', ['admin', 'directeur', 'chef_projet', 'comite_pilotage', 'agent_financier'])
+        ->orderBy('name')
+        ->get()
+        ->mapWithKeys(fn ($r) => [
+            $r->name => $r->permissions->pluck('name')->sort()->values()->all(),
+        ]);
+
+    return response()->json([
+        'resultat' => '✅ Seed exécuté.',
+        'total_permissions' => \Spatie\Permission\Models\Permission::count(),
+        'roles' => $roles,
+        'sortie_console' => trim(\Illuminate\Support\Facades\Artisan::output()),
     ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 });
 

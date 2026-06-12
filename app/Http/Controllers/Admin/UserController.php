@@ -7,10 +7,13 @@ use App\Models\ActivityLog;
 use App\Models\PduProject;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Spatie\Permission\PermissionRegistrar;
 use Inertia\Inertia;
 use Inertia\Response;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
@@ -54,14 +57,23 @@ class UserController extends Controller
 
     private function ensureManagedRolesExist(): void
     {
-        $roles = array_merge(self::BASE_ROLES, self::CIVIL_ROLES);
+        $directeur = Role::query()->where('name', 'directeur')->where('guard_name', 'web')->first();
+        $needsSync = Permission::count() === 0
+            || ! $directeur
+            || $directeur->permissions()->count() < 5;
 
-        foreach ($roles as $roleName) {
+        if ($needsSync) {
+            Artisan::call('permissions:sync');
+        }
+
+        foreach (array_merge(self::BASE_ROLES, self::CIVIL_ROLES) as $roleName) {
             Role::firstOrCreate([
                 'name' => $roleName,
                 'guard_name' => 'web',
             ]);
         }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     public function index(): Response

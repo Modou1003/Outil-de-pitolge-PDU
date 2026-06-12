@@ -3,8 +3,9 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RoleSeeder extends Seeder
 {
@@ -13,8 +14,7 @@ class RoleSeeder extends Seeder
      */
     public function run(): void
     {
-        // Réinitialiser les rôles et permissions en cache
-        app()['cache']->forget('spatie.permission.cache');
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         // Créer les rôles PDU (idempotent)
         $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
@@ -117,17 +117,21 @@ class RoleSeeder extends Seeder
             $r->syncPermissions($visiteurRole->permissions);
         }
 
-        $this->command->info('✅ Rôles PDU créés avec succès!');
-        $this->command->table(
-            ['Rôle', 'Permissions'],
-            [
-                ['admin', count($adminRole->permissions)],
-                ['directeur (Resp. UGP)', count($directeurRole->permissions)],
-                ['chef_projet', count($chefProjetRole->permissions)],
-                ['comite_pilotage', count($comitePilotageRole->permissions)],
-                ['agent_financier', count($agentFinancierRole->permissions)],
-                ['visiteur', count($visiteurRole->permissions)],
-            ]
-        );
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        if ($this->command) {
+            $this->command->info('✅ Rôles PDU créés avec succès!');
+            $this->command->table(
+                ['Rôle', 'Permissions'],
+                [
+                    ['admin', count($adminRole->permissions)],
+                    ['directeur (Resp. UGP)', count($directeurRole->permissions)],
+                    ['chef_projet', count($chefProjetRole->permissions)],
+                    ['comite_pilotage', count($comitePilotageRole->permissions)],
+                    ['agent_financier', count($agentFinancierRole->permissions)],
+                    ['visiteur', count($visiteurRole->permissions)],
+                ]
+            );
+        }
     }
 }
