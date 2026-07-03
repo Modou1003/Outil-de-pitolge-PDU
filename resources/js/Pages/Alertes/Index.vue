@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useAuth } from '@/Composables/useAuth';
 
 const props = defineProps({
     alerts: { type: Object, required: true },
@@ -12,25 +13,22 @@ const props = defineProps({
 });
 
 const page = usePage();
-const isSupervisor = computed(() => page.props.auth?.roles?.some((role) => ['admin', 'directeur'].includes(role)));
-const canDeleteAlert = isSupervisor;
+const { hasPermission } = useAuth();
+const canDeleteAlert = computed(() => hasPermission('manage_alerts'));
+const canGenerate = computed(() => hasPermission('manage_alerts'));
 const currentUserId = computed(() => page.props.auth?.user?.id ?? null);
 
-
-const status = ref(props.filters.status);
 const severity = ref(props.filters.severity);
 const type = ref(props.filters.type);
 
 const applyFilters = () => {
     router.get(route('alertes.index'), {
-        status: status.value || undefined,
         severity: severity.value || undefined,
         type: type.value || undefined,
     }, { preserveState: true, preserveScroll: true, replace: true });
 };
 
 const resetFilters = () => {
-    status.value = '';
     severity.value = '';
     type.value = '';
     router.get(route('alertes.index'), {}, { preserveState: false });
@@ -59,7 +57,7 @@ const deleteComment = (alert, comment) => {
     router.delete(route('alertes.comments.destroy', [alert.id, comment.id]), { preserveScroll: true });
 };
 
-const canDeleteComment = (comment) => isSupervisor.value || comment.user_id === currentUserId.value;
+const canDeleteComment = (comment) => canDeleteAlert.value || comment.user_id === currentUserId.value;
 
 const severityStyle = {
     critical: 'border-red-300 bg-red-50 text-red-800',
@@ -93,6 +91,7 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold text-gray-800">Centre des alertes</h2>
                 <button
+                    v-if="canGenerate"
                     type="button"
                     class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
                     @click="regenerate"
@@ -103,7 +102,7 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
         </template>
 
         <!-- Stats -->
-        <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-3">
             <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
                 <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Ouvertes</p>
                 <p class="mt-1 text-3xl font-bold text-gray-900">{{ stats.open }}</p>
@@ -116,22 +115,10 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
                 <p class="text-xs font-medium uppercase tracking-wide text-amber-600">Attention</p>
                 <p class="mt-1 text-3xl font-bold text-amber-700">{{ stats.warning }}</p>
             </div>
-            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-emerald-200">
-                <p class="text-xs font-medium uppercase tracking-wide text-emerald-600">Résolues (30j)</p>
-                <p class="mt-1 text-3xl font-bold text-emerald-700">{{ stats.resolved_last_30 }}</p>
-            </div>
         </div>
 
         <!-- Filters -->
         <div class="mt-4 flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-            <div>
-                <label class="block text-xs font-medium text-gray-600">Statut</label>
-                <select v-model="status" @change="applyFilters" class="mt-1 rounded-md border-gray-300 text-sm">
-                    <option value="">Tous</option>
-                    <option value="open">Ouvertes</option>
-                    <option value="resolved">Résolues</option>
-                </select>
-            </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600">Sévérité</label>
                 <select v-model="severity" @change="applyFilters" class="mt-1 rounded-md border-gray-300 text-sm">
@@ -198,19 +185,16 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
                         Observations<span v-if="a.comments && a.comments.length"> ({{ a.comments.length }})</span>
                     </p>
 
-                    <ul v-if="a.comments && a.comments.length" class="space-y-2">
-                        <li v-for="c in a.comments" :key="c.id" class="rounded-lg bg-gray-50 px-4 py-3 ring-1 ring-gray-200">
-                            <div class="flex items-start justify-between gap-2">
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center gap-2 mb-1">
-                                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold uppercase">
-                                            {{ (c.author || '?').charAt(0) }}
-                                        </span>
-                                        <span class="text-sm font-semibold text-gray-900">{{ c.author }}</span>
-                                        <span class="text-[11px] text-gray-400">•</span>
-                                        <span class="text-[11px] text-gray-500">{{ formatDate(c.created_at) }}</span>
+                    <ul v-if="a.comments && a.comments.length" class="space-y-3">
+                        <li v-for="c in a.comments" :key="c.id" class="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                        <span class="text-sm font-semibold text-gray-900">{{ c.author || 'Utilisateur' }}</span>
+                                        <span class="text-xs text-gray-400">•</span>
+                                        <time class="text-xs text-gray-500">{{ formatDate(c.created_at) }}</time>
                                     </div>
-                                    <p class="text-sm text-gray-700 whitespace-pre-line pl-9">{{ c.body }}</p>
+                                    <p class="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-700">{{ c.body }}</p>
                                 </div>
                                 <button
                                     v-if="canDeleteComment(c)"
@@ -226,11 +210,11 @@ const formatDate = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { dateSt
                     </ul>
                     <p v-else class="text-xs italic text-gray-400">Aucune observation pour le moment.</p>
 
-                    <form class="mt-2 flex items-start gap-2" @submit.prevent="submitComment(a)">
+                    <form class="mt-3 flex items-start gap-2" @submit.prevent="submitComment(a)">
                         <textarea
                             v-model="commentBody[a.id]"
-                            rows="1"
-                            placeholder="Ajouter une observation…"
+                            rows="2"
+                            placeholder="Écrire une observation…"
                             class="min-h-[38px] flex-1 rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
                         />
                         <button

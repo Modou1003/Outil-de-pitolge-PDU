@@ -58,7 +58,7 @@ class Alert extends Model
 
     public function comments(): HasMany
     {
-        return $this->hasMany(AlertComment::class)->oldest();
+        return $this->hasMany(AlertComment::class)->latest();
     }
 
     public function scopeOpen($query)

@@ -137,11 +137,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/carte', [CarteController::class, 'index'])->name('carte');
 
     Route::get('/alertes', [AlerteController::class, 'index'])->name('alertes.index');
-    Route::post('/alertes/{alert}/resolve', [AlerteController::class, 'resolve'])->middleware('permission:manage_alerts')->name('alertes.resolve');
     Route::delete('/alertes/{alert}', [AlerteController::class, 'destroy'])->middleware('permission:manage_alerts')->name('alertes.destroy');
     Route::post('/alertes/generer', [AlerteController::class, 'generate'])->middleware('permission:manage_alerts')->name('alertes.generate');
-    Route::post('/alertes/{alert}/commentaires', [AlerteController::class, 'addComment'])->middleware('permission:manage_alerts')->name('alertes.comments.store');
-    Route::delete('/alertes/{alert}/commentaires/{comment}', [AlerteController::class, 'deleteComment'])->middleware('permission:manage_alerts')->name('alertes.comments.destroy');
+    Route::post('/alertes/{alert}/commentaires', [AlerteController::class, 'addComment'])->name('alertes.comments.store');
+    Route::delete('/alertes/{alert}/commentaires/{comment}', [AlerteController::class, 'deleteComment'])->name('alertes.comments.destroy');
 
     Route::get('/avancements', [AvancementsController::class, 'index'])->name('avancements.index');
 

@@ -276,7 +276,12 @@ class ProjectController extends Controller
         }
 
         $data = $request->validate([
-            'code' => 'required|string|max:50|unique:pdu_projects,code',
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('pdu_projects', 'code')->whereNull('deleted_at'),
+            ],
             'title' => 'required|string|max:255',
             'university_id' => 'required|exists:universities,id',
             'start_date' => 'required|date',

@@ -16,15 +16,11 @@ class AlerteController extends Controller
     {
         $query = Alert::with([
                 'project:id,code,title,status',
-                'resolver:id,name',
-                'comments.author:id,name',
+                'comments' => fn ($q) => $q->with('author:id,name')->latest(),
             ])
+            ->where('is_resolved', false)
             ->orderByDesc('severity')
             ->orderByDesc('detected_at');
-
-        if ($request->filled('status')) {
-            $query->where('is_resolved', $request->string('status')->toString() === 'resolved');
-        }
 
         if ($request->filled('severity')) {
             $query->where('severity', $request->string('severity'));
@@ -46,11 +42,7 @@ class AlerteController extends Controller
                 'title' => $a->title,
                 'message' => $a->message,
                 'context' => $a->context,
-                'is_resolved' => $a->is_resolved,
                 'detected_at' => $a->detected_at?->toIso8601String(),
-                'resolved_at' => $a->resolved_at?->toIso8601String(),
-                'resolved_by_name' => $a->resolver?->name,
-                'resolution_note' => $a->resolution_note,
                 'project' => $a->project ? [
                     'id' => $a->project->id,
                     'code' => $a->project->code,
@@ -66,7 +58,6 @@ class AlerteController extends Controller
                 ])->values(),
             ]),
             'filters' => [
-                'status' => $request->input('status', ''),
                 'severity' => $request->input('severity', ''),
                 'type' => $request->input('type', ''),
             ],
@@ -74,27 +65,10 @@ class AlerteController extends Controller
                 'open' => Alert::open()->count(),
                 'critical' => Alert::open()->where('severity', 'critical')->count(),
                 'warning' => Alert::open()->where('severity', 'warning')->count(),
-                'resolved_last_30' => Alert::resolved()->where('resolved_at', '>=', now()->subDays(30))->count(),
             ],
             'types' => Alert::TYPES,
             'severities' => Alert::SEVERITIES,
         ]);
-    }
-
-    public function resolve(Request $request, Alert $alert): RedirectResponse
-    {
-        $request->validate([
-            'note' => 'nullable|string|max:500',
-        ]);
-
-        $alert->update([
-            'is_resolved' => true,
-            'resolved_by' => $request->user()->id,
-            'resolved_at' => now(),
-            'resolution_note' => $request->input('note'),
-        ]);
-
-        return back()->with('success', 'Alerte marquée comme résolue.');
     }
 
     public function addComment(Request $request, Alert $alert): RedirectResponse

@@ -7,6 +7,7 @@ use App\Models\IndicatorTracking;
 use App\Models\PduProject;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PduProjectObserver
 {
@@ -54,6 +55,30 @@ class PduProjectObserver
         })->all();
 
         DB::table('indicator_trackings')->insertOrIgnore($rows);
+    }
+
+    /**
+     * Lors d'un soft delete, on libère le code projet pour pouvoir
+     * le réutiliser sur un nouveau projet actif.
+     */
+    public function deleted(PduProject $project): void
+    {
+        if ($project->isForceDeleting()) {
+            return;
+        }
+
+        if (! $project->trashed()) {
+            return;
+        }
+
+        if (str_contains($project->code, '__deleted__')) {
+            return;
+        }
+
+        $suffix = '__deleted__' . $project->id;
+        $project->forceFill([
+            'code' => Str::limit($project->code, 255 - strlen($suffix), '') . $suffix,
+        ])->saveQuietly();
     }
 
     /**
