@@ -22,6 +22,7 @@ const canWrite = computed(() => hasPermission('manage_physical'));
 
 const showModal = ref(false);
 const editing = ref(null);
+const selectedLotId = ref(null);
 
 const openCreate = () => { editing.value = null; showModal.value = true; };
 const openEdit = (p) => { editing.value = p; showModal.value = true; };
@@ -30,36 +31,29 @@ const remove = (p) => {
     router.delete(route('projects.physical.destroy', [props.project.id, p.id]), { preserveScroll: true });
 };
 
+const currentLot = computed(() => {
+    if (selectedLotId.value === null || selectedLotId.value === undefined) return null;
+    return props.lots.find((l) => Number(l.id) === Number(selectedLotId.value)) ?? null;
+});
+
+const filteredProgresses = computed(() => {
+    if (selectedLotId.value === null || selectedLotId.value === undefined) return [];
+    return props.progresses.filter((p) => Number(p.project_lot_id) === Number(selectedLotId.value));
+});
+
 const sorted = computed(() =>
-    [...props.progresses].sort((a, b) => a.period.localeCompare(b.period))
+    [...filteredProgresses.value].sort((a, b) => a.period.localeCompare(b.period))
 );
+
 const historySorted = computed(() =>
     [...sorted.value].sort((a, b) => {
         const dateDiff = new Date(b.measurement_date).getTime() - new Date(a.measurement_date).getTime();
         if (dateDiff !== 0) return dateDiff;
-
         return String(b.period).localeCompare(String(a.period));
     })
 );
-const latestByLot = computed(() => {
-    const map = new Map();
-    historySorted.value.forEach((p) => {
-        const key = String(p.project_lot_id ?? 'global');
-        if (!map.has(key)) {
-            map.set(key, p);
-        }
-    });
-    return [...map.values()];
-});
 
-const globalAverages = computed(() => {
-    if (!latestByLot.value.length) {
-        return { planned: 0, actual: 0 };
-    }
-    const planned = latestByLot.value.reduce((s, p) => s + Number(p.planned_percentage ?? 0), 0) / latestByLot.value.length;
-    const actual = latestByLot.value.reduce((s, p) => s + Number(p.actual_percentage ?? 0), 0) / latestByLot.value.length;
-    return { planned, actual };
-});
+const latest = computed(() => historySorted.value[0] ?? null);
 
 const chartData = computed(() => ({
     labels: sorted.value.map((p) => p.period),
@@ -101,130 +95,193 @@ const chartOptions = {
 };
 
 const varianceColor = (v) => v >= 0 ? 'text-emerald-600' : 'text-red-600';
+
+const generateLotCode = (name) => {
+    const base = String(name)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, 8);
+    const fallbackBase = base || 'LOT';
+    const existing = new Set(props.lots.map((l) => String(l.code)));
+
+    for (let i = 0; i < 10; i++) {
+        const suffix = Math.floor(Math.random() * 900 + 100);
+        const candidate = `${fallbackBase}${suffix}`.slice(0, 32);
+        if (!existing.has(candidate)) return candidate;
+    }
+    return `${fallbackBase}${Date.now()}`.slice(0, 32);
+};
+
+const addLot = () => {
+    if (!canWrite.value) return;
+    const name = prompt('Nom de l\\'ouvrage :');
+    if (!name) return;
+
+    const code = generateLotCode(name);
+
+    router.post(
+        route('projects.lots.store', props.project.id),
+        {
+            code,
+            name,
+            weight_percentage: 0,
+            status: 'not_started',
+            sort_order: props.lots.length,
+        },
+        { preserveScroll: true },
+    );
+};
 </script>
 
 <template>
     <div class="space-y-4">
-        <!-- KPIs -->
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-                <p class="text-xs font-medium uppercase text-gray-500">Avancement réel</p>
-                <p class="mt-1 text-2xl font-bold text-emerald-700">{{ globalAverages.actual.toFixed(1) }}%</p>
-            </div>
-            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-                <p class="text-xs font-medium uppercase text-gray-500">Avancement prévu</p>
-                <p class="mt-1 text-2xl font-bold text-indigo-700">{{ globalAverages.planned.toFixed(1) }}%</p>
-            </div>
-            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-                <p class="text-xs font-medium uppercase text-gray-500">Écart</p>
-                <p class="mt-1 text-2xl font-bold" :class="varianceColor(globalAverages.actual - globalAverages.planned)">
-                    {{ (globalAverages.actual - globalAverages.planned) >= 0 ? '+' : '' }}{{ (globalAverages.actual - globalAverages.planned).toFixed(1) }} pts
-                </p>
-            </div>
-            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-                <p class="text-xs font-medium uppercase text-gray-500">Ouvrages suivis</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900">{{ latestByLot.length }}</p>
-            </div>
-        </div>
-
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-            <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Ouvrages physiques ({{ lots.length }})</h3>
-                <button
-                    v-if="canWrite"
-                    type="button"
-                    class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700"
-                    @click="openCreate"
-                >
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    Ajouter un ouvrage physique
-                </button>
-            </div>
-            <div class="px-5 py-3 text-xs text-gray-500">
-                Saisis un relevé par ouvrage. Le résumé global est la moyenne des dernières valeurs prévues/réelles de chaque ouvrage.
-            </div>
-        </div>
-
-        <!-- Chart -->
-        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
-            <div v-if="sorted.length === 0" class="py-20 text-center text-sm text-gray-500">
-                Aucune mesure d'avancement physique pour l'instant.
-            </div>
-            <div v-else class="h-80">
-                <Line :data="chartData" :options="chartOptions" />
-            </div>
-        </div>
-
-        <!-- Table -->
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-            <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Historique des mesures</h3>
-                <div class="flex items-center gap-3">
-                    <span class="text-xs text-gray-500">{{ sorted.length }} relevé(s)</span>
+        <!-- Vue liste (choix de l'ouvrage) -->
+        <div v-if="selectedLotId === null" class="space-y-4">
+            <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
+                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Ouvrages physiques ({{ lots.length }})</h3>
                     <button
                         v-if="canWrite"
                         type="button"
                         class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700"
-                        @click="openCreate"
+                        @click="addLot"
                     >
                         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                        Saisir
+                        Ajouter un ouvrage physique
                     </button>
                 </div>
+
+                <div class="px-5 py-3 text-xs text-gray-500">
+                    Ajoute un ouvrage, puis clique sur son nom pour saisir son avancement physique.
+                </div>
             </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-100 text-sm">
-                    <thead class="bg-gray-50">
-                        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            <th class="px-4 py-2">Période</th>
-                            <th class="px-4 py-2">Ouvrage</th>
-                            <th class="px-4 py-2">Date mesure</th>
-                            <th class="px-4 py-2 text-right">Prévu</th>
-                            <th class="px-4 py-2 text-right">Réel</th>
-                            <th class="px-4 py-2 text-right">Écart</th>
-                            <th class="px-4 py-2">Observations</th>
-                            <th v-if="canWrite" class="px-4 py-2 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-50">
-                        <tr v-for="p in historySorted" :key="p.id" class="hover:bg-gray-50">
-                            <td class="px-4 py-2 font-mono text-xs">{{ p.period }}</td>
-                            <td class="px-4 py-2 text-xs">
-                                <span v-if="p.lot" class="font-mono">{{ p.lot.code }}</span>
-                                <span v-else class="text-gray-500">Global projet</span>
-                            </td>
-                            <td class="px-4 py-2 text-xs text-gray-600">{{ new Date(p.measurement_date).toLocaleDateString('fr-FR') }}</td>
-                            <td class="px-4 py-2 text-right text-indigo-700">{{ p.planned_percentage.toFixed(1) }}%</td>
-                            <td class="px-4 py-2 text-right font-medium text-emerald-700">{{ p.actual_percentage.toFixed(1) }}%</td>
-                            <td class="px-4 py-2 text-right font-semibold" :class="varianceColor(p.variance)">
-                                {{ p.variance >= 0 ? '+' : '' }}{{ p.variance.toFixed(1) }}
-                            </td>
-                            <td class="px-4 py-2 text-xs text-gray-600">{{ p.observations || '—' }}</td>
-                            <td v-if="canWrite" class="px-4 py-2 text-right">
-                                <div class="flex justify-end gap-1">
-                                    <button class="rounded p-1 text-gray-500 hover:bg-indigo-50 hover:text-indigo-700" title="Modifier" @click="openEdit(p)">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.536-6.536a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.5L6 17l.5-4a2 2 0 01.586-1.414z" /></svg>
-                                    </button>
-                                    <button class="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-700" title="Supprimer" @click="remove(p)">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="!sorted.length">
-                            <td :colspan="canWrite ? 8 : 7" class="px-4 py-6 text-center text-sm text-gray-500">Aucune donnée.</td>
-                        </tr>
-                    </tbody>
-                </table>
+
+            <div v-if="!lots.length" class="rounded-xl border-2 border-dashed border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
+                Aucun ouvrage pour l'instant. Clique sur <span class="font-semibold">Ajouter un ouvrage physique</span>.
+            </div>
+
+            <div v-else class="space-y-2">
+                <button
+                    v-for="l in lots"
+                    :key="l.id"
+                    type="button"
+                    class="w-full rounded-xl bg-white px-5 py-3 text-left shadow-sm ring-1 ring-gray-200 transition hover:shadow-md"
+                    @click="selectedLotId = l.id"
+                >
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="truncate font-mono text-xs font-semibold text-gray-900">{{ l.code }}</p>
+                            <p class="truncate text-sm text-gray-700">{{ l.name }}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
+                                {{ (l.progress_percentage ?? 0).toFixed(0) }}%
+                            </span>
+                            <span class="text-xs text-gray-400">Ouvrir</span>
+                        </div>
+                    </div>
+                </button>
             </div>
         </div>
 
-        <PhysicalProgressModal
-            :show="showModal"
-            :project-id="project.id"
-            :progress="editing"
-            :lots="lots"
-            @close="showModal = false"
-        />
+        <!-- Vue détail (chart + historique, comme sur la 3e image) -->
+        <div v-else class="space-y-4">
+            <div class="flex items-start justify-between gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
+                <div class="min-w-0">
+                    <p class="font-mono text-xs text-gray-500">{{ currentLot?.code ?? '' }}</p>
+                    <p class="truncate text-sm font-semibold text-gray-900">{{ currentLot?.name ?? '' }}</p>
+                </div>
+                <button
+                    type="button"
+                    class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    @click="selectedLotId = null"
+                >
+                    ← Retour
+                </button>
+            </div>
+
+            <!-- Chart -->
+            <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
+                <div v-if="sorted.length === 0" class="py-20 text-center text-sm text-gray-500">
+                    Aucune mesure d'avancement physique pour l'instant.
+                </div>
+                <div v-else class="h-80">
+                    <Line :data="chartData" :options="chartOptions" />
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
+                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Historique des mesures</h3>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-gray-500">{{ sorted.length }} relevé(s)</span>
+                        <button
+                            v-if="canWrite"
+                            type="button"
+                            class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700"
+                            @click="openCreate"
+                        >
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            Saisir
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-100 text-sm">
+                        <thead class="bg-gray-50">
+                            <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <th class="px-4 py-2">Période</th>
+                                <th class="px-4 py-2">Ouvrage</th>
+                                <th class="px-4 py-2">Date mesure</th>
+                                <th class="px-4 py-2 text-right">Prévu</th>
+                                <th class="px-4 py-2 text-right">Réel</th>
+                                <th class="px-4 py-2 text-right">Écart</th>
+                                <th class="px-4 py-2">Observations</th>
+                                <th v-if="canWrite" class="px-4 py-2 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            <tr v-for="p in historySorted" :key="p.id" class="hover:bg-gray-50">
+                                <td class="px-4 py-2 font-mono text-xs">{{ p.period }}</td>
+                                <td class="px-4 py-2 text-xs">
+                                    <span class="font-mono">{{ currentLot?.code ?? '—' }}</span>
+                                </td>
+                                <td class="px-4 py-2 text-xs text-gray-600">{{ new Date(p.measurement_date).toLocaleDateString('fr-FR') }}</td>
+                                <td class="px-4 py-2 text-right text-indigo-700">{{ p.planned_percentage.toFixed(1) }}%</td>
+                                <td class="px-4 py-2 text-right font-medium text-emerald-700">{{ p.actual_percentage.toFixed(1) }}%</td>
+                                <td class="px-4 py-2 text-right font-semibold" :class="varianceColor(p.variance)">
+                                    {{ p.variance >= 0 ? '+' : '' }}{{ p.variance.toFixed(1) }}
+                                </td>
+                                <td class="px-4 py-2 text-xs text-gray-600">{{ p.observations || '—' }}</td>
+                                <td v-if="canWrite" class="px-4 py-2 text-right">
+                                    <div class="flex justify-end gap-1">
+                                        <button class="rounded p-1 text-gray-500 hover:bg-indigo-50 hover:text-indigo-700" title="Modifier" @click="openEdit(p)">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.536-6.536a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.5L6 17l.5-4a2 2 0 01.586-1.414z" /></svg>
+                                        </button>
+                                        <button class="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-700" title="Supprimer" @click="remove(p)">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="!sorted.length">
+                                <td :colspan="canWrite ? 8 : 7" class="px-4 py-6 text-center text-sm text-gray-500">Aucune donnée.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <PhysicalProgressModal
+                :show="showModal"
+                :project-id="project.id"
+                :progress="editing"
+                :lots="lots"
+                :default-lot-id="selectedLotId"
+                @close="showModal = false"
+            />
+        </div>
     </div>
 </template>
