@@ -114,7 +114,7 @@ const generateLotCode = (name) => {
 
 const addLot = () => {
     if (!canWrite.value) return;
-    const name = prompt('Nom de l\\'ouvrage :');
+    const name = prompt("Nom de l'ouvrage :");
     if (!name) return;
 
     const code = generateLotCode(name);
