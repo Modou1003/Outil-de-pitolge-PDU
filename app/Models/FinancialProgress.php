@@ -14,6 +14,7 @@ class FinancialProgress extends Model
 
     protected $fillable = [
         'pdu_project_id',
+        'project_lot_id',
         'period',
         'measurement_date',
         'planned_value',
@@ -40,6 +41,11 @@ class FinancialProgress extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(PduProject::class, 'pdu_project_id');
+    }
+
+    public function lot(): BelongsTo
+    {
+        return $this->belongsTo(ProjectLot::class, 'project_lot_id');
     }
 
     public function recorder(): BelongsTo

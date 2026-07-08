@@ -72,11 +72,7 @@ class ProjectAggregationService
      */
     public function recomputeProjectBudgetSpent(PduProject $project): void
     {
-        $last = FinancialProgress::where('pdu_project_id', $project->id)
-            ->orderByDesc('period')
-            ->first();
-
-        $project->budget_spent = $last ? (float) $last->cumulative_actual_cost : 0;
+        $project->budget_spent = (float) FinancialProgress::where('pdu_project_id', $project->id)->sum('actual_cost');
         $project->saveQuietly();
     }
 

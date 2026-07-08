@@ -159,7 +159,7 @@ const exportExcel = () => {
                 :can-manage-team="can_manage_team"
             />
             <TabPhysical v-else-if="activeTab === 'physical'" :project="project" :progresses="physical_progresses" :lots="lots" />
-            <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" />
+            <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :lots="lots" />
             <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :lots="lots" :milestones="milestones" />
             <TabDocuments v-else-if="activeTab === 'documents'" :project="project" :documents="documents" :categories="document_categories" />
         </div>

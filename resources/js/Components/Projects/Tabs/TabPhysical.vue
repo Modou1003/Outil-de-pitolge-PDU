@@ -41,6 +41,25 @@ const historySorted = computed(() =>
         return String(b.period).localeCompare(String(a.period));
     })
 );
+const latestByLot = computed(() => {
+    const map = new Map();
+    historySorted.value.forEach((p) => {
+        const key = String(p.project_lot_id ?? 'global');
+        if (!map.has(key)) {
+            map.set(key, p);
+        }
+    });
+    return [...map.values()];
+});
+
+const globalAverages = computed(() => {
+    if (!latestByLot.value.length) {
+        return { planned: 0, actual: 0 };
+    }
+    const planned = latestByLot.value.reduce((s, p) => s + Number(p.planned_percentage ?? 0), 0) / latestByLot.value.length;
+    const actual = latestByLot.value.reduce((s, p) => s + Number(p.actual_percentage ?? 0), 0) / latestByLot.value.length;
+    return { planned, actual };
+});
 
 const chartData = computed(() => ({
     labels: sorted.value.map((p) => p.period),
@@ -81,7 +100,6 @@ const chartOptions = {
     },
 };
 
-const latest = computed(() => historySorted.value[0] ?? null);
 const varianceColor = (v) => v >= 0 ? 'text-emerald-600' : 'text-red-600';
 </script>
 
@@ -91,21 +109,39 @@ const varianceColor = (v) => v >= 0 ? 'text-emerald-600' : 'text-red-600';
         <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
                 <p class="text-xs font-medium uppercase text-gray-500">Avancement réel</p>
-                <p class="mt-1 text-2xl font-bold text-emerald-700">{{ latest?.actual_percentage?.toFixed(1) ?? '0' }}%</p>
+                <p class="mt-1 text-2xl font-bold text-emerald-700">{{ globalAverages.actual.toFixed(1) }}%</p>
             </div>
             <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
                 <p class="text-xs font-medium uppercase text-gray-500">Avancement prévu</p>
-                <p class="mt-1 text-2xl font-bold text-indigo-700">{{ latest?.planned_percentage?.toFixed(1) ?? '0' }}%</p>
+                <p class="mt-1 text-2xl font-bold text-indigo-700">{{ globalAverages.planned.toFixed(1) }}%</p>
             </div>
             <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
                 <p class="text-xs font-medium uppercase text-gray-500">Écart</p>
-                <p class="mt-1 text-2xl font-bold" :class="varianceColor(latest?.variance ?? 0)">
-                    {{ (latest?.variance ?? 0) >= 0 ? '+' : '' }}{{ latest?.variance?.toFixed(1) ?? '0' }} pts
+                <p class="mt-1 text-2xl font-bold" :class="varianceColor(globalAverages.actual - globalAverages.planned)">
+                    {{ (globalAverages.actual - globalAverages.planned) >= 0 ? '+' : '' }}{{ (globalAverages.actual - globalAverages.planned).toFixed(1) }} pts
                 </p>
             </div>
             <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-                <p class="text-xs font-medium uppercase text-gray-500">Mesures</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900">{{ sorted.length }}</p>
+                <p class="text-xs font-medium uppercase text-gray-500">Ouvrages suivis</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ latestByLot.length }}</p>
+            </div>
+        </div>
+
+        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
+            <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Ouvrages physiques ({{ lots.length }})</h3>
+                <button
+                    v-if="canWrite"
+                    type="button"
+                    class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700"
+                    @click="openCreate"
+                >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                    Ajouter un ouvrage physique
+                </button>
+            </div>
+            <div class="px-5 py-3 text-xs text-gray-500">
+                Saisis un relevé par ouvrage. Le résumé global est la moyenne des dernières valeurs prévues/réelles de chaque ouvrage.
             </div>
         </div>
 
@@ -141,6 +177,7 @@ const varianceColor = (v) => v >= 0 ? 'text-emerald-600' : 'text-red-600';
                     <thead class="bg-gray-50">
                         <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                             <th class="px-4 py-2">Période</th>
+                            <th class="px-4 py-2">Ouvrage</th>
                             <th class="px-4 py-2">Date mesure</th>
                             <th class="px-4 py-2 text-right">Prévu</th>
                             <th class="px-4 py-2 text-right">Réel</th>
@@ -152,6 +189,10 @@ const varianceColor = (v) => v >= 0 ? 'text-emerald-600' : 'text-red-600';
                     <tbody class="divide-y divide-gray-50">
                         <tr v-for="p in historySorted" :key="p.id" class="hover:bg-gray-50">
                             <td class="px-4 py-2 font-mono text-xs">{{ p.period }}</td>
+                            <td class="px-4 py-2 text-xs">
+                                <span v-if="p.lot" class="font-mono">{{ p.lot.code }}</span>
+                                <span v-else class="text-gray-500">Global projet</span>
+                            </td>
                             <td class="px-4 py-2 text-xs text-gray-600">{{ new Date(p.measurement_date).toLocaleDateString('fr-FR') }}</td>
                             <td class="px-4 py-2 text-right text-indigo-700">{{ p.planned_percentage.toFixed(1) }}%</td>
                             <td class="px-4 py-2 text-right font-medium text-emerald-700">{{ p.actual_percentage.toFixed(1) }}%</td>
@@ -171,7 +212,7 @@ const varianceColor = (v) => v >= 0 ? 'text-emerald-600' : 'text-red-600';
                             </td>
                         </tr>
                         <tr v-if="!sorted.length">
-                            <td :colspan="canWrite ? 7 : 6" class="px-4 py-6 text-center text-sm text-gray-500">Aucune donnée.</td>
+                            <td :colspan="canWrite ? 8 : 7" class="px-4 py-6 text-center text-sm text-gray-500">Aucune donnée.</td>
                         </tr>
                     </tbody>
                 </table>

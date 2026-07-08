@@ -38,8 +38,8 @@ class ProjectController extends Controller
             'teamMembers.user:id,name',
             'lots',
             'milestones',
-            'physicalProgresses',
-            'financialProgresses',
+            'physicalProgresses.lot',
+            'financialProgresses.lot',
             'indicatorTrackings.indicator',
             'alerts' => fn ($q) => $q->open()->orderByDesc('severity'),
             'documents' => fn ($q) => $q->where('is_archived', false)->with('uploader:id,name')->orderByDesc('uploaded_at'),
@@ -217,6 +217,11 @@ class ProjectController extends Controller
         return [
             'id' => $p->id,
             'project_lot_id' => $p->project_lot_id,
+            'lot' => $p->lot ? [
+                'id' => $p->lot->id,
+                'code' => $p->lot->code,
+                'name' => $p->lot->name,
+            ] : null,
             'period' => $p->period,
             'measurement_date' => $p->measurement_date?->toDateString(),
             'planned_percentage' => (float) $p->planned_percentage,
@@ -230,6 +235,12 @@ class ProjectController extends Controller
     {
         return [
             'id' => $f->id,
+            'project_lot_id' => $f->project_lot_id,
+            'lot' => $f->lot ? [
+                'id' => $f->lot->id,
+                'code' => $f->lot->code,
+                'name' => $f->lot->name,
+            ] : null,
             'period' => $f->period,
             'measurement_date' => $f->measurement_date?->toDateString(),
             'planned_value' => (float) $f->planned_value,
@@ -254,14 +265,19 @@ class ProjectController extends Controller
 
     private function computeKpis(PduProject $project): array
     {
-        $latestFinancial = $project->financialProgresses->last();
+        $allFinancial = $project->financialProgresses;
+        $sumPv = (float) $allFinancial->sum('planned_value');
+        $sumEv = (float) $allFinancial->sum('earned_value');
+        $sumAc = (float) $allFinancial->sum('actual_cost');
+        $cpi = $sumAc > 0 ? round($sumEv / $sumAc, 3) : null;
+        $spi = $sumPv > 0 ? round($sumEv / $sumPv, 3) : null;
 
         return [
-            'cpi' => $latestFinancial?->cpi,
-            'spi' => $latestFinancial?->spi,
-            'cv' => $latestFinancial?->cv,
-            'sv' => $latestFinancial?->sv,
-            'eac' => $this->computeEac($latestFinancial, (float) $project->budget_allocated),
+            'cpi' => $cpi,
+            'spi' => $spi,
+            'cv' => $sumEv - $sumAc,
+            'sv' => $sumEv - $sumPv,
+            'eac' => $this->computeEacFromCpi($cpi, (float) $project->budget_allocated),
             'alerts_open' => $project->alerts->count(),
             'milestones_total' => $project->milestones->count(),
             'milestones_reached' => $project->milestones->where('status', 'reached')->count(),
@@ -521,9 +537,9 @@ class ProjectController extends Controller
         );
     }
 
-    private function computeEac(?FinancialProgress $f, float $bac): ?float
+    private function computeEacFromCpi(?float $cpi, float $bac): ?float
     {
-        if (! $f || ! $f->cpi || $f->cpi <= 0) return null;
-        return round($bac / $f->cpi, 2);
+        if (! $cpi || $cpi <= 0) return null;
+        return round($bac / $cpi, 2);
     }
 }

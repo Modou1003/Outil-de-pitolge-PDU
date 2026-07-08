@@ -120,10 +120,10 @@ const monthsAxis = computed(() => {
         <!-- Gantt simplifié -->
         <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
             <div class="border-b border-gray-100 px-5 py-3">
-                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Gantt — lots de travaux</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Gantt — ouvrages (lots de travaux)</h3>
             </div>
             <div v-if="!lots.length" class="py-16 text-center text-sm text-gray-500">
-                Aucun lot défini pour ce projet.
+                Aucun ouvrage défini pour ce projet.
             </div>
             <div v-else class="overflow-x-auto">
                 <div class="flex min-w-[800px]">
@@ -176,10 +176,10 @@ const monthsAxis = computed(() => {
             </div>
         </div>
 
-        <!-- Liste des lots -->
+        <!-- Liste des ouvrages -->
         <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
             <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Lots ({{ lots.length }})</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Ouvrages ({{ lots.length }})</h3>
                 <button
                     v-if="canManage"
                     type="button"
@@ -187,7 +187,7 @@ const monthsAxis = computed(() => {
                     @click="openCreateLot"
                 >
                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    Nouveau lot
+                    Ajouter un ouvrage
                 </button>
             </div>
             <table class="min-w-full divide-y divide-gray-100 text-sm">

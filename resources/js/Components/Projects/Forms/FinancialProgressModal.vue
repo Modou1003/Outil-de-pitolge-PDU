@@ -7,6 +7,7 @@ const props = defineProps({
     show: { type: Boolean, default: false },
     projectId: { type: [Number, String], required: true },
     progress: { type: Object, default: null },
+    lots: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['close']);
@@ -17,6 +18,7 @@ const currentPeriod = () => {
 };
 
 const form = useForm({
+    project_lot_id: null,
     period: currentPeriod(),
     measurement_date: new Date().toISOString().slice(0, 10),
     planned_value: 0,
@@ -28,6 +30,7 @@ const form = useForm({
 watch(() => props.show, (v) => {
     if (v) {
         if (props.progress) {
+            form.project_lot_id = props.progress.project_lot_id;
             form.period = props.progress.period;
             form.measurement_date = props.progress.measurement_date;
             form.planned_value = props.progress.planned_value;
@@ -36,6 +39,7 @@ watch(() => props.show, (v) => {
             form.observations = props.progress.observations ?? '';
         } else {
             form.reset();
+            form.project_lot_id = null;
             form.period = currentPeriod();
             form.measurement_date = new Date().toISOString().slice(0, 10);
         }
@@ -74,6 +78,14 @@ const submit = () => {
         <form class="space-y-4" @submit.prevent="submit">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
+                    <label class="mb-1 block text-xs font-medium text-gray-700">Ouvrage (optionnel)</label>
+                    <select v-model="form.project_lot_id" class="w-full rounded-md border-gray-300 text-sm">
+                        <option :value="null">Projet global</option>
+                        <option v-for="l in lots" :key="l.id" :value="l.id">{{ l.code }} — {{ l.name }}</option>
+                    </select>
+                    <p v-if="form.errors.project_lot_id" class="mt-1 text-xs text-red-600">{{ form.errors.project_lot_id }}</p>
+                </div>
+                <div>
                     <label class="mb-1 block text-xs font-medium text-gray-700">Période (YYYY-MM)</label>
                     <input v-model="form.period" type="month" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.period" class="mt-1 text-xs text-red-600">{{ form.errors.period }}</p>
@@ -87,17 +99,17 @@ const submit = () => {
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-700">Planned Value (PV) — FCFA</label>
+                    <label class="mb-1 block text-xs font-medium text-gray-700">Montant prévu — FCFA</label>
                     <input v-model.number="form.planned_value" type="number" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.planned_value" class="mt-1 text-xs text-red-600">{{ form.errors.planned_value }}</p>
                 </div>
                 <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-700">Earned Value (EV) — FCFA</label>
+                    <label class="mb-1 block text-xs font-medium text-gray-700">Montant réel (valeur acquise) — FCFA</label>
                     <input v-model.number="form.earned_value" type="number" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.earned_value" class="mt-1 text-xs text-red-600">{{ form.errors.earned_value }}</p>
                 </div>
                 <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-700">Actual Cost (AC) — FCFA</label>
+                    <label class="mb-1 block text-xs font-medium text-gray-700">Coût réel — FCFA</label>
                     <input v-model.number="form.actual_cost" type="number" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.actual_cost" class="mt-1 text-xs text-red-600">{{ form.errors.actual_cost }}</p>
                 </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\FinancialProgress;
 use App\Models\PduProject;
+use App\Models\ProjectLot;
 use App\Services\AlerteService;
 use App\Services\ProjectAggregationService;
 use Illuminate\Http\RedirectResponse;
@@ -24,9 +25,15 @@ class FinancialProgressController extends Controller
 
         // Vérifie unicité de la période
         $exists = FinancialProgress::where('pdu_project_id', $project->id)
-            ->where('period', $data['period'])->exists();
+            ->where('period', $data['period'])
+            ->when(
+                $data['project_lot_id'] ?? null,
+                fn ($q, $lotId) => $q->where('project_lot_id', $lotId),
+                fn ($q) => $q->whereNull('project_lot_id'),
+            )
+            ->exists();
         if ($exists) {
-            return back()->withErrors(['period' => 'Cette période existe déjà pour ce projet.']);
+            return back()->withErrors(['period' => 'Cette période existe déjà pour cet ouvrage.']);
         }
 
         FinancialProgress::create(array_merge($data, [
@@ -51,9 +58,14 @@ class FinancialProgressController extends Controller
 
         $exists = FinancialProgress::where('pdu_project_id', $project->id)
             ->where('period', $data['period'])
+            ->when(
+                $data['project_lot_id'] ?? null,
+                fn ($q, $lotId) => $q->where('project_lot_id', $lotId),
+                fn ($q) => $q->whereNull('project_lot_id'),
+            )
             ->where('id', '!=', $progress->id)->exists();
         if ($exists) {
-            return back()->withErrors(['period' => 'Cette période existe déjà pour ce projet.']);
+            return back()->withErrors(['period' => 'Cette période existe déjà pour cet ouvrage.']);
         }
 
         $progress->update($data);
@@ -92,6 +104,21 @@ class FinancialProgressController extends Controller
     protected function validatePayload(Request $request): array
     {
         return $request->validate([
+            'project_lot_id' => [
+                'nullable',
+                'integer',
+                'exists:project_lots,id',
+                function ($attribute, $value, $fail) use ($request) {
+                    if (! $value) {
+                        return;
+                    }
+                    $projectId = (int) $request->route('project')->id;
+                    $belongs = ProjectLot::whereKey($value)->where('pdu_project_id', $projectId)->exists();
+                    if (! $belongs) {
+                        $fail('Cet ouvrage ne fait pas partie du projet.');
+                    }
+                },
+            ],
             'period' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'measurement_date' => ['required', 'date'],
             'planned_value' => ['required', 'numeric'],

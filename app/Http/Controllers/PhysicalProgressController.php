@@ -88,7 +88,20 @@ class PhysicalProgressController extends Controller
     protected function validatePayload(Request $request, PduProject $project, ?int $ignoreId = null): array
     {
         return $request->validate([
-            'project_lot_id' => ['nullable', 'integer', 'exists:project_lots,id'],
+            'project_lot_id' => [
+                'nullable',
+                'integer',
+                'exists:project_lots,id',
+                function ($attribute, $value, $fail) use ($project) {
+                    if (! $value) {
+                        return;
+                    }
+                    $belongs = ProjectLot::whereKey($value)->where('pdu_project_id', $project->id)->exists();
+                    if (! $belongs) {
+                        $fail('Cet ouvrage ne fait pas partie du projet.');
+                    }
+                },
+            ],
             'period' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'measurement_date' => ['required', 'date'],
             'planned_percentage' => ['required', 'numeric', 'max:100'],
