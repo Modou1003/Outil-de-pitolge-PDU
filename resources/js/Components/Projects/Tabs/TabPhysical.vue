@@ -41,6 +41,66 @@ const filteredProgresses = computed(() => {
     return props.progresses.filter((p) => Number(p.project_lot_id) === Number(selectedLotId.value));
 });
 
+const aggregateByPeriod = computed(() => {
+    const rows = props.progresses.filter((p) => p.project_lot_id !== null && p.project_lot_id !== undefined);
+    const grouped = new Map();
+
+    rows.forEach((p) => {
+        const key = String(p.period ?? '');
+        if (!key) return;
+        if (!grouped.has(key)) {
+            grouped.set(key, { period: key, planned: 0, actual: 0, count: 0 });
+        }
+        const bucket = grouped.get(key);
+        bucket.planned += Number(p.planned_percentage ?? 0);
+        bucket.actual += Number(p.actual_percentage ?? 0);
+        bucket.count += 1;
+    });
+
+    return [...grouped.values()]
+        .filter((x) => x.count > 0)
+        .map((x) => {
+            const planned = x.planned / x.count;
+            const actual = x.actual / x.count;
+            return {
+                period: x.period,
+                planned_percentage: planned,
+                actual_percentage: actual,
+                variance: actual - planned,
+            };
+        })
+        .sort((a, b) => String(a.period).localeCompare(String(b.period)));
+});
+
+const aggregateHistorySorted = computed(() =>
+    [...aggregateByPeriod.value].sort((a, b) => String(b.period).localeCompare(String(a.period)))
+);
+
+const aggregateChartData = computed(() => ({
+    labels: aggregateByPeriod.value.map((p) => p.period),
+    datasets: [
+        {
+            label: 'Prévu moyen (%)',
+            data: aggregateByPeriod.value.map((p) => p.planned_percentage),
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            fill: false,
+            tension: 0.3,
+            borderDash: [6, 4],
+            pointRadius: 3,
+        },
+        {
+            label: 'Réel moyen (%)',
+            data: aggregateByPeriod.value.map((p) => p.actual_percentage),
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+        },
+    ],
+}));
+
 const sorted = computed(() =>
     [...filteredProgresses.value].sort((a, b) => a.period.localeCompare(b.period))
 );
@@ -181,6 +241,46 @@ const addLot = () => {
                         </div>
                     </div>
                 </button>
+            </div>
+
+            <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
+                <div v-if="!aggregateByPeriod.length" class="py-16 text-center text-sm text-gray-500">
+                    Aucune donnée.
+                </div>
+                <div v-else class="h-80">
+                    <Line :data="aggregateChartData" :options="chartOptions" />
+                </div>
+            </div>
+
+            <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
+                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Données moyennes des ouvrages</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-100 text-sm">
+                        <thead class="bg-gray-50">
+                            <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                <th class="px-4 py-2">Période</th>
+                                <th class="px-4 py-2 text-right">Prévu</th>
+                                <th class="px-4 py-2 text-right">Réel</th>
+                                <th class="px-4 py-2 text-right">Écart</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            <tr v-for="p in aggregateHistorySorted" :key="`agg-${p.period}`" class="hover:bg-gray-50">
+                                <td class="px-4 py-2 font-mono text-xs">{{ p.period }}</td>
+                                <td class="px-4 py-2 text-right text-indigo-700">{{ p.planned_percentage.toFixed(1) }}%</td>
+                                <td class="px-4 py-2 text-right font-medium text-emerald-700">{{ p.actual_percentage.toFixed(1) }}%</td>
+                                <td class="px-4 py-2 text-right font-semibold" :class="varianceColor(p.variance)">
+                                    {{ p.variance >= 0 ? '+' : '' }}{{ p.variance.toFixed(1) }}
+                                </td>
+                            </tr>
+                            <tr v-if="!aggregateHistorySorted.length">
+                                <td colspan="4" class="px-4 py-6 text-center text-sm text-gray-500">Aucune donnée.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
