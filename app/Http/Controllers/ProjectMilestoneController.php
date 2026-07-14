@@ -80,6 +80,7 @@ class ProjectMilestoneController extends Controller
     protected function validatePayload(Request $request): array
     {
         return $request->validate([
+            'building_work_id' => ['nullable', 'exists:building_works,id'],
             'project_lot_id' => ['nullable', 'exists:project_lots,id'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],

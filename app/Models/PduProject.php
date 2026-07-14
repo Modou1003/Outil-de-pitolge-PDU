@@ -120,6 +120,11 @@ class PduProject extends Model
         return $this->hasMany(ProjectLot::class)->orderBy('sort_order');
     }
 
+    public function buildingWorks(): HasMany
+    {
+        return $this->hasMany(BuildingWork::class)->orderBy('sort_order');
+    }
+
     public function milestones(): HasMany
     {
         return $this->hasMany(ProjectMilestone::class)->orderBy('planned_date');
