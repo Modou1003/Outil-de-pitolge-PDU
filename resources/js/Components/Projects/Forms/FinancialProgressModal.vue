@@ -8,6 +8,7 @@ const props = defineProps({
     projectId: { type: [Number, String], required: true },
     progress: { type: Object, default: null },
     lots: { type: Array, default: () => [] },
+    defaultLotId: { type: [Number, String], default: null },
 });
 
 const emit = defineEmits(['close']);
@@ -18,13 +19,18 @@ const currentPeriod = () => {
 };
 
 const form = useForm({
-    project_lot_id: null,
+    project_lot_id: props.defaultLotId ?? null,
     period: currentPeriod(),
     measurement_date: new Date().toISOString().slice(0, 10),
     planned_value: 0,
     earned_value: 0,
     actual_cost: 0,
     observations: '',
+});
+
+const selectedLot = computed(() => {
+    if (props.defaultLotId === null || props.defaultLotId === undefined) return null;
+    return props.lots.find((l) => Number(l.id) === Number(props.defaultLotId)) ?? null;
 });
 
 watch(() => props.show, (v) => {
@@ -39,7 +45,7 @@ watch(() => props.show, (v) => {
             form.observations = props.progress.observations ?? '';
         } else {
             form.reset();
-            form.project_lot_id = null;
+            form.project_lot_id = props.defaultLotId ?? null;
             form.period = currentPeriod();
             form.measurement_date = new Date().toISOString().slice(0, 10);
         }
@@ -77,12 +83,17 @@ const submit = () => {
     <Modal :show="show" :title="progress ? 'Modifier le relevé financier' : 'Saisir un avancement financier'" size="xl" @close="emit('close')">
         <form class="space-y-4" @submit.prevent="submit">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
+                <div v-if="props.defaultLotId === null">
                     <label class="mb-1 block text-xs font-medium text-gray-700">Ouvrage (optionnel)</label>
                     <select v-model="form.project_lot_id" class="w-full rounded-md border-gray-300 text-sm">
                         <option :value="null">Projet global</option>
                         <option v-for="l in lots" :key="l.id" :value="l.id">{{ l.code }} — {{ l.name }}</option>
                     </select>
+                    <p v-if="form.errors.project_lot_id" class="mt-1 text-xs text-red-600">{{ form.errors.project_lot_id }}</p>
+                </div>
+                <div v-else class="rounded-md border border-gray-200 bg-gray-50 p-3">
+                    <p class="text-xs font-medium text-gray-700">Ouvrage sélectionné</p>
+                    <p class="mt-1 text-sm font-semibold text-gray-900">{{ selectedLot?.code ?? '—' }} — {{ selectedLot?.name ?? '' }}</p>
                     <p v-if="form.errors.project_lot_id" class="mt-1 text-xs text-red-600">{{ form.errors.project_lot_id }}</p>
                 </div>
                 <div>
