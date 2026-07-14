@@ -12,7 +12,6 @@ class ProjectMilestone extends Model
 
     protected $fillable = [
         'pdu_project_id',
-        'building_work_id',
         'project_lot_id',
         'name',
         'description',
@@ -40,11 +39,6 @@ class ProjectMilestone extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(PduProject::class, 'pdu_project_id');
-    }
-
-    public function work(): BelongsTo
-    {
-        return $this->belongsTo(BuildingWork::class, 'building_work_id');
     }
 
     public function lot(): BelongsTo

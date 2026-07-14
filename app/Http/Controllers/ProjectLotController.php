@@ -80,7 +80,6 @@ class ProjectLotController extends Controller
     protected function validatePayload(Request $request, PduProject $project, ?int $ignoreId = null): array
     {
         $rules = [
-            'building_work_id' => ['nullable', 'exists:building_works,id'],
             'code' => ['required', 'string', 'max:32'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],

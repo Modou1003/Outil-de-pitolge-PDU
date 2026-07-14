@@ -13,7 +13,6 @@ class ProjectLot extends Model
 
     protected $fillable = [
         'pdu_project_id',
-        'building_work_id',
         'code',
         'name',
         'description',
@@ -50,18 +49,8 @@ class ProjectLot extends Model
         return $this->belongsTo(PduProject::class, 'pdu_project_id');
     }
 
-    public function work(): BelongsTo
-    {
-        return $this->belongsTo(BuildingWork::class, 'building_work_id');
-    }
-
     public function physicalProgresses(): HasMany
     {
         return $this->hasMany(PhysicalProgress::class);
-    }
-
-    public function getStatusLabelAttribute(): string
-    {
-        return self::STATUSES[$this->status] ?? $this->status;
     }
 }

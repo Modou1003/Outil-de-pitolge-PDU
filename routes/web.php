@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\AlerteController;
 use App\Http\Controllers\AvancementsController;
-use App\Http\Controllers\BuildingWorkController;
 use App\Http\Controllers\CarteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
@@ -164,12 +163,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/projects/{project}/financial', [FinancialProgressController::class, 'store'])->middleware('permission:manage_finances')->name('projects.financial.store');
     Route::put('/projects/{project}/financial/{progress}', [FinancialProgressController::class, 'update'])->middleware('permission:manage_finances')->name('projects.financial.update');
     Route::delete('/projects/{project}/financial/{progress}', [FinancialProgressController::class, 'destroy'])->middleware('permission:manage_finances')->name('projects.financial.destroy');
-
-    // Ouvrages (BuildingWorks)
-    Route::post('/projects/{project}/building-works', [BuildingWorkController::class, 'store'])->middleware('permission:manage_physical')->name('projects.building-works.store');
-    Route::get('/projects/{project}/building-works/{work}', [BuildingWorkController::class, 'show'])->name('projects.building-works.show');
-    Route::put('/projects/{project}/building-works/{work}', [BuildingWorkController::class, 'update'])->middleware('permission:manage_physical')->name('projects.building-works.update');
-    Route::delete('/projects/{project}/building-works/{work}', [BuildingWorkController::class, 'destroy'])->middleware('permission:manage_physical')->name('projects.building-works.destroy');
 
     // Lots
     Route::post('/projects/{project}/lots', [ProjectLotController::class, 'store'])->middleware('permission:manage_physical')->name('projects.lots.store');

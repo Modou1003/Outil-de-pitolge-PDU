@@ -338,8 +338,8 @@ const deleteProject = (p) => {
 
                 <div class="mt-6 grid gap-4 sm:grid-cols-2">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Code</label>
-                        <input v-model="createForm.code" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
+                        <label class="block text-sm font-medium text-gray-700">Code <span class="text-xs text-gray-500">(optionnel - auto-généré si vide)</span></label>
+                        <input v-model="createForm.code" type="text" placeholder="Laissez vide pour auto-générer" class="mt-1 w-full rounded-md border-gray-300 shadow-sm" />
                         <p v-if="formErrors.code" class="mt-1 text-xs text-red-600">{{ formErrors.code[0] }}</p>
                     </div>
                     <div>

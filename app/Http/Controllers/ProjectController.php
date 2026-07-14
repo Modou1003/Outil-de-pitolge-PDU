@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\DocumentController as DocCtrl;
-use App\Models\BuildingWork;
 use App\Models\Document;
 use App\Models\FinancialProgress;
 use App\Models\Indicator;
@@ -37,7 +36,6 @@ class ProjectController extends Controller
             'projectManager:id,name',
             'financialAgent:id,name',
             'teamMembers.user:id,name',
-            'buildingWorks',
             'lots',
             'milestones',
             'physicalProgresses.lot',
@@ -49,7 +47,6 @@ class ProjectController extends Controller
 
         return Inertia::render('Projects/Show', [
             'project' => $this->transformProject($project),
-            'building_works' => $project->buildingWorks->map(fn (BuildingWork $w) => $this->transformBuildingWork($w))->values()->all(),
             'lots' => $project->lots->map(fn (ProjectLot $l) => $this->transformLot($l))->values()->all(),
             'milestones' => $project->milestones->map(fn (ProjectMilestone $m) => $this->transformMilestone($m))->values()->all(),
             'physical_progresses' => $project->physicalProgresses->map(fn (PhysicalProgress $p) => $this->transformPhysical($p))->values()->all(),
@@ -178,31 +175,10 @@ class ProjectController extends Controller
         ];
     }
 
-    private function transformBuildingWork(BuildingWork $w): array
-    {
-        return [
-            'id' => $w->id,
-            'code' => $w->code,
-            'name' => $w->name,
-            'description' => $w->description,
-            'budget' => $w->budget !== null ? (float) $w->budget : null,
-            'progress_percentage' => (float) $w->progress_percentage,
-            'status' => $w->status,
-            'status_label' => BuildingWork::STATUSES[$w->status] ?? $w->status,
-            'planned_start_date' => $w->planned_start_date?->toDateString(),
-            'planned_end_date' => $w->planned_end_date?->toDateString(),
-            'actual_start_date' => $w->actual_start_date?->toDateString(),
-            'actual_end_date' => $w->actual_end_date?->toDateString(),
-            'observations' => $w->observations,
-            'sort_order' => $w->sort_order,
-        ];
-    }
-
     private function transformLot(ProjectLot $l): array
     {
         return [
             'id' => $l->id,
-            'building_work_id' => $l->building_work_id,
             'code' => $l->code,
             'name' => $l->name,
             'description' => $l->description,
@@ -223,7 +199,6 @@ class ProjectController extends Controller
     {
         return [
             'id' => $m->id,
-            'building_work_id' => $m->building_work_id,
             'project_lot_id' => $m->project_lot_id,
             'name' => $m->name,
             'description' => $m->description,
@@ -318,7 +293,7 @@ class ProjectController extends Controller
 
         $data = $request->validate([
             'code' => [
-                'required',
+                'nullable',
                 'string',
                 'max:50',
                 Rule::unique('pdu_projects', 'code')->whereNull('deleted_at'),
@@ -337,6 +312,15 @@ class ProjectController extends Controller
         $data['progress_percentage'] = 0;
         $data['budget_spent'] = 0;
         $data['currency'] = 'XOF';
+
+        // Auto-generate code if not provided
+        if (empty($data['code'])) {
+            $maxCode = PduProject::whereNull('deleted_at')
+                ->get()
+                ->map(fn($p) => (int) preg_replace('/[^0-9]/', '', $p->code))
+                ->max() ?? 0;
+            $data['code'] = 'PRJ-' . str_pad($maxCode + 1, 3, '0', STR_PAD_LEFT);
+        }
 
         PduProject::create($data);
         $this->alerteService->generateForAll();

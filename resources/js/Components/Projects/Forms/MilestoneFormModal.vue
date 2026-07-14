@@ -13,7 +13,6 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const form = useForm({
-    building_work_id: null,
     project_lot_id: null,
     name: '',
     description: '',
@@ -34,7 +33,6 @@ watch(() => props.show, (v) => {
             form.is_critical = !!props.milestone.is_critical;
         } else {
             form.reset();
-            form.building_work_id = null;
         }
         form.clearErrors();
     }
