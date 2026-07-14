@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\DocumentController as DocCtrl;
+use App\Models\BuildingWork;
 use App\Models\Document;
 use App\Models\FinancialProgress;
 use App\Models\Indicator;
@@ -36,6 +37,7 @@ class ProjectController extends Controller
             'projectManager:id,name',
             'financialAgent:id,name',
             'teamMembers.user:id,name',
+            'buildingWorks',
             'lots',
             'milestones',
             'physicalProgresses.lot',
@@ -47,6 +49,7 @@ class ProjectController extends Controller
 
         return Inertia::render('Projects/Show', [
             'project' => $this->transformProject($project),
+            'building_works' => $project->buildingWorks->map(fn (BuildingWork $w) => $this->transformBuildingWork($w))->values()->all(),
             'lots' => $project->lots->map(fn (ProjectLot $l) => $this->transformLot($l))->values()->all(),
             'milestones' => $project->milestones->map(fn (ProjectMilestone $m) => $this->transformMilestone($m))->values()->all(),
             'physical_progresses' => $project->physicalProgresses->map(fn (PhysicalProgress $p) => $this->transformPhysical($p))->values()->all(),
@@ -175,10 +178,31 @@ class ProjectController extends Controller
         ];
     }
 
+    private function transformBuildingWork(BuildingWork $w): array
+    {
+        return [
+            'id' => $w->id,
+            'code' => $w->code,
+            'name' => $w->name,
+            'description' => $w->description,
+            'budget' => $w->budget !== null ? (float) $w->budget : null,
+            'progress_percentage' => (float) $w->progress_percentage,
+            'status' => $w->status,
+            'status_label' => BuildingWork::STATUSES[$w->status] ?? $w->status,
+            'planned_start_date' => $w->planned_start_date?->toDateString(),
+            'planned_end_date' => $w->planned_end_date?->toDateString(),
+            'actual_start_date' => $w->actual_start_date?->toDateString(),
+            'actual_end_date' => $w->actual_end_date?->toDateString(),
+            'observations' => $w->observations,
+            'sort_order' => $w->sort_order,
+        ];
+    }
+
     private function transformLot(ProjectLot $l): array
     {
         return [
             'id' => $l->id,
+            'building_work_id' => $l->building_work_id,
             'code' => $l->code,
             'name' => $l->name,
             'description' => $l->description,

@@ -7,23 +7,22 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class ProjectLot extends Model
+class BuildingWork extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'pdu_project_id',
-        'building_work_id',
         'code',
         'name',
         'description',
-        'weight_percentage',
+        'budget',
         'planned_start_date',
         'planned_end_date',
         'actual_start_date',
         'actual_end_date',
-        'progress_percentage',
         'status',
+        'progress_percentage',
         'observations',
         'sort_order',
     ];
@@ -33,14 +32,14 @@ class ProjectLot extends Model
         'planned_end_date' => 'date',
         'actual_start_date' => 'date',
         'actual_end_date' => 'date',
-        'weight_percentage' => 'decimal:2',
+        'budget' => 'decimal:2',
         'progress_percentage' => 'decimal:2',
     ];
 
     public const STATUSES = [
         'not_started' => 'Non démarré',
         'in_progress' => 'En cours',
-        'on_hold' => 'Suspendu',
+        'on_hold' => 'En pause',
         'completed' => 'Terminé',
         'cancelled' => 'Annulé',
     ];
@@ -50,14 +49,9 @@ class ProjectLot extends Model
         return $this->belongsTo(PduProject::class, 'pdu_project_id');
     }
 
-    public function work(): BelongsTo
+    public function lots(): HasMany
     {
-        return $this->belongsTo(BuildingWork::class, 'building_work_id');
-    }
-
-    public function physicalProgresses(): HasMany
-    {
-        return $this->hasMany(PhysicalProgress::class);
+        return $this->hasMany(ProjectLot::class, 'building_work_id');
     }
 
     public function getStatusLabelAttribute(): string

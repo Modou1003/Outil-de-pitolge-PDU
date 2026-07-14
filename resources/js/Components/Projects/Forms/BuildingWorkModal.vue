@@ -1,36 +1,28 @@
 <script setup>
 import Modal from '@/Components/UI/Modal.vue';
 import { useForm } from '@inertiajs/vue3';
-import { watch, computed } from 'vue';
+import { watch } from 'vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
     projectId: { type: [Number, String], required: true },
-    nextLotNumber: { type: Number, default: 1 },
 });
 
 const emit = defineEmits(['close']);
 
 const form = useForm({
     name: '',
-    code: '',
-});
-
-const generatedCode = computed(() => {
-    if (!props.nextLotNumber) return '';
-    return `L${String(props.nextLotNumber).padStart(2, '0')}`;
 });
 
 watch(() => props.show, (v) => {
     if (v) {
         form.reset();
-        form.code = generatedCode.value;
         form.clearErrors();
     }
 });
 
 const submit = () => {
-    form.post(route('projects.lots.store', props.projectId), {
+    form.post(route('projects.building-works.store', props.projectId), {
         preserveScroll: true,
         onSuccess: () => emit('close'),
     });
@@ -46,7 +38,7 @@ const submit = () => {
                     v-model="form.name"
                     type="text"
                     class="w-full rounded-md border-gray-300 text-sm"
-                    placeholder="ex: Fondations, Toiture, etc."
+                    placeholder="ex: Fondations, Structure, etc."
                     required
                     autofocus
                 />
@@ -54,16 +46,26 @@ const submit = () => {
             </div>
 
             <div>
-                <label class="mb-1 block text-xs font-medium text-gray-700">Code (auto-généré)</label>
-                <input
-                    v-model="form.code"
-                    type="text"
-                    maxlength="32"
-                    class="w-full rounded-md border-gray-300 bg-gray-50 text-sm"
-                    readonly
+                <label class="mb-1 block text-xs font-medium text-gray-700">Description (optionnel)</label>
+                <textarea
+                    v-model="form.description"
+                    rows="2"
+                    class="w-full rounded-md border-gray-300 text-sm"
+                    placeholder="Détails de cet ouvrage..."
                 />
-                <p class="mt-1 text-[11px] text-gray-500">Code généré automatiquement</p>
-                <p v-if="form.errors.code" class="mt-1 text-xs text-red-600">{{ form.errors.code }}</p>
+                <p v-if="form.errors.description" class="mt-1 text-xs text-red-600">{{ form.errors.description }}</p>
+            </div>
+
+            <div>
+                <label class="mb-1 block text-xs font-medium text-gray-700">Statut</label>
+                <select v-model="form.status" class="w-full rounded-md border-gray-300 text-sm" required>
+                    <option value="not_started">Non démarré</option>
+                    <option value="in_progress">En cours</option>
+                    <option value="on_hold">En pause</option>
+                    <option value="completed">Terminé</option>
+                    <option value="cancelled">Annulé</option>
+                </select>
+                <p v-if="form.errors.status" class="mt-1 text-xs text-red-600">{{ form.errors.status }}</p>
             </div>
         </form>
 

@@ -115,6 +115,11 @@ class PduProject extends Model
         return $this->hasMany(Alert::class);
     }
 
+    public function buildingWorks(): HasMany
+    {
+        return $this->hasMany(BuildingWork::class)->orderBy('sort_order');
+    }
+
     public function lots(): HasMany
     {
         return $this->hasMany(ProjectLot::class)->orderBy('sort_order');
