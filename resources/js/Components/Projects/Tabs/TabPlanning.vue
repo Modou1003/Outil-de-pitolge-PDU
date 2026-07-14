@@ -3,6 +3,8 @@ import { computed, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useAuth } from '@/Composables/useAuth';
 import LotFormModal from '@/Components/Projects/Forms/LotFormModal.vue';
+import QuickLotModal from '@/Components/Projects/Forms/QuickLotModal.vue';
+import LotDetailModal from '@/Components/Projects/Modals/LotDetailModal.vue';
 import MilestoneFormModal from '@/Components/Projects/Forms/MilestoneFormModal.vue';
 
 const props = defineProps({
@@ -14,10 +16,27 @@ const props = defineProps({
 const { hasPermission } = useAuth();
 const canManage = computed(() => hasPermission('manage_physical'));
 
+// Calcul du prochain numéro de lot
+const nextLotNumber = computed(() => {
+    if (!props.lots.length) return 1;
+    const numbers = props.lots
+        .map(l => {
+            const match = l.code?.match(/^L(\d+)$/);
+            return match ? parseInt(match[1]) : 0;
+        })
+        .filter(n => n > 0);
+    return Math.max(...numbers) + 1;
+});
+
+const showQuickLotModal = ref(false);
 const showLotModal = ref(false);
+const showLotDetailModal = ref(false);
 const editingLot = ref(null);
-const openCreateLot = () => { editingLot.value = null; showLotModal.value = true; };
+const selectedLot = ref(null);
+
+const openCreateLot = () => { showQuickLotModal.value = true; };
 const openEditLot = (l) => { editingLot.value = l; showLotModal.value = true; };
+const openViewLot = (l) => { selectedLot.value = l; showLotDetailModal.value = true; };
 const removeLot = (l) => {
     if (!confirm(`Supprimer le lot ${l.code} ?`)) return;
     router.delete(route('projects.lots.destroy', [props.project.id, l.id]), { preserveScroll: true });
@@ -27,6 +46,12 @@ const showMilestoneModal = ref(false);
 const editingMilestone = ref(null);
 const openCreateMilestone = () => { editingMilestone.value = null; showMilestoneModal.value = true; };
 const openEditMilestone = (m) => { editingMilestone.value = m; showMilestoneModal.value = true; };
+const handleAddMilestoneForLot = () => {
+    editingMilestone.value = null;
+    editingMilestone.value = { project_lot_id: selectedLot.value?.id };
+    showLotDetailModal.value = false;
+    showMilestoneModal.value = true;
+};
 const removeMilestone = (m) => {
     if (!confirm(`Supprimer le jalon « ${m.name} » ?`)) return;
     router.delete(route('projects.milestones.destroy', [props.project.id, m.id]), { preserveScroll: true });
@@ -198,30 +223,30 @@ const monthsAxis = computed(() => {
                         <th class="px-4 py-2 text-right">Avancement</th>
                         <th class="px-4 py-2">Statut</th>
                         <th class="px-4 py-2">Période</th>
-                        <th v-if="canManage" class="px-4 py-2 text-right">Actions</th>
+                        <th class="px-4 py-2 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
-                    <tr v-for="l in lots" :key="l.id" class="hover:bg-gray-50">
+                    <tr v-for="l in lots" :key="l.id" class="cursor-pointer hover:bg-indigo-50" @click="openViewLot(l)">
                         <td class="px-4 py-2 font-mono text-xs">{{ l.code }}</td>
                         <td class="px-4 py-2">{{ l.name }}</td>
                         <td class="px-4 py-2 text-right">{{ l.weight_percentage }}%</td>
                         <td class="px-4 py-2 text-right font-semibold">{{ l.progress_percentage.toFixed(0) }}%</td>
                         <td class="px-4 py-2"><span class="rounded-full px-2 py-0.5 text-[10px] font-medium" :class="statusBadge[l.status]">{{ l.status_label }}</span></td>
                         <td class="px-4 py-2 text-xs text-gray-600">{{ formatDate(l.planned_start_date) }} → {{ formatDate(l.planned_end_date) }}</td>
-                        <td v-if="canManage" class="px-4 py-2 text-right">
+                        <td class="px-4 py-2 text-right" @click.stop>
                             <div class="flex justify-end gap-1">
-                                <button class="rounded p-1 text-gray-500 hover:bg-indigo-50 hover:text-indigo-700" title="Modifier" @click="openEditLot(l)">
+                                <button v-if="canManage" class="rounded p-1 text-gray-500 hover:bg-indigo-50 hover:text-indigo-700" title="Modifier" @click="openEditLot(l)">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.536-6.536a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.5L6 17l.5-4a2 2 0 01.586-1.414z" /></svg>
                                 </button>
-                                <button class="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-700" title="Supprimer" @click="removeLot(l)">
+                                <button v-if="canManage" class="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-700" title="Supprimer" @click="removeLot(l)">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
                                 </button>
                             </div>
                         </td>
                     </tr>
                     <tr v-if="!lots.length">
-                        <td :colspan="canManage ? 7 : 6" class="px-4 py-6 text-center text-sm text-gray-500">Aucun lot.</td>
+                        <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">Aucun lot.</td>
                     </tr>
                 </tbody>
             </table>
@@ -263,11 +288,25 @@ const monthsAxis = computed(() => {
             <p v-else class="py-6 text-center text-sm text-gray-500">Aucun jalon défini.</p>
         </div>
 
+        <QuickLotModal
+            :show="showQuickLotModal"
+            :project-id="project.id"
+            :next-lot-number="nextLotNumber"
+            @close="showQuickLotModal = false"
+        />
         <LotFormModal
             :show="showLotModal"
             :project-id="project.id"
             :lot="editingLot"
             @close="showLotModal = false"
+        />
+        <LotDetailModal
+            :show="showLotDetailModal"
+            :lot="selectedLot"
+            :milestones="milestones"
+            @close="showLotDetailModal = false"
+            @edit="openEditLot(selectedLot); showLotDetailModal = false"
+            @add-milestone="handleAddMilestoneForLot"
         />
         <MilestoneFormModal
             :show="showMilestoneModal"
