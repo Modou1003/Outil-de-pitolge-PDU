@@ -8,11 +8,13 @@ const props = defineProps({
     projectId: { type: [Number, String], required: true },
     milestone: { type: Object, default: null },
     lots: { type: Array, default: () => [] },
+    buildingWorkId: { type: [Number, String], default: null },
 });
 
 const emit = defineEmits(['close']);
 
 const form = useForm({
+    building_work_id: null,
     project_lot_id: null,
     name: '',
     description: '',
@@ -34,6 +36,8 @@ watch(() => props.show, (v) => {
         } else {
             form.reset();
         }
+        // Rattache le jalon à l'ouvrage courant.
+        form.building_work_id = props.milestone?.building_work_id ?? props.buildingWorkId ?? null;
         form.clearErrors();
     }
 });
