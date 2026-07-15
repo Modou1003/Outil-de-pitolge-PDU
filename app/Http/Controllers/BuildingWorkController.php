@@ -17,12 +17,19 @@ class BuildingWorkController extends Controller
         $this->authorizeWrite($request);
         $data = $this->validatePayload($request);
 
-        // Auto-generate code
-        $maxCode = BuildingWork::where('pdu_project_id', $project->id)
+        // Auto-generate code — la contrainte d'unicité est GLOBALE, on calcule
+        // donc le prochain numéro sur toute la table (tous projets confondus),
+        // avec une boucle de sécurité pour éviter toute collision résiduelle.
+        $maxCode = BuildingWork::query()
             ->get()
             ->map(fn($w) => (int) preg_replace('/[^0-9]/', '', $w->code))
             ->max() ?? 0;
-        $data['code'] = 'OUV-' . str_pad($maxCode + 1, 3, '0', STR_PAD_LEFT);
+        $next = $maxCode + 1;
+        do {
+            $code = 'OUV-' . str_pad($next, 3, '0', STR_PAD_LEFT);
+            $next++;
+        } while (BuildingWork::where('code', $code)->exists());
+        $data['code'] = $code;
         $data['status'] = $data['status'] ?? 'not_started';
 
         BuildingWork::create(array_merge($data, [
