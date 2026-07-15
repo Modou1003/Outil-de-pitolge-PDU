@@ -21,7 +21,7 @@ class FinancialProgressController extends Controller
     {
         $this->authorizeWrite($request);
 
-        $data = $this->validatePayload($request);
+        $data = $this->validatePayload($request, $project);
 
         // Vérifie unicité de la période
         $exists = FinancialProgress::where('pdu_project_id', $project->id)
@@ -54,7 +54,7 @@ class FinancialProgressController extends Controller
         abort_if($progress->pdu_project_id !== $project->id, 404);
         $this->authorizeWrite($request);
 
-        $data = $this->validatePayload($request);
+        $data = $this->validatePayload($request, $project);
 
         $exists = FinancialProgress::where('pdu_project_id', $project->id)
             ->where('period', $data['period'])
@@ -101,30 +101,36 @@ class FinancialProgressController extends Controller
         );
     }
 
-    protected function validatePayload(Request $request): array
+    protected function validatePayload(Request $request, PduProject $project): array
     {
+        // Comme pour l'avancement physique : si le projet a des lots, le relevé
+        // doit être rattaché à un lot. Cela évite de mélanger des relevés « par
+        // lot » et « par projet » dans le calcul des cumuls (double comptage).
+        $hasLots = $project->lots()->exists();
+
         return $request->validate([
             'project_lot_id' => [
-                'nullable',
+                $hasLots ? 'required' : 'nullable',
                 'integer',
                 'exists:project_lots,id',
-                function ($attribute, $value, $fail) use ($request) {
+                function ($attribute, $value, $fail) use ($project) {
                     if (! $value) {
                         return;
                     }
-                    $projectId = (int) $request->route('project')->id;
-                    $belongs = ProjectLot::whereKey($value)->where('pdu_project_id', $projectId)->exists();
+                    $belongs = ProjectLot::whereKey($value)->where('pdu_project_id', $project->id)->exists();
                     if (! $belongs) {
-                        $fail('Cet ouvrage ne fait pas partie du projet.');
+                        $fail('Ce lot ne fait pas partie du projet.');
                     }
                 },
             ],
             'period' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'measurement_date' => ['required', 'date'],
-            'planned_value' => ['required', 'numeric'],
-            'earned_value' => ['required', 'numeric'],
-            'actual_cost' => ['required', 'numeric'],
+            'planned_value' => ['required', 'numeric', 'min:0'],
+            'earned_value' => ['required', 'numeric', 'min:0'],
+            'actual_cost' => ['required', 'numeric', 'min:0'],
             'observations' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'project_lot_id.required' => 'Ce projet comporte des lots : veuillez rattacher le relevé à un lot.',
         ]);
     }
 }

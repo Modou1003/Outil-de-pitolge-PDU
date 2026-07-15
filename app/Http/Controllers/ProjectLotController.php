@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FinancialProgress;
 use App\Models\PduProject;
 use App\Models\ProjectLot;
 use App\Services\ProjectAggregationService;
@@ -70,8 +71,17 @@ class ProjectLotController extends Controller
         abort_if($lot->pdu_project_id !== $project->id, 404);
         $this->authorizeWrite($request);
 
+        // Supprime explicitement les relevés financiers du lot : sans cela, la
+        // FK nullOnDelete les transformerait en relevés « projet » orphelins,
+        // faussant les cumuls financiers. (Les relevés physiques, eux, sont
+        // supprimés en cascade par la base.)
+        FinancialProgress::where('project_lot_id', $lot->id)->delete();
+
         $lot->delete();
+
         $this->agg->recomputeProjectProgress($project);
+        $this->agg->recomputeFinancialCumulatives($project);
+        $this->agg->recomputeProjectBudgetSpent($project);
 
         return back()->with('success', 'Lot supprimé.');
     }

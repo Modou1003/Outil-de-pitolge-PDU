@@ -23,6 +23,10 @@ class PhysicalProgressController extends Controller
 
         $data = $this->validatePayload($request, $project);
 
+        if ($this->periodExists($project, $data['period'], $data['project_lot_id'] ?? null)) {
+            return back()->withErrors(['period' => 'Un relevé existe déjà pour cette période et ce lot.']);
+        }
+
         $row = PhysicalProgress::create(array_merge($data, [
             'pdu_project_id' => $project->id,
             'recorded_by' => $request->user()->id,
@@ -42,6 +46,10 @@ class PhysicalProgressController extends Controller
 
         $data = $this->validatePayload($request, $project, $progress->id);
         $previousLotId = $progress->project_lot_id;
+
+        if ($this->periodExists($project, $data['period'], $data['project_lot_id'] ?? null, $progress->id)) {
+            return back()->withErrors(['period' => 'Un relevé existe déjà pour cette période et ce lot.']);
+        }
 
         $progress->update($data);
 
@@ -63,6 +71,19 @@ class PhysicalProgressController extends Controller
         $this->alerteService->generateForAll();
 
         return back()->with('success', 'Relevé supprimé.');
+    }
+
+    protected function periodExists(PduProject $project, string $period, ?int $lotId, ?int $ignoreId = null): bool
+    {
+        return PhysicalProgress::where('pdu_project_id', $project->id)
+            ->where('period', $period)
+            ->when(
+                $lotId,
+                fn ($q) => $q->where('project_lot_id', $lotId),
+                fn ($q) => $q->whereNull('project_lot_id'),
+            )
+            ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+            ->exists();
     }
 
     protected function refreshAggregates(PduProject $project, ?int $lotId = null, ?int $previousLotId = null): void
