@@ -10,6 +10,7 @@ import TabDocuments from '@/Components/Projects/Tabs/TabDocuments.vue';
 
 const props = defineProps({
     project: { type: Object, required: true },
+    building_works: { type: Array, default: () => [] },
     lots: { type: Array, required: true },
     milestones: { type: Array, required: true },
     physical_progresses: { type: Array, required: true },
@@ -160,7 +161,7 @@ const exportExcel = () => {
             />
             <TabPhysical v-else-if="activeTab === 'physical'" :project="project" :progresses="physical_progresses" :lots="lots" />
             <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :lots="lots" />
-            <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :lots="lots" :milestones="milestones" />
+            <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :building_works="building_works" :lots="lots" :milestones="milestones" />
             <TabDocuments v-else-if="activeTab === 'documents'" :project="project" :documents="documents" :categories="document_categories" />
         </div>
     </AuthenticatedLayout>

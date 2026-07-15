@@ -23,6 +23,7 @@ class BuildingWorkController extends Controller
             ->map(fn($w) => (int) preg_replace('/[^0-9]/', '', $w->code))
             ->max() ?? 0;
         $data['code'] = 'OUV-' . str_pad($maxCode + 1, 3, '0', STR_PAD_LEFT);
+        $data['status'] = $data['status'] ?? 'not_started';
 
         BuildingWork::create(array_merge($data, [
             'pdu_project_id' => $project->id,
@@ -38,6 +39,7 @@ class BuildingWorkController extends Controller
         $this->authorizeWrite($request);
         $data = $this->validatePayload($request);
 
+        if (empty($data['status'])) unset($data['status']);
         $work->update($data);
         $this->alerteService->generateForAll();
 
@@ -69,7 +71,7 @@ class BuildingWorkController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'status' => ['required', 'in:not_started,in_progress,on_hold,completed,cancelled'],
+            'status' => ['nullable', 'in:not_started,in_progress,on_hold,completed,cancelled'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
     }

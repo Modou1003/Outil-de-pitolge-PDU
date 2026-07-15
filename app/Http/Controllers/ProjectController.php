@@ -195,6 +195,7 @@ class ProjectController extends Controller
     {
         return [
             'id' => $l->id,
+            'building_work_id' => $l->building_work_id,
             'code' => $l->code,
             'name' => $l->name,
             'description' => $l->description,

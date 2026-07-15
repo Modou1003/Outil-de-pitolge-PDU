@@ -7,11 +7,13 @@ const props = defineProps({
     show: { type: Boolean, default: false },
     projectId: { type: [Number, String], required: true },
     lot: { type: Object, default: null },
+    buildingWorkId: { type: [Number, String], default: null },
 });
 
 const emit = defineEmits(['close']);
 
 const form = useForm({
+    building_work_id: null,
     code: '',
     name: '',
     description: '',
@@ -35,6 +37,8 @@ watch(() => props.show, (v) => {
         } else {
             form.reset();
         }
+        // Rattache le lot à l'ouvrage courant.
+        form.building_work_id = props.lot?.building_work_id ?? props.buildingWorkId ?? null;
         form.clearErrors();
     }
 });
