@@ -18,6 +18,12 @@ class AlerteService
     /** Seuil d'écart d'avancement (réel - prévu). */
     public const PROGRESS_GAP_THRESHOLD = -15.0;
 
+    /** Seuil (en points) de décaissement en avance sur l'avancement physique. */
+    public const PHYS_FIN_GAP_THRESHOLD = 20.0;
+
+    /** Seuil (en points) au-delà duquel le décalage physico-financier est critique. */
+    public const PHYS_FIN_GAP_CRITICAL = 35.0;
+
     public function generateForAll(): array
     {
         $summary = ['created' => 0, 'closed' => 0, 'scanned' => 0];
@@ -48,6 +54,7 @@ class AlerteService
         if ($this->detectProgressGap($project)) $active[] = 'progress_gap';
         if ($this->detectNoUpdate($project)) $active[] = 'no_update';
         if ($this->detectMilestoneMissed($project)) $active[] = 'milestone_missed';
+        if ($this->detectPhysicalFinancialGap($project)) $active[] = 'physical_financial_gap';
 
         foreach ($active as $type) {
             if ($this->upsertOpen($project, $type)) {
@@ -141,6 +148,7 @@ class AlerteService
                 ],
             ],
             'no_update' => $this->noUpdatePayload($project),
+            'physical_financial_gap' => $this->physicalFinancialPayload($project),
             'milestone_missed' => [
                 'severity' => 'critical',
                 'title' => 'Jalon dépassé',
@@ -237,6 +245,49 @@ class AlerteService
                 self::STALE_DATA_DAYS,
             ),
             'context' => ['days_since' => $days, 'threshold' => self::STALE_DATA_DAYS],
+        ];
+    }
+
+    protected function detectPhysicalFinancialGap(PduProject $project): bool
+    {
+        // Non pertinent pour les projets sans exécution en cours.
+        if (in_array($project->status, ['draft', 'completed', 'cancelled', 'archived'], true)) {
+            return false;
+        }
+        if (! $project->budget_allocated || $project->budget_allocated <= 0) {
+            return false;
+        }
+
+        $physical = (float) $project->progress_percentage;
+        $financial = (float) $project->budget_execution_rate;
+
+        // Alerte uniquement quand le décaissement dépasse la réalisation physique
+        // (risque de façade / surfacturation), au-delà du seuil.
+        return ($financial - $physical) > self::PHYS_FIN_GAP_THRESHOLD;
+    }
+
+    protected function physicalFinancialPayload(PduProject $project): array
+    {
+        $physical = round((float) $project->progress_percentage, 1);
+        $financial = round((float) $project->budget_execution_rate, 1);
+        $gap = round($financial - $physical, 1);
+        $critical = $gap > self::PHYS_FIN_GAP_CRITICAL;
+
+        return [
+            'severity' => $critical ? 'critical' : 'warning',
+            'title' => $critical ? 'Effet de façade critique' : 'Décaissement en avance sur la réalisation',
+            'message' => sprintf(
+                'Le décaissement (%.1f%%) dépasse l\'avancement physique (%.1f%%) de %.1f points — risque de surfacturation ou d\'avances non justifiées.',
+                $financial,
+                $physical,
+                $gap,
+            ),
+            'context' => [
+                'physical' => $physical,
+                'financial' => $financial,
+                'gap' => $gap,
+                'threshold' => self::PHYS_FIN_GAP_THRESHOLD,
+            ],
         ];
     }
 
