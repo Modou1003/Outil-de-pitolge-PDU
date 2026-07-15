@@ -74,6 +74,36 @@ const filtered = computed(() =>
     })
 );
 
+// Tri par santé (clic sur l'en-tête). null = ordre d'origine (par code).
+const healthSort = ref(null); // null | 'asc' | 'desc'
+const toggleHealthSort = () => {
+    healthSort.value = healthSort.value === 'asc' ? 'desc' : (healthSort.value === 'desc' ? null : 'asc');
+};
+
+const sorted = computed(() => {
+    if (!healthSort.value) return filtered.value;
+    const dir = healthSort.value === 'asc' ? 1 : -1;
+    // Les projets non évaluables (score null) sont toujours renvoyés en fin de liste.
+    return [...filtered.value].sort((a, b) => {
+        const sa = a.health_score, sb = b.health_score;
+        if (sa === null && sb === null) return 0;
+        if (sa === null) return 1;
+        if (sb === null) return -1;
+        return (sa - sb) * dir;
+    });
+});
+
+const healthBadge = {
+    healthy: 'bg-emerald-100 text-emerald-700',
+    fair: 'bg-lime-100 text-lime-700',
+    at_risk: 'bg-amber-100 text-amber-700',
+    critical: 'bg-red-100 text-red-700',
+    unknown: 'bg-gray-100 text-gray-500',
+};
+const healthLabel = {
+    healthy: 'Bonne', fair: 'Correcte', at_risk: 'À risque', critical: 'Critique', unknown: 'N/A',
+};
+
 const resetFilters = () => {
     statusFilter.value = '';
     typeFilter.value = '';
@@ -224,6 +254,16 @@ const deleteProject = (p) => {
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Projet</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Site</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+                            <button type="button" class="inline-flex items-center gap-1 uppercase tracking-wide hover:text-indigo-600" @click="toggleHealthSort" title="Trier par santé (les plus urgents en premier)">
+                                Santé
+                                <span class="text-[10px]">
+                                    <template v-if="healthSort === 'asc'">▲</template>
+                                    <template v-else-if="healthSort === 'desc'">▼</template>
+                                    <template v-else>⇅</template>
+                                </span>
+                            </button>
+                        </th>
                         <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Physique</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Financier</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Statut</th>
@@ -232,11 +272,11 @@ const deleteProject = (p) => {
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50 bg-white">
-                    <tr v-if="filtered.length === 0">
-                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">Aucun projet ne correspond aux filtres.</td>
+                    <tr v-if="sorted.length === 0">
+                        <td colspan="8" class="px-4 py-8 text-center text-gray-500">Aucun projet ne correspond aux filtres.</td>
                     </tr>
                     <tr
-                        v-for="p in filtered"
+                        v-for="p in sorted"
                         :key="p.id"
                         class="cursor-pointer transition hover:bg-gray-50"
                         @click="openProject(p)"
@@ -248,6 +288,17 @@ const deleteProject = (p) => {
                         <td class="px-4 py-2 text-gray-700">
                             {{ p.university_acronym }}
                             <div class="text-xs text-gray-500">{{ p.region }}</div>
+                        </td>
+                        <td class="px-4 py-2">
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="inline-flex min-w-[2.25rem] justify-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
+                                    :class="healthBadge[p.health_level] || healthBadge.unknown"
+                                >
+                                    {{ p.health_score !== null ? p.health_score : '—' }}
+                                </span>
+                                <span class="hidden text-xs text-gray-500 sm:inline">{{ healthLabel[p.health_level] || 'N/A' }}</span>
+                            </div>
                         </td>
                         <td class="px-4 py-2">
                             <div class="flex items-center gap-2">

@@ -4,14 +4,24 @@ namespace App\Http\Controllers;
 
 use App\Models\PduProject;
 use App\Models\University;
+use App\Services\ProjectHealthService;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    public function __construct(protected ProjectHealthService $healthService) {}
+
     public function index(): Response
     {
-        $projects = PduProject::with('university:id,name,acronym,location,region')
+        $projects = PduProject::query()
+            ->with([
+                'university:id,name,acronym,location,region',
+                'physicalProgresses',
+                'financialProgresses',
+                'milestones',
+                'alerts' => fn ($q) => $q->where('is_resolved', false),
+            ])
             ->orderBy('code')
             ->get();
 
@@ -25,6 +35,8 @@ class DashboardController extends Controller
     private function projectsList($projects): array
     {
         return $projects->map(function (PduProject $p) {
+            $health = $this->healthService->score($p);
+
             return [
                 'id' => $p->id,
                 'code' => $p->code,
@@ -40,7 +52,9 @@ class DashboardController extends Controller
                 'university_name' => $p->university?->name,
                 'university_acronym' => $p->university?->acronym,
                 'region' => $p->university?->region,
-                'alerts_count' => 0,
+                'alerts_count' => $p->alerts->count(),
+                'health_score' => $health['score'],
+                'health_level' => $health['level'],
             ];
         })->values()->all();
     }

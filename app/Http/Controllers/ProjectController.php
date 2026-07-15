@@ -16,6 +16,7 @@ use App\Models\ProjectTeamMember;
 use App\Models\University;
 use App\Models\User;
 use App\Services\AlerteService;
+use App\Services\ProjectHealthService;
 use App\Exports\ProjetExport;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +27,10 @@ use Illuminate\Validation\Rule;
 
 class ProjectController extends Controller
 {
-    public function __construct(protected AlerteService $alerteService) {}
+    public function __construct(
+        protected AlerteService $alerteService,
+        protected ProjectHealthService $healthService,
+    ) {}
 
     public function show(PduProject $project): Response
     {
@@ -303,6 +307,7 @@ class ProjectController extends Controller
             'data_freshness' => $this->computeDataFreshness($project),
             'physical_financial' => $this->computePhysicalFinancial($project),
             'forecast_completion' => $this->computeForecastCompletion($project),
+            'health' => $this->healthService->score($project),
         ];
     }
 

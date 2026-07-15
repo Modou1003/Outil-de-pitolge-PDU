@@ -81,6 +81,26 @@ const physFinTitle = computed(() => {
     return `${base}${eff} — physique et budget alignés.`;
 });
 
+// Score de santé global
+const health = computed(() => props.kpis?.health ?? null);
+const healthStyle = {
+    healthy: { bar: 'bg-emerald-500', text: 'text-emerald-700', ring: 'ring-emerald-200', bg: 'bg-emerald-50', label: 'Bonne santé' },
+    fair: { bar: 'bg-lime-500', text: 'text-lime-700', ring: 'ring-lime-200', bg: 'bg-lime-50', label: 'Correcte' },
+    at_risk: { bar: 'bg-amber-500', text: 'text-amber-700', ring: 'ring-amber-200', bg: 'bg-amber-50', label: 'À risque' },
+    critical: { bar: 'bg-red-500', text: 'text-red-700', ring: 'ring-red-200', bg: 'bg-red-50', label: 'Critique' },
+    unknown: { bar: 'bg-gray-300', text: 'text-gray-500', ring: 'ring-gray-200', bg: 'bg-white', label: 'Non évaluable' },
+};
+const healthLevel = computed(() => health.value?.level ?? 'unknown');
+const healthTitle = computed(() => {
+    const h = health.value;
+    if (!h || h.score === null) return "Pas assez de données pour évaluer la santé du projet.";
+    const labels = { schedule: 'Planning', cost: 'Coût', facade: 'Façade', data: 'Donnée', milestones: 'Jalons', alerts: 'Alertes' };
+    const parts = Object.entries(h.components || {})
+        .filter(([, v]) => v !== null)
+        .map(([k, v]) => `${labels[k]} ${v}`);
+    return parts.length ? `Composantes — ${parts.join(' · ')}` : '';
+});
+
 // Date de fin projetée (au rythme réel)
 const forecast = computed(() => props.kpis?.forecast_completion ?? null);
 const forecastClasses = computed(() => {
@@ -166,6 +186,23 @@ const exportExcel = () => {
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-4 text-sm">
+                    <div
+                        v-if="health"
+                        class="min-w-[150px] rounded-lg px-3 py-2 ring-1"
+                        :class="[healthStyle[healthLevel].bg, healthStyle[healthLevel].ring]"
+                        :title="healthTitle"
+                    >
+                        <p class="text-[10px] uppercase tracking-wide" :class="healthStyle[healthLevel].text">Santé du projet</p>
+                        <div class="flex items-baseline gap-1">
+                            <p class="text-lg font-bold" :class="healthStyle[healthLevel].text">
+                                {{ health.score !== null ? health.score : '—' }}<span v-if="health.score !== null" class="text-xs font-medium">/100</span>
+                            </p>
+                            <span class="text-[10px] font-medium" :class="healthStyle[healthLevel].text">{{ healthStyle[healthLevel].label }}</span>
+                        </div>
+                        <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                            <div class="h-full transition-all" :class="healthStyle[healthLevel].bar" :style="{ width: (health.score ?? 0) + '%' }" />
+                        </div>
+                    </div>
                     <div class="rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200">
                         <p class="text-[10px] uppercase tracking-wide text-gray-500">Avancement</p>
                         <p class="font-semibold text-gray-900">{{ latestPhysicalReal !== null ? `${latestPhysicalReal.toFixed(1)}%` : '—' }}</p>
