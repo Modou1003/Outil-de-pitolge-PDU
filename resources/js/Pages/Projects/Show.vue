@@ -40,6 +40,22 @@ const latestPhysicalReal = computed(() => {
     return typeof v === 'number' ? v : (v !== null && v !== undefined ? Number(v) : null);
 });
 
+// Indice de fraîcheur / fiabilité de la donnée
+const freshness = computed(() => props.kpis?.data_freshness ?? null);
+const freshnessStyle = {
+    fresh: { bg: 'bg-emerald-50', ring: 'ring-emerald-200', text: 'text-emerald-700', label: 'text-emerald-600' },
+    stale: { bg: 'bg-amber-50', ring: 'ring-amber-200', text: 'text-amber-700', label: 'text-amber-600' },
+    critical: { bg: 'bg-red-50', ring: 'ring-red-200', text: 'text-red-700', label: 'text-red-600' },
+    none: { bg: 'bg-white', ring: 'ring-gray-200', text: 'text-gray-400', label: 'text-gray-500' },
+};
+const freshnessTitle = computed(() => {
+    const f = freshness.value;
+    if (!f || !f.last_update) return "Aucun avancement physique saisi — les indicateurs ne reflètent pas le terrain.";
+    const d = new Date(f.last_update).toLocaleDateString('fr-FR');
+    const cov = f.coverage_rate !== null ? ` · ${f.lots_recent}/${f.lots_total} lot(s) à jour sur 30 j (${f.coverage_rate}%)` : '';
+    return `Dernière saisie : ${d}${cov}`;
+});
+
 const tabs = [
     { id: 'general', label: 'Informations générales', icon: 'info' },
     { id: 'physical', label: 'Avancement physique', icon: 'chart' },
@@ -109,6 +125,21 @@ const exportExcel = () => {
                     <div v-if="kpis.alerts_open > 0" class="rounded-lg bg-red-50 px-3 py-2 ring-1 ring-red-200">
                         <p class="text-[10px] uppercase tracking-wide text-red-600">Alertes ouvertes</p>
                         <p class="font-semibold text-red-700">{{ kpis.alerts_open }}</p>
+                    </div>
+                    <div
+                        v-if="freshness"
+                        class="rounded-lg px-3 py-2 ring-1"
+                        :class="[freshnessStyle[freshness.level].bg, freshnessStyle[freshness.level].ring]"
+                        :title="freshnessTitle"
+                    >
+                        <p class="text-[10px] uppercase tracking-wide" :class="freshnessStyle[freshness.level].label">Fraîcheur donnée</p>
+                        <p class="font-semibold" :class="freshnessStyle[freshness.level].text">
+                            <template v-if="freshness.days_since !== null">
+                                {{ freshness.days_since }} j
+                                <span v-if="freshness.coverage_rate !== null" class="text-[10px] font-normal opacity-75">· {{ freshness.coverage_rate }}%</span>
+                            </template>
+                            <template v-else>—</template>
+                        </p>
                     </div>
                     <a
                         :href="route('rapports.projet', project.id)"

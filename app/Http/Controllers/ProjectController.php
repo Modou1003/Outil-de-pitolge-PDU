@@ -300,6 +300,54 @@ class ProjectController extends Controller
             'milestones_total' => $project->milestones->count(),
             'milestones_reached' => $project->milestones->where('status', 'reached')->count(),
             'milestones_missed' => $project->milestones->where('status', 'missed')->count(),
+            'data_freshness' => $this->computeDataFreshness($project),
+        ];
+    }
+
+    /**
+     * Indice de fraîcheur / fiabilité de la donnée.
+     *
+     * Mesure à quel point les KPI reflètent la réalité actuelle du terrain :
+     * ancienneté de la dernière saisie d'avancement physique et couverture
+     * des lots récemment mis à jour. Un SPI/CPI calculé sur une donnée
+     * périmée n'a aucune valeur — cet indice permet de le savoir.
+     */
+    private function computeDataFreshness(PduProject $project): array
+    {
+        // La donnée « terrain » de référence est l'avancement physique.
+        $lastDate = $project->physicalProgresses
+            ->pluck('measurement_date')
+            ->filter()
+            ->max();
+
+        $daysSince = $lastDate
+            ? (int) $lastDate->copy()->startOfDay()->diffInDays(now()->startOfDay())
+            : null;
+
+        // Couverture : part des lots ayant reçu une saisie sur les 30 derniers jours.
+        $lotsTotal = $project->lots->count();
+        $threshold = now()->copy()->subDays(30)->startOfDay();
+        $lotsRecent = $project->physicalProgresses
+            ->filter(fn (PhysicalProgress $p) => $p->measurement_date && $p->measurement_date->greaterThanOrEqualTo($threshold))
+            ->pluck('project_lot_id')
+            ->filter()
+            ->unique()
+            ->count();
+        $coverageRate = $lotsTotal > 0 ? (int) round($lotsRecent / $lotsTotal * 100) : null;
+
+        // Niveau : vert < 30 j, orange 30-60 j, rouge > 60 j, gris si aucune donnée.
+        $level = 'none';
+        if ($daysSince !== null) {
+            $level = $daysSince <= 30 ? 'fresh' : ($daysSince <= 60 ? 'stale' : 'critical');
+        }
+
+        return [
+            'last_update' => $lastDate?->toDateString(),
+            'days_since' => $daysSince,
+            'level' => $level,
+            'lots_total' => $lotsTotal,
+            'lots_recent' => $lotsRecent,
+            'coverage_rate' => $coverageRate,
         ];
     }
 
