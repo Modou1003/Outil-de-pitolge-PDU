@@ -301,6 +301,49 @@ class ProjectController extends Controller
             'milestones_reached' => $project->milestones->where('status', 'reached')->count(),
             'milestones_missed' => $project->milestones->where('status', 'missed')->count(),
             'data_freshness' => $this->computeDataFreshness($project),
+            'physical_financial' => $this->computePhysicalFinancial($project),
+        ];
+    }
+
+    /**
+     * Décalage physico-financier (« effet de façade »).
+     *
+     * Compare l'avancement physique réel au taux de décaissement du budget.
+     * Un décaissement nettement en avance sur la réalisation physique
+     * signale un risque de surfacturation ou d'avances non justifiées ;
+     * l'inverse signale des travaux réalisés mais non encore payés.
+     */
+    private function computePhysicalFinancial(PduProject $project): array
+    {
+        $physical = round((float) $project->progress_percentage, 1);
+        $financial = round((float) $project->budget_execution_rate, 1);
+        $gap = round($physical - $financial, 1);
+        $ratio = $financial > 0 ? round($physical / $financial, 2) : null;
+
+        // Sens de l'écart.
+        $direction = 'aligned';
+        if ($gap < 0) $direction = 'overspend';   // décaissement en avance → risque façade
+        elseif ($gap > 0) $direction = 'underspend'; // réalisation en avance → paiements en retard
+
+        // Niveau selon l'ampleur (vert ≤ 10 pts, orange ≤ 20 pts, rouge > 20 pts).
+        $abs = abs($gap);
+        if ($physical == 0.0 && $financial == 0.0) {
+            $level = 'none';
+        } elseif ($abs <= 10) {
+            $level = 'aligned';
+        } elseif ($abs <= 20) {
+            $level = 'watch';
+        } else {
+            $level = 'critical';
+        }
+
+        return [
+            'physical' => $physical,
+            'financial' => $financial,
+            'gap' => $gap,
+            'ratio' => $ratio,
+            'direction' => $direction,
+            'level' => $level,
         ];
     }
 

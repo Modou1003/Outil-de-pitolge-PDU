@@ -56,6 +56,31 @@ const freshnessTitle = computed(() => {
     return `Dernière saisie : ${d}${cov}`;
 });
 
+// Décalage physico-financier (effet de façade)
+const physFin = computed(() => props.kpis?.physical_financial ?? null);
+const physFinClasses = computed(() => {
+    const p = physFin.value;
+    const gray = { bg: 'bg-white', ring: 'ring-gray-200', text: 'text-gray-400', label: 'text-gray-500' };
+    if (!p || p.level === 'none') return gray;
+    if (p.level === 'aligned') return { bg: 'bg-emerald-50', ring: 'ring-emerald-200', text: 'text-emerald-700', label: 'text-emerald-600' };
+    if (p.direction === 'overspend') {
+        return p.level === 'critical'
+            ? { bg: 'bg-red-50', ring: 'ring-red-200', text: 'text-red-700', label: 'text-red-600' }
+            : { bg: 'bg-amber-50', ring: 'ring-amber-200', text: 'text-amber-700', label: 'text-amber-600' };
+    }
+    // underspend : réalisation en avance sur les paiements (informatif)
+    return { bg: 'bg-sky-50', ring: 'ring-sky-200', text: 'text-sky-700', label: 'text-sky-600' };
+});
+const physFinTitle = computed(() => {
+    const p = physFin.value;
+    if (!p || p.level === 'none') return "Avancement physique et décaissement non renseignés.";
+    const base = `Physique ${p.physical}% vs décaissé ${p.financial}%`;
+    const eff = p.ratio !== null ? ` · efficience ${p.ratio}` : '';
+    if (p.direction === 'overspend') return `${base}${eff} — décaissement en avance sur la réalisation (risque de surfacturation / avances).`;
+    if (p.direction === 'underspend') return `${base}${eff} — réalisation en avance sur les paiements (décaissements en retard).`;
+    return `${base}${eff} — physique et budget alignés.`;
+});
+
 const tabs = [
     { id: 'general', label: 'Informations générales', icon: 'info' },
     { id: 'physical', label: 'Avancement physique', icon: 'chart' },
@@ -137,6 +162,20 @@ const exportExcel = () => {
                             <template v-if="freshness.days_since !== null">
                                 {{ freshness.days_since }} j
                                 <span v-if="freshness.coverage_rate !== null" class="text-[10px] font-normal opacity-75">· {{ freshness.coverage_rate }}%</span>
+                            </template>
+                            <template v-else>—</template>
+                        </p>
+                    </div>
+                    <div
+                        v-if="physFin"
+                        class="rounded-lg px-3 py-2 ring-1"
+                        :class="[physFinClasses.bg, physFinClasses.ring]"
+                        :title="physFinTitle"
+                    >
+                        <p class="text-[10px] uppercase tracking-wide" :class="physFinClasses.label">Écart physique/budget</p>
+                        <p class="font-semibold" :class="physFinClasses.text">
+                            <template v-if="physFin.level !== 'none'">
+                                {{ physFin.gap > 0 ? '+' : '' }}{{ physFin.gap }} pts
                             </template>
                             <template v-else>—</template>
                         </p>
