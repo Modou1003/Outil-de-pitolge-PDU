@@ -17,6 +17,10 @@ class ProjectLotController extends Controller
         $this->authorizeWrite($request);
         $data = $this->validatePayload($request, $project);
 
+        // Un lot neuf n'a pas encore de saisie physique : avancement à 0 et
+        // statut rendu cohérent avec cet avancement.
+        $data['status'] = $this->coherentStatus($data['status'], (float) ($data['progress_percentage'] ?? 0));
+
         $lot = ProjectLot::create(array_merge($data, [
             'pdu_project_id' => $project->id,
         ]));
@@ -32,10 +36,33 @@ class ProjectLotController extends Controller
         $this->authorizeWrite($request);
         $data = $this->validatePayload($request, $project, $lot->id);
 
+        // Le statut doit rester cohérent avec l'avancement réel (dérivé des
+        // saisies physiques), pas avec une valeur arbitraire du formulaire.
+        $data['status'] = $this->coherentStatus($data['status'], (float) $lot->progress_percentage);
+
         $lot->update($data);
         $this->agg->recomputeProjectProgress($project);
 
         return back()->with('success', 'Lot mis à jour.');
+    }
+
+    /**
+     * Rend le statut cohérent avec l'avancement du lot.
+     * « En pause » et « Annulé » sont des états de planning conservés tels quels.
+     */
+    protected function coherentStatus(string $status, float $progress): string
+    {
+        if (in_array($status, ['on_hold', 'cancelled'], true)) {
+            return $status;
+        }
+        if ($progress >= 100) {
+            return 'completed';
+        }
+        if ($progress <= 0) {
+            return $status === 'completed' ? 'not_started' : $status;
+        }
+        // 0 < avancement < 100 : ne peut pas être « terminé ».
+        return $status === 'completed' ? 'in_progress' : $status;
     }
 
     public function destroy(Request $request, PduProject $project, ProjectLot $lot): RedirectResponse
@@ -79,14 +106,40 @@ class ProjectLotController extends Controller
 
     protected function validatePayload(Request $request, PduProject $project, ?int $ignoreId = null): array
     {
+        $projectStart = $project->start_date?->toDateString();
+
+        // Borne temporelle basse : un lot ne peut pas commencer/finir avant le
+        // début du projet. (Le dépassement de la fin est autorisé : c'est un
+        // signal de retard, révélé par les indicateurs, pas une erreur de saisie.)
+        $plannedStartRules = ['nullable', 'date'];
+        $plannedEndRules = ['nullable', 'date', 'after_or_equal:planned_start_date'];
+        if ($projectStart) {
+            $plannedStartRules[] = 'after_or_equal:' . $projectStart;
+            $plannedEndRules[] = 'after_or_equal:' . $projectStart;
+        }
+
         $rules = [
             'building_work_id' => ['nullable', 'exists:building_works,id'],
             'code' => ['required', 'string', 'max:32'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'weight_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
-            'planned_start_date' => ['nullable', 'date'],
-            'planned_end_date' => ['nullable', 'date', 'after_or_equal:planned_start_date'],
+            'weight_percentage' => [
+                'required', 'numeric', 'min:0', 'max:100',
+                // La somme des pondérations de tous les lots du projet ne peut dépasser 100 %.
+                function ($attribute, $value, $fail) use ($project, $ignoreId) {
+                    $others = (float) ProjectLot::where('pdu_project_id', $project->id)
+                        ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
+                        ->sum('weight_percentage');
+                    if ($others + (float) $value > 100.001) {
+                        $fail(sprintf(
+                            'La somme des pondérations des lots dépasserait 100 %% (%.1f %% déjà attribués aux autres lots).',
+                            $others,
+                        ));
+                    }
+                },
+            ],
+            'planned_start_date' => $plannedStartRules,
+            'planned_end_date' => $plannedEndRules,
             'actual_start_date' => ['nullable', 'date'],
             'actual_end_date' => ['nullable', 'date', 'after_or_equal:actual_start_date'],
             'progress_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -95,6 +148,9 @@ class ProjectLotController extends Controller
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ];
 
-        return $request->validate($rules);
+        return $request->validate($rules, [
+            'planned_start_date.after_or_equal' => 'La date de début du lot doit être postérieure ou égale au début du projet.',
+            'planned_end_date.after_or_equal' => 'La date de fin du lot doit être cohérente avec le début du lot et du projet.',
+        ]);
     }
 }

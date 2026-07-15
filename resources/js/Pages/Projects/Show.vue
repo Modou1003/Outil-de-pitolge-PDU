@@ -203,9 +203,9 @@ const exportExcel = () => {
                             <div class="h-full transition-all" :class="healthStyle[healthLevel].bar" :style="{ width: (health.score ?? 0) + '%' }" />
                         </div>
                     </div>
-                    <div class="rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200">
-                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Avancement</p>
-                        <p class="font-semibold text-gray-900">{{ latestPhysicalReal !== null ? `${latestPhysicalReal.toFixed(1)}%` : '—' }}</p>
+                    <div class="rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200" title="Avancement physique global, moyenne pondérée des lots par leur pondération">
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Avancement physique</p>
+                        <p class="font-semibold text-gray-900">{{ project.progress_percentage !== null && project.progress_percentage !== undefined ? `${Number(project.progress_percentage).toFixed(1)}%` : '—' }}</p>
                     </div>
                     <div class="rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200">
                         <p class="text-[10px] uppercase tracking-wide text-gray-500">SPI</p>

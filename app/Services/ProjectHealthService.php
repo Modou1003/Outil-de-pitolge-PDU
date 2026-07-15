@@ -118,14 +118,23 @@ class ProjectHealthService
         return $days <= 30 ? 100.0 : $this->clamp(100 - ($days - 30) / 60 * 100); // 90 j → 0
     }
 
-    /** Jalons : proportion de jalons non manqués. */
+    /** Jalons : proportion de jalons non manqués (statut « missed » OU échu non atteint). */
     private function milestonesScore(PduProject $project): ?float
     {
         $total = $project->milestones->count();
         if ($total === 0) {
             return null;
         }
-        $missed = $project->milestones->where('status', 'missed')->count();
+        $missed = $project->milestones->filter(function ($m) {
+            if ($m->status === 'missed') {
+                return true;
+            }
+            // Échu sans avoir été atteint ni annulé = manqué de fait.
+            return $m->planned_date
+                && $m->planned_date->isPast()
+                && ! in_array($m->status, ['reached', 'cancelled'], true);
+        })->count();
+
         return $this->clamp(100 * ($total - $missed) / $total);
     }
 

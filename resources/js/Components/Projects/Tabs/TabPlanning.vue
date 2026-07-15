@@ -29,6 +29,10 @@ const workMilestones = computed(() => props.milestones.filter((m) => m.building_
 const lotsCount = (w) => props.lots.filter((l) => l.building_work_id === w.id).length;
 const milestonesCount = (w) => props.milestones.filter((m) => m.building_work_id === w.id).length;
 
+// Somme des pondérations de TOUS les lots du projet (doit totaliser 100 %).
+const totalWeight = computed(() => props.lots.reduce((s, l) => s + (Number(l.weight_percentage) || 0), 0));
+const weightIsBalanced = computed(() => Math.abs(totalWeight.value - 100) < 0.05);
+
 // ── Modales ────────────────────────────────────────────────────────────────
 const showBuildingWorkModal = ref(false);
 const editingWork = ref(null);
@@ -291,6 +295,13 @@ const monthsAxis = computed(() => {
                         Ajouter un lot
                     </button>
                 </div>
+                <div
+                    v-if="lots.length && !weightIsBalanced"
+                    class="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2 text-xs text-amber-800"
+                >
+                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                    Somme des pondérations de tous les lots du projet : <strong>{{ totalWeight.toFixed(1) }} %</strong> — elle devrait totaliser 100 % pour un avancement pondéré fidèle.
+                </div>
                 <table class="min-w-full divide-y divide-gray-100 text-sm">
                     <thead class="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
                         <tr>
@@ -348,7 +359,11 @@ const monthsAxis = computed(() => {
                         <div class="rounded-lg border p-3" :class="milestoneStyle[m.status]">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <p class="font-semibold">{{ m.name }}</p>
-                                <span class="text-xs">{{ m.status_label }}<span v-if="m.is_critical" class="ml-2 text-red-600">★ critique</span></span>
+                                <span class="text-xs">
+                                    {{ m.status_label }}
+                                    <span v-if="m.is_late" class="ml-2 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">En retard</span>
+                                    <span v-if="m.is_critical" class="ml-2 text-red-600">★ critique</span>
+                                </span>
                             </div>
                             <p class="mt-1 text-xs">Prévu : {{ formatDate(m.planned_date) }}<span v-if="m.actual_date"> · Atteint : {{ formatDate(m.actual_date) }}</span></p>
                             <div v-if="canManage" class="mt-2 flex flex-wrap gap-2">

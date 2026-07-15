@@ -213,15 +213,25 @@ class PduProject extends Model
     }
 
     /**
-     * Get the planned progress based on elapsed time between start_date and end_date.
+     * Date de fin planifiée de référence, unique pour tous les indicateurs :
+     * la date de livraison prévue si renseignée, sinon la date de fin.
+     */
+    public function getPlannedEndDateAttribute()
+    {
+        return $this->planned_completion_date ?: $this->end_date;
+    }
+
+    /**
+     * Get the planned progress based on elapsed time between start_date and planned end date.
      */
     public function getPlannedProgressAttribute(): float
     {
-        if (! $this->start_date || ! $this->end_date) {
+        $plannedEnd = $this->planned_end_date;
+        if (! $this->start_date || ! $plannedEnd) {
             return 0;
         }
 
-        $total = $this->start_date->diffInDays($this->end_date);
+        $total = $this->start_date->diffInDays($plannedEnd);
         if ($total <= 0) {
             return 100;
         }

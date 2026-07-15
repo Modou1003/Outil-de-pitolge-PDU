@@ -87,9 +87,13 @@ class PhysicalProgressController extends Controller
 
     protected function validatePayload(Request $request, PduProject $project, ?int $ignoreId = null): array
     {
+        // Si le projet possède des lots, un relevé doit être rattaché à un lot,
+        // sinon il serait ignoré dans le calcul de l'avancement pondéré.
+        $hasLots = $project->lots()->exists();
+
         return $request->validate([
             'project_lot_id' => [
-                'nullable',
+                $hasLots ? 'required' : 'nullable',
                 'integer',
                 'exists:project_lots,id',
                 function ($attribute, $value, $fail) use ($project) {
@@ -98,15 +102,17 @@ class PhysicalProgressController extends Controller
                     }
                     $belongs = ProjectLot::whereKey($value)->where('pdu_project_id', $project->id)->exists();
                     if (! $belongs) {
-                        $fail('Cet ouvrage ne fait pas partie du projet.');
+                        $fail('Ce lot ne fait pas partie du projet.');
                     }
                 },
             ],
             'period' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'measurement_date' => ['required', 'date'],
-            'planned_percentage' => ['required', 'numeric', 'max:100'],
-            'actual_percentage' => ['required', 'numeric', 'max:100'],
+            'planned_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
+            'actual_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
             'observations' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'project_lot_id.required' => 'Ce projet comporte des lots : veuillez rattacher le relevé à un lot.',
         ]);
     }
 }

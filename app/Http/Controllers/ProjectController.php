@@ -526,6 +526,17 @@ class ProjectController extends Controller
             'status' => 'required|in:draft,submitted,approved,in_progress,on_hold,completed,cancelled,archived',
         ]);
 
+        // Cohérence : un projet ne peut être marqué « Terminé » tant que
+        // l'avancement physique n'a pas atteint 100 %.
+        if ($data['status'] === 'completed' && (float) $project->progress_percentage < 100) {
+            return back()->withErrors([
+                'status' => sprintf(
+                    'Impossible de terminer le projet : avancement physique à %.1f %% (100 %% requis).',
+                    (float) $project->progress_percentage,
+                ),
+            ]);
+        }
+
         $project->update($data);
 
         return redirect()->back();
