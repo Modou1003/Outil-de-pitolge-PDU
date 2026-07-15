@@ -81,6 +81,41 @@ const physFinTitle = computed(() => {
     return `${base}${eff} — physique et budget alignés.`;
 });
 
+// Date de fin projetée (au rythme réel)
+const forecast = computed(() => props.kpis?.forecast_completion ?? null);
+const forecastClasses = computed(() => {
+    const f = forecast.value;
+    const gray = { bg: 'bg-white', ring: 'ring-gray-200', text: 'text-gray-400', label: 'text-gray-500' };
+    if (!f || f.level === 'none') return gray;
+    if (f.level === 'done') return { bg: 'bg-emerald-50', ring: 'ring-emerald-200', text: 'text-emerald-700', label: 'text-emerald-600' };
+    if (f.level === 'on_track') return { bg: 'bg-emerald-50', ring: 'ring-emerald-200', text: 'text-emerald-700', label: 'text-emerald-600' };
+    if (f.level === 'watch') return { bg: 'bg-amber-50', ring: 'ring-amber-200', text: 'text-amber-700', label: 'text-amber-600' };
+    return { bg: 'bg-red-50', ring: 'ring-red-200', text: 'text-red-700', label: 'text-red-600' };
+});
+const forecastMonth = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '—';
+const forecastValue = computed(() => {
+    const f = forecast.value;
+    if (!f) return '—';
+    if (f.level === 'done') return 'Terminé';
+    if (f.level === 'none') return '—';
+    return forecastMonth(f.projected_end_date);
+});
+const forecastTitle = computed(() => {
+    const f = forecast.value;
+    if (!f) return '';
+    if (f.level === 'done') return 'Chantier physiquement terminé (100 %).';
+    if (f.level === 'none') {
+        return f.reason === 'no_dates'
+            ? "Dates de début/fin planifiées manquantes."
+            : "Avancement physique insuffisant pour projeter une date.";
+    }
+    const proj = new Date(f.projected_end_date).toLocaleDateString('fr-FR');
+    const plan = new Date(f.planned_end_date).toLocaleDateString('fr-FR');
+    const d = f.delay_days;
+    const verdict = d > 0 ? `retard projeté de ${d} j` : (d < 0 ? `avance de ${Math.abs(d)} j` : 'dans les temps');
+    return `Au rythme actuel : fin le ${proj} (planifié : ${plan}) — ${verdict}.`;
+});
+
 const tabs = [
     { id: 'general', label: 'Informations générales', icon: 'info' },
     { id: 'physical', label: 'Avancement physique', icon: 'chart' },
@@ -178,6 +213,21 @@ const exportExcel = () => {
                                 {{ physFin.gap > 0 ? '+' : '' }}{{ physFin.gap }} pts
                             </template>
                             <template v-else>—</template>
+                        </p>
+                    </div>
+                    <div
+                        v-if="forecast"
+                        class="rounded-lg px-3 py-2 ring-1"
+                        :class="[forecastClasses.bg, forecastClasses.ring]"
+                        :title="forecastTitle"
+                    >
+                        <p class="text-[10px] uppercase tracking-wide" :class="forecastClasses.label">Fin projetée</p>
+                        <p class="font-semibold capitalize" :class="forecastClasses.text">
+                            {{ forecastValue }}
+                            <span
+                                v-if="forecast.level !== 'none' && forecast.level !== 'done' && forecast.delay_days > 0"
+                                class="text-[10px] font-normal opacity-75"
+                            >· +{{ forecast.delay_days }} j</span>
                         </p>
                     </div>
                     <a
