@@ -24,6 +24,12 @@ class AlerteService
     /** Seuil (en points) au-delà duquel le décalage physico-financier est critique. */
     public const PHYS_FIN_GAP_CRITICAL = 35.0;
 
+    /** Seuil (en jours) de retard de livraison projeté au rythme réel. */
+    public const FORECAST_DELAY_THRESHOLD = 60;
+
+    /** Seuil (en jours) au-delà duquel le retard projeté est critique. */
+    public const FORECAST_DELAY_CRITICAL = 120;
+
     public function generateForAll(): array
     {
         $summary = ['created' => 0, 'closed' => 0, 'scanned' => 0];
@@ -55,6 +61,7 @@ class AlerteService
         if ($this->detectNoUpdate($project)) $active[] = 'no_update';
         if ($this->detectMilestoneMissed($project)) $active[] = 'milestone_missed';
         if ($this->detectPhysicalFinancialGap($project)) $active[] = 'physical_financial_gap';
+        if ($this->detectForecastDelay($project)) $active[] = 'forecast_delay';
 
         foreach ($active as $type) {
             if ($this->upsertOpen($project, $type)) {
@@ -149,6 +156,7 @@ class AlerteService
             ],
             'no_update' => $this->noUpdatePayload($project),
             'physical_financial_gap' => $this->physicalFinancialPayload($project),
+            'forecast_delay' => $this->forecastDelayPayload($project),
             'milestone_missed' => [
                 'severity' => 'critical',
                 'title' => 'Jalon dépassé',
@@ -289,6 +297,66 @@ class AlerteService
                 'threshold' => self::PHYS_FIN_GAP_THRESHOLD,
             ],
         ];
+    }
+
+    protected function detectForecastDelay(PduProject $project): bool
+    {
+        if (in_array($project->status, ['draft', 'completed', 'cancelled', 'archived'], true)) {
+            return false;
+        }
+
+        $delay = $this->projectedDelayDays($project);
+
+        return $delay !== null && $delay > self::FORECAST_DELAY_THRESHOLD;
+    }
+
+    protected function forecastDelayPayload(PduProject $project): array
+    {
+        $delay = $this->projectedDelayDays($project) ?? 0;
+        $critical = $delay > self::FORECAST_DELAY_CRITICAL;
+
+        return [
+            'severity' => $critical ? 'critical' : 'warning',
+            'title' => $critical ? 'Dérive de planning majeure' : 'Retard de livraison projeté',
+            'message' => sprintf(
+                'Au rythme d\'avancement physique actuel, la livraison accuserait un retard d\'environ %d jours sur la date planifiée.',
+                $delay,
+            ),
+            'context' => ['delay_days' => $delay, 'threshold' => self::FORECAST_DELAY_THRESHOLD],
+        ];
+    }
+
+    /**
+     * Retard de livraison projeté (en jours) au rythme d'avancement physique
+     * réellement constaté ; null si non calculable.
+     */
+    protected function projectedDelayDays(PduProject $project): ?int
+    {
+        $start = $project->start_date;
+        $plannedEnd = $project->planned_completion_date ?: $project->end_date;
+        if (! $start || ! $plannedEnd) {
+            return null;
+        }
+
+        $physical = (float) $project->progress_percentage;
+        if ($physical <= 0 || $physical >= 100) {
+            return null;
+        }
+
+        $today = now()->startOfDay();
+        $start = $start->copy()->startOfDay();
+        $plannedEnd = $plannedEnd->copy()->startOfDay();
+
+        $elapsed = $start->diffInDays($today, false);
+        if ($elapsed <= 0) {
+            return null;
+        }
+
+        $pacePerDay = $physical / $elapsed;
+        $remainingDays = (int) ceil((100 - $physical) / $pacePerDay);
+        $projectedEnd = $today->copy()->addDays($remainingDays);
+
+        return (int) $plannedEnd->diffInDays($projectedEnd, false);
     }
 
     protected function detectMilestoneMissed(PduProject $project): bool

@@ -39,6 +39,7 @@ class Alert extends Model
         'milestone_missed' => 'Jalon manqué',
         'no_update' => 'Absence de mise à jour',
         'physical_financial_gap' => 'Décalage physico-financier',
+        'forecast_delay' => 'Retard de livraison projeté',
     ];
 
     public const SEVERITIES = [
