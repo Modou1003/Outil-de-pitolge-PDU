@@ -70,14 +70,19 @@ class AlerteService
 
     protected function upsertOpen(PduProject $project, string $type): bool
     {
-        $exists = Alert::where('pdu_project_id', $project->id)
+        $payload = $this->buildPayload($project, $type);
+
+        $existing = Alert::where('pdu_project_id', $project->id)
             ->where('type', $type)
             ->where('is_resolved', false)
-            ->exists();
+            ->first();
 
-        if ($exists) return false;
-
-        $payload = $this->buildPayload($project, $type);
+        // Alerte déjà ouverte : on rafraîchit sa sévérité/message pour qu'ils
+        // restent exacts (ex. la donnée passe de « à rafraîchir » à « périmée »).
+        if ($existing) {
+            $existing->update($payload);
+            return false;
+        }
 
         $alert = Alert::create(array_merge([
             'pdu_project_id' => $project->id,
@@ -135,12 +140,7 @@ class AlerteService
                     'gap' => (float) $project->progress_percentage - (float) $project->planned_progress,
                 ],
             ],
-            'no_update' => [
-                'severity' => 'info',
-                'title' => 'Donnée manquante',
-                'message' => 'Aucun avancement physique saisi ce mois-ci.',
-                'context' => ['month' => now()->format('Y-m')],
-            ],
+            'no_update' => $this->noUpdatePayload($project),
             'milestone_missed' => [
                 'severity' => 'critical',
                 'title' => 'Jalon dépassé',
@@ -175,11 +175,69 @@ class AlerteService
         return $gap < self::PROGRESS_GAP_THRESHOLD;
     }
 
+    /**
+     * Seuil (en jours) au-delà duquel la donnée de terrain est jugée périmée.
+     */
+    public const STALE_DATA_DAYS = 30;
+    public const CRITICAL_DATA_DAYS = 60;
+
     protected function detectNoUpdate(PduProject $project): bool
     {
-        return ! $project->physicalProgresses()
-            ->whereBetween('measurement_date', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
-            ->exists();
+        // Non pertinent pour les projets sans travaux de terrain en cours.
+        if (in_array($project->status, ['draft', 'completed', 'cancelled', 'archived'], true)) {
+            return false;
+        }
+
+        $days = $this->daysSinceLastPhysical($project);
+
+        // Alerte si aucune saisie OU dernière saisie plus ancienne que le seuil.
+        return $days === null || $days > self::STALE_DATA_DAYS;
+    }
+
+    /**
+     * Nombre de jours depuis la dernière saisie d'avancement physique
+     * (null si aucune donnée n'a jamais été saisie).
+     */
+    protected function daysSinceLastPhysical(PduProject $project): ?int
+    {
+        $last = $project->physicalProgresses
+            ->pluck('measurement_date')
+            ->filter()
+            ->max();
+
+        return $last
+            ? (int) $last->copy()->startOfDay()->diffInDays(now()->startOfDay())
+            : null;
+    }
+
+    /**
+     * Charge utile graduée de l'alerte « donnée de terrain » selon son ancienneté.
+     */
+    protected function noUpdatePayload(PduProject $project): array
+    {
+        $days = $this->daysSinceLastPhysical($project);
+
+        if ($days === null) {
+            return [
+                'severity' => 'warning',
+                'title' => 'Aucune donnée de terrain',
+                'message' => 'Aucun avancement physique n\'a jamais été saisi : les indicateurs (SPI, CPI, avancement) ne reposent sur aucune réalité mesurée.',
+                'context' => ['days_since' => null],
+            ];
+        }
+
+        $critical = $days > self::CRITICAL_DATA_DAYS;
+
+        return [
+            'severity' => $critical ? 'critical' : 'warning',
+            'title' => $critical ? 'Donnée de terrain périmée' : 'Donnée de terrain à rafraîchir',
+            'message' => sprintf(
+                'Dernière saisie d\'avancement physique il y a %d jours (seuil %d j) — les indicateurs risquent de ne plus refléter la réalité du terrain.',
+                $days,
+                self::STALE_DATA_DAYS,
+            ),
+            'context' => ['days_since' => $days, 'threshold' => self::STALE_DATA_DAYS],
+        ];
     }
 
     protected function detectMilestoneMissed(PduProject $project): bool
