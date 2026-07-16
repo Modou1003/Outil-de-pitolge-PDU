@@ -15,6 +15,7 @@ class PhysicalProgress extends Model
     protected $fillable = [
         'pdu_project_id',
         'project_lot_id',
+        'building_work_id',
         'period',
         'measurement_date',
         'planned_percentage',
@@ -38,6 +39,11 @@ class PhysicalProgress extends Model
     public function lot(): BelongsTo
     {
         return $this->belongsTo(ProjectLot::class, 'project_lot_id');
+    }
+
+    public function work(): BelongsTo
+    {
+        return $this->belongsTo(BuildingWork::class, 'building_work_id');
     }
 
     public function recorder(): BelongsTo

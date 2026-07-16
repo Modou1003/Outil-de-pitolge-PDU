@@ -16,26 +16,22 @@ class ProjectAggregationService
      */
     public function recomputeProjectProgress(PduProject $project): void
     {
-        // L'avancement provient des ouvrages d'avancement (kind = physical),
-        // pas des lots du planning (calendrier uniquement).
-        $lots = $project->lots()->where('kind', 'physical')->get();
+        // L'avancement du projet = moyenne de l'avancement des ouvrages
+        // (dernière valeur réelle saisie de chaque ouvrage). Les ouvrages sans
+        // aucune saisie ne comptent pas.
+        $works = $project->buildingWorks()->with('physicalProgresses')->get();
 
-        if ($lots->isNotEmpty()) {
-            $totalWeight = (float) $lots->sum('weight_percentage');
-
-            if ($totalWeight > 0) {
-                $weighted = 0.0;
-                foreach ($lots as $lot) {
-                    $w = (float) $lot->weight_percentage;
-                    $p = (float) $lot->progress_percentage;
-                    $weighted += $w * $p;
-                }
-                $progress = round($weighted / $totalWeight, 2);
-            } else {
-                // Fallback when lots exist but are not weighted yet.
-                $progress = round((float) $lots->avg('progress_percentage'), 2);
+        $values = [];
+        foreach ($works as $work) {
+            if ($work->physicalProgresses->isNotEmpty()) {
+                $values[] = (float) $work->progress_percentage;
             }
+        }
+
+        if (! empty($values)) {
+            $progress = round(array_sum($values) / count($values), 2);
         } else {
+            // Aucun ouvrage saisi : dernier relevé physique du projet, sinon 0.
             $last = $project->physicalProgresses()
                 ->orderByDesc('measurement_date')
                 ->orderByDesc('id')

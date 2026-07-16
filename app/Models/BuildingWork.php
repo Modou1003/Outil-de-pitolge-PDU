@@ -40,6 +40,26 @@ class BuildingWork extends Model
         return $this->hasMany(ProjectMilestone::class, 'building_work_id')->orderBy('sort_order');
     }
 
+    public function physicalProgresses(): HasMany
+    {
+        return $this->hasMany(PhysicalProgress::class, 'building_work_id');
+    }
+
+    public function financialProgresses(): HasMany
+    {
+        return $this->hasMany(FinancialProgress::class, 'building_work_id');
+    }
+
+    /** Avancement physique de l'ouvrage = dernière valeur réelle saisie. */
+    public function getProgressPercentageAttribute(): float
+    {
+        $last = $this->physicalProgresses
+            ->sortBy([['measurement_date', 'desc'], ['id', 'desc']])
+            ->first();
+
+        return $last ? round((float) $last->actual_percentage, 2) : 0.0;
+    }
+
     public function getStatusLabelAttribute(): string
     {
         return self::STATUSES[$this->status] ?? $this->status;

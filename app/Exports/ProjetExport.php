@@ -128,14 +128,14 @@ class ProjetPhysicalSheet implements FromArray, WithTitle, WithHeadings, ShouldA
 
     public function headings(): array
     {
-        return ['Lot', 'Période', 'Date mesure', 'Avancement prévu', 'Avancement réel', 'Écart', 'Observations'];
+        return ['Ouvrage', 'Période', 'Date mesure', 'Avancement prévu', 'Avancement réel', 'Écart', 'Observations'];
     }
 
     public function array(): array
     {
         return $this->project->physicalProgresses->map(function ($progress) {
             return [
-                $progress->lot?->name ?? '—',
+                $progress->work?->name ?? '—',
                 $progress->period,
                 optional($progress->measurement_date)->toDateString(),
                 $this->formatPercent($progress->planned_percentage),

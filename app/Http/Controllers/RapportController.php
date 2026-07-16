@@ -128,7 +128,7 @@ class RapportController extends Controller
     {
         $this->authorizeGenerate();
 
-        $project->load(['university', 'lots', 'milestones', 'physicalProgresses.lot', 'financialProgresses']);
+        $project->load(['university', 'lots', 'milestones', 'physicalProgresses.work', 'financialProgresses']);
 
         $filename = sprintf('projet-%s-%s.xlsx', $project->code, now()->format('Y-m-d'));
 

@@ -7,8 +7,8 @@ const props = defineProps({
     show: { type: Boolean, default: false },
     projectId: { type: [Number, String], required: true },
     progress: { type: Object, default: null },
-    lots: { type: Array, default: () => [] },
-    defaultLotId: { type: [Number, String], default: null },
+    works: { type: Array, default: () => [] },
+    defaultWorkId: { type: [Number, String], default: null },
 });
 
 const emit = defineEmits(['close']);
@@ -19,7 +19,7 @@ const currentPeriod = () => {
 };
 
 const form = useForm({
-    project_lot_id: props.defaultLotId ?? null,
+    building_work_id: props.defaultWorkId ?? null,
     period: currentPeriod(),
     measurement_date: new Date().toISOString().slice(0, 10),
     planned_value: 0,
@@ -28,15 +28,16 @@ const form = useForm({
     observations: '',
 });
 
-const selectedLot = computed(() => {
-    if (props.defaultLotId === null || props.defaultLotId === undefined) return null;
-    return props.lots.find((l) => Number(l.id) === Number(props.defaultLotId)) ?? null;
+const selectedWork = computed(() => {
+    const id = props.defaultWorkId;
+    if (id === null || id === undefined) return null;
+    return props.works.find((w) => Number(w.id) === Number(id)) ?? null;
 });
 
 watch(() => props.show, (v) => {
     if (v) {
         if (props.progress) {
-            form.project_lot_id = props.progress.project_lot_id;
+            form.building_work_id = props.progress.building_work_id;
             form.period = props.progress.period;
             form.measurement_date = props.progress.measurement_date;
             form.planned_value = props.progress.planned_value;
@@ -45,7 +46,7 @@ watch(() => props.show, (v) => {
             form.observations = props.progress.observations ?? '';
         } else {
             form.reset();
-            form.project_lot_id = props.defaultLotId ?? null;
+            form.building_work_id = props.defaultWorkId ?? null;
             form.period = currentPeriod();
             form.measurement_date = new Date().toISOString().slice(0, 10);
         }
@@ -83,18 +84,18 @@ const submit = () => {
     <Modal :show="show" :title="progress ? 'Modifier le relevé financier' : 'Saisir un avancement financier'" size="xl" @close="emit('close')">
         <form class="space-y-4" @submit.prevent="submit">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div v-if="props.defaultLotId === null">
-                    <label class="mb-1 block text-xs font-medium text-gray-700">Ouvrage (optionnel)</label>
-                    <select v-model="form.project_lot_id" class="w-full rounded-md border-gray-300 text-sm">
-                        <option :value="null">Projet global</option>
-                        <option v-for="l in lots" :key="l.id" :value="l.id">{{ l.code }} — {{ l.name }}</option>
+                <div v-if="defaultWorkId === null || defaultWorkId === undefined">
+                    <label class="mb-1 block text-xs font-medium text-gray-700">Ouvrage concerné</label>
+                    <select v-model="form.building_work_id" class="w-full rounded-md border-gray-300 text-sm" required>
+                        <option :value="null" disabled>Choisir un ouvrage…</option>
+                        <option v-for="w in works" :key="w.id" :value="w.id">{{ w.code }} — {{ w.name }}</option>
                     </select>
-                    <p v-if="form.errors.project_lot_id" class="mt-1 text-xs text-red-600">{{ form.errors.project_lot_id }}</p>
+                    <p v-if="form.errors.building_work_id" class="mt-1 text-xs text-red-600">{{ form.errors.building_work_id }}</p>
                 </div>
                 <div v-else class="rounded-md border border-gray-200 bg-gray-50 p-3">
                     <p class="text-xs font-medium text-gray-700">Ouvrage sélectionné</p>
-                    <p class="mt-1 text-sm font-semibold text-gray-900">{{ selectedLot?.code ?? '—' }} — {{ selectedLot?.name ?? '' }}</p>
-                    <p v-if="form.errors.project_lot_id" class="mt-1 text-xs text-red-600">{{ form.errors.project_lot_id }}</p>
+                    <p class="mt-1 text-sm font-semibold text-gray-900">{{ selectedWork?.code ?? '—' }} — {{ selectedWork?.name ?? '' }}</p>
+                    <p v-if="form.errors.building_work_id" class="mt-1 text-xs text-red-600">{{ form.errors.building_work_id }}</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-700">Période (YYYY-MM)</label>
@@ -111,17 +112,17 @@ const submit = () => {
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-700">Montant prévu — FCFA</label>
-                    <input v-model.number="form.planned_value" type="number" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
+                    <input v-model.number="form.planned_value" type="number" min="0" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.planned_value" class="mt-1 text-xs text-red-600">{{ form.errors.planned_value }}</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-700">Montant réel (valeur acquise) — FCFA</label>
-                    <input v-model.number="form.earned_value" type="number" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
+                    <input v-model.number="form.earned_value" type="number" min="0" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.earned_value" class="mt-1 text-xs text-red-600">{{ form.errors.earned_value }}</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-xs font-medium text-gray-700">Coût réel — FCFA</label>
-                    <input v-model.number="form.actual_cost" type="number" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
+                    <input v-model.number="form.actual_cost" type="number" min="0" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
                     <p v-if="form.errors.actual_cost" class="mt-1 text-xs text-red-600">{{ form.errors.actual_cost }}</p>
                 </div>
             </div>

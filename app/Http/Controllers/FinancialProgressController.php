@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BuildingWork;
 use App\Models\FinancialProgress;
 use App\Models\PduProject;
-use App\Models\ProjectLot;
 use App\Services\AlerteService;
 use App\Services\ProjectAggregationService;
 use Illuminate\Http\RedirectResponse;
@@ -23,16 +23,7 @@ class FinancialProgressController extends Controller
 
         $data = $this->validatePayload($request, $project);
 
-        // Vérifie unicité de la période
-        $exists = FinancialProgress::where('pdu_project_id', $project->id)
-            ->where('period', $data['period'])
-            ->when(
-                $data['project_lot_id'] ?? null,
-                fn ($q, $lotId) => $q->where('project_lot_id', $lotId),
-                fn ($q) => $q->whereNull('project_lot_id'),
-            )
-            ->exists();
-        if ($exists) {
+        if ($this->periodExists($project, $data['period'], $data['building_work_id'])) {
             return back()->withErrors(['period' => 'Cette période existe déjà pour cet ouvrage.']);
         }
 
@@ -56,15 +47,7 @@ class FinancialProgressController extends Controller
 
         $data = $this->validatePayload($request, $project);
 
-        $exists = FinancialProgress::where('pdu_project_id', $project->id)
-            ->where('period', $data['period'])
-            ->when(
-                $data['project_lot_id'] ?? null,
-                fn ($q, $lotId) => $q->where('project_lot_id', $lotId),
-                fn ($q) => $q->whereNull('project_lot_id'),
-            )
-            ->where('id', '!=', $progress->id)->exists();
-        if ($exists) {
+        if ($this->periodExists($project, $data['period'], $data['building_work_id'], $progress->id)) {
             return back()->withErrors(['period' => 'Cette période existe déjà pour cet ouvrage.']);
         }
 
@@ -91,6 +74,15 @@ class FinancialProgressController extends Controller
         return back()->with('success', 'Relevé financier supprimé.');
     }
 
+    protected function periodExists(PduProject $project, string $period, ?int $workId, ?int $ignoreId = null): bool
+    {
+        return FinancialProgress::where('pdu_project_id', $project->id)
+            ->where('period', $period)
+            ->where('building_work_id', $workId)
+            ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+            ->exists();
+    }
+
     protected function authorizeWrite(Request $request): void
     {
         $user = $request->user();
@@ -103,23 +95,13 @@ class FinancialProgressController extends Controller
 
     protected function validatePayload(Request $request, PduProject $project): array
     {
-        // Comme pour l'avancement physique : si le projet a des ouvrages
-        // d'avancement, le relevé doit y être rattaché — évite de mélanger des
-        // relevés « par ouvrage » et « par projet » dans les cumuls (double comptage).
-        $hasLots = $project->lots()->where('kind', 'physical')->exists();
-
         return $request->validate([
-            'project_lot_id' => [
-                $hasLots ? 'required' : 'nullable',
+            'building_work_id' => [
+                'required',
                 'integer',
-                'exists:project_lots,id',
                 function ($attribute, $value, $fail) use ($project) {
-                    if (! $value) {
-                        return;
-                    }
-                    $belongs = ProjectLot::whereKey($value)->where('pdu_project_id', $project->id)->exists();
-                    if (! $belongs) {
-                        $fail('Ce lot ne fait pas partie du projet.');
+                    if (! BuildingWork::whereKey($value)->where('pdu_project_id', $project->id)->exists()) {
+                        $fail('Cet ouvrage ne fait pas partie du projet.');
                     }
                 },
             ],
@@ -130,7 +112,7 @@ class FinancialProgressController extends Controller
             'actual_cost' => ['required', 'numeric', 'min:0'],
             'observations' => ['nullable', 'string', 'max:1000'],
         ], [
-            'project_lot_id.required' => 'Ce projet comporte des lots : veuillez rattacher le relevé à un lot.',
+            'building_work_id.required' => "Veuillez rattacher le relevé à un ouvrage.",
         ]);
     }
 }

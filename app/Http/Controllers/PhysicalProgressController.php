@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BuildingWork;
 use App\Models\PduProject;
 use App\Models\PhysicalProgress;
-use App\Models\ProjectLot;
 use App\Services\AlerteService;
 use App\Services\ProjectAggregationService;
 use Illuminate\Http\RedirectResponse;
@@ -23,17 +23,17 @@ class PhysicalProgressController extends Controller
 
         $data = $this->validatePayload($request, $project);
 
-        if ($this->periodExists($project, $data['period'], $data['project_lot_id'] ?? null)) {
-            return back()->withErrors(['period' => 'Un relevé existe déjà pour cette période et ce lot.']);
+        if ($this->periodExists($project, $data['period'], $data['building_work_id'])) {
+            return back()->withErrors(['period' => 'Un relevé existe déjà pour cette période et cet ouvrage.']);
         }
 
-        $row = PhysicalProgress::create(array_merge($data, [
+        PhysicalProgress::create(array_merge($data, [
             'pdu_project_id' => $project->id,
             'recorded_by' => $request->user()->id,
             'status' => 'submitted',
         ]));
 
-        $this->refreshAggregates($project, $row->project_lot_id);
+        $this->agg->recomputeProjectProgress($project);
         $this->alerteService->generateForAll();
 
         return back()->with('success', 'Avancement physique enregistré.');
@@ -44,16 +44,15 @@ class PhysicalProgressController extends Controller
         abort_if($progress->pdu_project_id !== $project->id, 404);
         $this->authorizeWrite($request);
 
-        $data = $this->validatePayload($request, $project, $progress->id);
-        $previousLotId = $progress->project_lot_id;
+        $data = $this->validatePayload($request, $project);
 
-        if ($this->periodExists($project, $data['period'], $data['project_lot_id'] ?? null, $progress->id)) {
-            return back()->withErrors(['period' => 'Un relevé existe déjà pour cette période et ce lot.']);
+        if ($this->periodExists($project, $data['period'], $data['building_work_id'], $progress->id)) {
+            return back()->withErrors(['period' => 'Un relevé existe déjà pour cette période et cet ouvrage.']);
         }
 
         $progress->update($data);
 
-        $this->refreshAggregates($project, $progress->project_lot_id, $previousLotId);
+        $this->agg->recomputeProjectProgress($project);
         $this->alerteService->generateForAll();
 
         return back()->with('success', 'Avancement physique mis à jour.');
@@ -64,36 +63,21 @@ class PhysicalProgressController extends Controller
         abort_if($progress->pdu_project_id !== $project->id, 404);
         $this->authorizeWrite($request);
 
-        $lotId = $progress->project_lot_id;
         $progress->delete();
 
-        $this->refreshAggregates($project, $lotId);
+        $this->agg->recomputeProjectProgress($project);
         $this->alerteService->generateForAll();
 
         return back()->with('success', 'Relevé supprimé.');
     }
 
-    protected function periodExists(PduProject $project, string $period, ?int $lotId, ?int $ignoreId = null): bool
+    protected function periodExists(PduProject $project, string $period, ?int $workId, ?int $ignoreId = null): bool
     {
         return PhysicalProgress::where('pdu_project_id', $project->id)
             ->where('period', $period)
-            ->when(
-                $lotId,
-                fn ($q) => $q->where('project_lot_id', $lotId),
-                fn ($q) => $q->whereNull('project_lot_id'),
-            )
+            ->where('building_work_id', $workId)
             ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
             ->exists();
-    }
-
-    protected function refreshAggregates(PduProject $project, ?int $lotId = null, ?int $previousLotId = null): void
-    {
-        foreach (array_unique(array_filter([$lotId, $previousLotId])) as $id) {
-            if ($lot = ProjectLot::find($id)) {
-                $this->agg->recomputeLotProgress($lot);
-            }
-        }
-        $this->agg->recomputeProjectProgress($project);
     }
 
     protected function authorizeWrite(Request $request): void
@@ -106,24 +90,15 @@ class PhysicalProgressController extends Controller
         );
     }
 
-    protected function validatePayload(Request $request, PduProject $project, ?int $ignoreId = null): array
+    protected function validatePayload(Request $request, PduProject $project): array
     {
-        // Si le projet possède des ouvrages d'avancement, un relevé doit y être
-        // rattaché, sinon il serait ignoré dans le calcul de l'avancement.
-        $hasLots = $project->lots()->where('kind', 'physical')->exists();
-
         return $request->validate([
-            'project_lot_id' => [
-                $hasLots ? 'required' : 'nullable',
+            'building_work_id' => [
+                'required',
                 'integer',
-                'exists:project_lots,id',
                 function ($attribute, $value, $fail) use ($project) {
-                    if (! $value) {
-                        return;
-                    }
-                    $belongs = ProjectLot::whereKey($value)->where('pdu_project_id', $project->id)->exists();
-                    if (! $belongs) {
-                        $fail('Ce lot ne fait pas partie du projet.');
+                    if (! BuildingWork::whereKey($value)->where('pdu_project_id', $project->id)->exists()) {
+                        $fail('Cet ouvrage ne fait pas partie du projet.');
                     }
                 },
             ],
@@ -133,7 +108,7 @@ class PhysicalProgressController extends Controller
             'actual_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
             'observations' => ['nullable', 'string', 'max:1000'],
         ], [
-            'project_lot_id.required' => 'Ce projet comporte des lots : veuillez rattacher le relevé à un lot.',
+            'building_work_id.required' => "Veuillez rattacher le relevé à un ouvrage.",
         ]);
     }
 }

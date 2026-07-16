@@ -44,8 +44,8 @@ class ProjectController extends Controller
             'buildingWorks',
             'lots',
             'milestones',
-            'physicalProgresses.lot',
-            'financialProgresses.lot',
+            'physicalProgresses.work',
+            'financialProgresses.work',
             'indicatorTrackings.indicator',
             'alerts' => fn ($q) => $q->open()->orderByDesc('severity'),
             'documents' => fn ($q) => $q->where('is_archived', false)->with('uploader:id,name')->orderByDesc('uploaded_at'),
@@ -239,11 +239,11 @@ class ProjectController extends Controller
     {
         return [
             'id' => $p->id,
-            'project_lot_id' => $p->project_lot_id,
-            'lot' => $p->lot ? [
-                'id' => $p->lot->id,
-                'code' => $p->lot->code,
-                'name' => $p->lot->name,
+            'building_work_id' => $p->building_work_id,
+            'work' => $p->work ? [
+                'id' => $p->work->id,
+                'code' => $p->work->code,
+                'name' => $p->work->name,
             ] : null,
             'period' => $p->period,
             'measurement_date' => $p->measurement_date?->toDateString(),
@@ -258,11 +258,11 @@ class ProjectController extends Controller
     {
         return [
             'id' => $f->id,
-            'project_lot_id' => $f->project_lot_id,
-            'lot' => $f->lot ? [
-                'id' => $f->lot->id,
-                'code' => $f->lot->code,
-                'name' => $f->lot->name,
+            'building_work_id' => $f->building_work_id,
+            'work' => $f->work ? [
+                'id' => $f->work->id,
+                'code' => $f->work->code,
+                'name' => $f->work->name,
             ] : null,
             'period' => $f->period,
             'measurement_date' => $f->measurement_date?->toDateString(),
@@ -447,12 +447,12 @@ class ProjectController extends Controller
             ? (int) $lastDate->copy()->startOfDay()->diffInDays(now()->startOfDay())
             : null;
 
-        // Couverture : part des lots ayant reçu une saisie sur les 30 derniers jours.
-        $lotsTotal = $project->lots->count();
+        // Couverture : part des ouvrages ayant reçu une saisie sur les 30 derniers jours.
+        $lotsTotal = $project->buildingWorks->count();
         $threshold = now()->copy()->subDays(30)->startOfDay();
         $lotsRecent = $project->physicalProgresses
             ->filter(fn (PhysicalProgress $p) => $p->measurement_date && $p->measurement_date->greaterThanOrEqualTo($threshold))
-            ->pluck('project_lot_id')
+            ->pluck('building_work_id')
             ->filter()
             ->unique()
             ->count();
@@ -738,7 +738,7 @@ class ProjectController extends Controller
 
     public function exportExcel(PduProject $project)
     {
-        $project->load(['lots', 'milestones', 'physicalProgresses.lot', 'financialProgresses']);
+        $project->load(['lots', 'milestones', 'physicalProgresses.work', 'financialProgresses']);
 
         return Excel::download(
             new ProjetExport($project),

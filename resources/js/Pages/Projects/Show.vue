@@ -43,8 +43,7 @@ const latestPhysicalReal = computed(() => {
 // Avancement physique projet = dernière valeur « réelle moyenne » de la courbe
 // en S (moyenne des saisies de la dernière période, sur les ouvrages physiques).
 const latestAggregateReal = computed(() => {
-    const physicalIds = new Set((props.lots || []).filter((l) => l.kind === 'physical').map((l) => Number(l.id)));
-    const rows = (props.physical_progresses || []).filter((p) => p.project_lot_id != null && physicalIds.has(Number(p.project_lot_id)));
+    const rows = (props.physical_progresses || []).filter((p) => p.building_work_id != null);
     if (!rows.length) return null;
     const grouped = new Map();
     rows.forEach((p) => {
@@ -337,8 +336,8 @@ const exportExcel = () => {
                 :team-candidates="team_candidates"
                 :can-manage-team="can_manage_team"
             />
-            <TabPhysical v-else-if="activeTab === 'physical'" :project="project" :progresses="physical_progresses" :lots="lots" />
-            <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :lots="lots" />
+            <TabPhysical v-else-if="activeTab === 'physical'" :project="project" :progresses="physical_progresses" :building_works="building_works" />
+            <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :building_works="building_works" />
             <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :building_works="building_works" :lots="lots" :milestones="milestones" />
             <TabDocuments v-else-if="activeTab === 'documents'" :project="project" :documents="documents" :categories="document_categories" />
         </div>
