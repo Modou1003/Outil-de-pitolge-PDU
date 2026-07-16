@@ -40,26 +40,6 @@ const latestPhysicalReal = computed(() => {
     return typeof v === 'number' ? v : (v !== null && v !== undefined ? Number(v) : null);
 });
 
-// Avancement physique projet = dernière valeur « réelle moyenne » de la courbe
-// en S (moyenne des saisies de la dernière période, sur les ouvrages physiques).
-const latestAggregateReal = computed(() => {
-    const rows = (props.physical_progresses || []).filter((p) => p.building_work_id != null);
-    if (!rows.length) return null;
-    const grouped = new Map();
-    rows.forEach((p) => {
-        const key = String(p.period ?? '');
-        if (!key) return;
-        if (!grouped.has(key)) grouped.set(key, { sum: 0, count: 0 });
-        const b = grouped.get(key);
-        b.sum += Number(p.actual_percentage ?? 0);
-        b.count += 1;
-    });
-    const periods = [...grouped.keys()].sort((a, b) => String(a).localeCompare(String(b)));
-    if (!periods.length) return null;
-    const b = grouped.get(periods[periods.length - 1]);
-    return b.count ? b.sum / b.count : null;
-});
-
 // Indice de fraîcheur / fiabilité de la donnée
 const freshness = computed(() => props.kpis?.data_freshness ?? null);
 const freshnessStyle = {
@@ -223,9 +203,9 @@ const exportExcel = () => {
                             <div class="h-full transition-all" :class="healthStyle[healthLevel].bar" :style="{ width: (health.score ?? 0) + '%' }" />
                         </div>
                     </div>
-                    <div class="rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200" title="Dernière valeur réelle moyenne saisie (dernière période de la courbe en S)">
+                    <div class="rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200" title="Avancement physique global — moyenne des ouvrages pondérée par leur pondération">
                         <p class="text-[10px] uppercase tracking-wide text-gray-500">Avancement physique</p>
-                        <p class="font-semibold text-gray-900">{{ latestAggregateReal !== null ? `${latestAggregateReal.toFixed(1)}%` : '—' }}</p>
+                        <p class="font-semibold text-gray-900">{{ project.progress_percentage !== null && project.progress_percentage !== undefined ? `${Number(project.progress_percentage).toFixed(1)}%` : '—' }}</p>
                     </div>
                     <div class="rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200">
                         <p class="text-[10px] uppercase tracking-wide text-gray-500">SPI</p>
