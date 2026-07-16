@@ -194,6 +194,13 @@ const addWork = () => {
         { preserveScroll: true },
     );
 };
+
+const removeWork = (w) => {
+    if (!canWrite.value) return;
+    if (!confirm(`Supprimer l'ouvrage « ${w.name} » ? Ses saisies d'avancement, ses lots et ses jalons seront également supprimés.`)) return;
+    if (selectedWorkId.value === w.id) selectedWorkId.value = null;
+    router.delete(route('projects.building-works.destroy', [props.project.id, w.id]), { preserveScroll: true });
+};
 </script>
 
 <template>
@@ -260,6 +267,15 @@ const addWork = () => {
                             {{ workProgress(w.id).toFixed(0) }}%
                         </span>
                         <button type="button" class="text-xs text-gray-400 hover:text-indigo-600" @click="selectedWorkId = w.id">Ouvrir</button>
+                        <button
+                            v-if="canWrite"
+                            type="button"
+                            class="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-700"
+                            title="Supprimer l'ouvrage"
+                            @click.stop="removeWork(w)"
+                        >
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
+                        </button>
                     </div>
                 </div>
             </div>
