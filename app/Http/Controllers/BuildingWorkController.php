@@ -32,6 +32,11 @@ class BuildingWorkController extends Controller
         $data['code'] = $code;
         $data['status'] = $data['status'] ?? 'not_started';
 
+        // Un ouvrage neuf n'a aucune saisie : il ne peut pas être « Terminé ».
+        if ($data['status'] === 'completed') {
+            return back()->withErrors(['status' => "Impossible de terminer un ouvrage sans avancement (100 % requis)."]);
+        }
+
         BuildingWork::create(array_merge($data, [
             'pdu_project_id' => $project->id,
         ]));
@@ -47,6 +52,18 @@ class BuildingWorkController extends Controller
         $data = $this->validatePayload($request, $project, $work->id);
 
         if (empty($data['status'])) unset($data['status']);
+
+        // Cohérence : un ouvrage ne peut être « Terminé » que si son avancement
+        // physique (dernière valeur réelle saisie) atteint 100 %.
+        if (($data['status'] ?? null) === 'completed') {
+            $progress = (float) $work->loadMissing('physicalProgresses')->progress_percentage;
+            if ($progress < 100) {
+                return back()->withErrors([
+                    'status' => sprintf("Impossible de terminer l'ouvrage : avancement à %.1f %% (100 %% requis).", $progress),
+                ]);
+            }
+        }
+
         $work->update($data);
         $this->alerteService->generateForAll();
 

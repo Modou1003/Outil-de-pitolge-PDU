@@ -53,7 +53,10 @@ const updateBuildingWorkStatus = (w, status) => {
     router.put(
         route('projects.building-works.update', [props.project.id, w.id]),
         { name: w.name, status },
-        { preserveScroll: true },
+        {
+            preserveScroll: true,
+            onError: (errors) => { if (errors.status) alert(errors.status); },
+        },
     );
 };
 
