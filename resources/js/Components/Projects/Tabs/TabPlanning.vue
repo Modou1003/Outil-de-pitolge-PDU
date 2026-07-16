@@ -41,6 +41,22 @@ const removeBuildingWork = (w) => {
     router.delete(route('projects.building-works.destroy', [props.project.id, w.id]), { preserveScroll: true });
 };
 
+const workStatusOptions = [
+    { value: 'not_started', label: 'Non commencé' },
+    { value: 'in_progress', label: 'En cours' },
+    { value: 'on_hold', label: 'En pause' },
+    { value: 'completed', label: 'Terminé' },
+    { value: 'cancelled', label: 'Annulé' },
+];
+const updateBuildingWorkStatus = (w, status) => {
+    if (status === w.status) return;
+    router.put(
+        route('projects.building-works.update', [props.project.id, w.id]),
+        { name: w.name, status },
+        { preserveScroll: true },
+    );
+};
+
 const showLotModal = ref(false);
 const editingLot = ref(null);
 const openCreateLot = () => { editingLot.value = null; showLotModal.value = true; };
@@ -185,7 +201,18 @@ const monthsAxis = computed(() => {
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-2">
-                        <span class="rounded-full px-2 py-0.5 text-[10px] font-medium" :class="statusBadge[w.status]">{{ w.status_label }}</span>
+                        <select
+                            v-if="canManage"
+                            :value="w.status"
+                            class="cursor-pointer rounded-full border-0 py-0.5 pl-2 pr-6 text-[10px] font-medium focus:ring-2 focus:ring-indigo-300"
+                            :class="statusBadge[w.status]"
+                            title="Changer le statut de l'ouvrage"
+                            @click.stop
+                            @change="updateBuildingWorkStatus(w, $event.target.value)"
+                        >
+                            <option v-for="s in workStatusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
+                        </select>
+                        <span v-else class="rounded-full px-2 py-0.5 text-[10px] font-medium" :class="statusBadge[w.status]">{{ w.status_label }}</span>
                         <template v-if="canManage">
                             <button class="rounded p-1 text-gray-400 hover:bg-indigo-100 hover:text-indigo-700" title="Modifier" @click.stop="openEditBuildingWork(w)">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.536-6.536a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.5L6 17l.5-4a2 2 0 01.586-1.414z" /></svg>
