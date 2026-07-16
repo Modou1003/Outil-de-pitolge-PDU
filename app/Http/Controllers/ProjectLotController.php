@@ -18,9 +18,8 @@ class ProjectLotController extends Controller
         $this->authorizeWrite($request);
         $data = $this->validatePayload($request, $project);
 
-        // Un lot neuf n'a pas encore de saisie physique : avancement à 0 et
-        // statut rendu cohérent avec cet avancement.
-        $data['status'] = $this->coherentStatus($data['status'], (float) ($data['progress_percentage'] ?? 0));
+        // Les lots sont purement calendaires (l'avancement est porté par les
+        // ouvrages) : leur statut est libre.
         $data['kind'] = $data['kind'] ?? 'planning';
 
         $lot = ProjectLot::create(array_merge($data, [
@@ -38,33 +37,10 @@ class ProjectLotController extends Controller
         $this->authorizeWrite($request);
         $data = $this->validatePayload($request, $project, $lot->id);
 
-        // Le statut doit rester cohérent avec l'avancement réel (dérivé des
-        // saisies physiques), pas avec une valeur arbitraire du formulaire.
-        $data['status'] = $this->coherentStatus($data['status'], (float) $lot->progress_percentage);
-
         $lot->update($data);
         $this->agg->recomputeProjectProgress($project);
 
         return back()->with('success', 'Lot mis à jour.');
-    }
-
-    /**
-     * Rend le statut cohérent avec l'avancement du lot.
-     * « En pause » et « Annulé » sont des états de planning conservés tels quels.
-     */
-    protected function coherentStatus(string $status, float $progress): string
-    {
-        if (in_array($status, ['on_hold', 'cancelled'], true)) {
-            return $status;
-        }
-        if ($progress >= 100) {
-            return 'completed';
-        }
-        if ($progress <= 0) {
-            return $status === 'completed' ? 'not_started' : $status;
-        }
-        // 0 < avancement < 100 : ne peut pas être « terminé ».
-        return $status === 'completed' ? 'in_progress' : $status;
     }
 
     public function destroy(Request $request, PduProject $project, ProjectLot $lot): RedirectResponse
