@@ -21,6 +21,7 @@ class ProjectLotController extends Controller
         // Un lot neuf n'a pas encore de saisie physique : avancement à 0 et
         // statut rendu cohérent avec cet avancement.
         $data['status'] = $this->coherentStatus($data['status'], (float) ($data['progress_percentage'] ?? 0));
+        $data['kind'] = $data['kind'] ?? 'planning';
 
         $lot = ProjectLot::create(array_merge($data, [
             'pdu_project_id' => $project->id,
@@ -130,19 +131,21 @@ class ProjectLotController extends Controller
 
         $rules = [
             'building_work_id' => ['nullable', 'exists:building_works,id'],
+            'kind' => ['nullable', 'in:planning,physical'],
             'code' => ['required', 'string', 'max:32'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
             'weight_percentage' => [
                 'required', 'numeric', 'min:0', 'max:100',
-                // La somme des pondérations de tous les lots du projet ne peut dépasser 100 %.
+                // La somme des pondérations des lots du PLANNING ne peut dépasser 100 %.
                 function ($attribute, $value, $fail) use ($project, $ignoreId) {
                     $others = (float) ProjectLot::where('pdu_project_id', $project->id)
+                        ->where('kind', 'planning')
                         ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
                         ->sum('weight_percentage');
                     if ($others + (float) $value > 100.001) {
                         $fail(sprintf(
-                            'La somme des pondérations des lots dépasserait 100 %% (%.1f %% déjà attribués aux autres lots).',
+                            'La somme des pondérations des lots du planning dépasserait 100 %% (%.1f %% déjà attribués).',
                             $others,
                         ));
                     }

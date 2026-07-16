@@ -16,7 +16,9 @@ class ProjectAggregationService
      */
     public function recomputeProjectProgress(PduProject $project): void
     {
-        $lots = $project->lots()->get();
+        // L'avancement provient des ouvrages d'avancement (kind = physical),
+        // pas des lots du planning (calendrier uniquement).
+        $lots = $project->lots()->where('kind', 'physical')->get();
 
         if ($lots->isNotEmpty()) {
             $totalWeight = (float) $lots->sum('weight_percentage');

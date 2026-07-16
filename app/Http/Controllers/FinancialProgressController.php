@@ -103,10 +103,10 @@ class FinancialProgressController extends Controller
 
     protected function validatePayload(Request $request, PduProject $project): array
     {
-        // Comme pour l'avancement physique : si le projet a des lots, le relevé
-        // doit être rattaché à un lot. Cela évite de mélanger des relevés « par
-        // lot » et « par projet » dans le calcul des cumuls (double comptage).
-        $hasLots = $project->lots()->exists();
+        // Comme pour l'avancement physique : si le projet a des ouvrages
+        // d'avancement, le relevé doit y être rattaché — évite de mélanger des
+        // relevés « par ouvrage » et « par projet » dans les cumuls (double comptage).
+        $hasLots = $project->lots()->where('kind', 'physical')->exists();
 
         return $request->validate([
             'project_lot_id' => [

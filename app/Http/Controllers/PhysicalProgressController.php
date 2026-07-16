@@ -108,9 +108,9 @@ class PhysicalProgressController extends Controller
 
     protected function validatePayload(Request $request, PduProject $project, ?int $ignoreId = null): array
     {
-        // Si le projet possède des lots, un relevé doit être rattaché à un lot,
-        // sinon il serait ignoré dans le calcul de l'avancement pondéré.
-        $hasLots = $project->lots()->exists();
+        // Si le projet possède des ouvrages d'avancement, un relevé doit y être
+        // rattaché, sinon il serait ignoré dans le calcul de l'avancement.
+        $hasLots = $project->lots()->where('kind', 'physical')->exists();
 
         return $request->validate([
             'project_lot_id' => [

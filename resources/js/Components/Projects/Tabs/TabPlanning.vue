@@ -29,8 +29,10 @@ const workMilestones = computed(() => props.milestones.filter((m) => m.building_
 const lotsCount = (w) => props.lots.filter((l) => l.building_work_id === w.id).length;
 const milestonesCount = (w) => props.milestones.filter((m) => m.building_work_id === w.id).length;
 
-// Somme des pondérations de TOUS les lots du projet (doit totaliser 100 %).
-const totalWeight = computed(() => props.lots.reduce((s, l) => s + (Number(l.weight_percentage) || 0), 0));
+// Lots du planning uniquement (les ouvrages d'avancement sont gérés ailleurs).
+const planningLots = computed(() => props.lots.filter((l) => l.kind === 'planning'));
+// Somme des pondérations des lots du planning (doit totaliser 100 %).
+const totalWeight = computed(() => planningLots.value.reduce((s, l) => s + (Number(l.weight_percentage) || 0), 0));
 const weightIsBalanced = computed(() => Math.abs(totalWeight.value - 100) < 0.05);
 
 // ── Modales ────────────────────────────────────────────────────────────────
@@ -257,10 +259,8 @@ const monthsAxis = computed(() => {
                                     class="absolute top-3 h-6 rounded-md opacity-80 shadow"
                                     :class="statusColors[lot.status]"
                                     :style="{ left: barLeft(lot), width: barWidth(lot) }"
-                                    :title="`${lot.name} · ${lot.progress_percentage}%`"
-                                >
-                                    <div class="h-full rounded-md bg-white/40" :style="{ width: `${100 - lot.progress_percentage}%`, marginLeft: `${lot.progress_percentage}%` }" />
-                                </div>
+                                    :title="lot.name"
+                                />
                                 <div
                                     v-for="mst in workMilestones.filter((x) => {
                                         if (!x.planned_date || !timeRange) return false;
@@ -296,7 +296,7 @@ const monthsAxis = computed(() => {
                     </button>
                 </div>
                 <div
-                    v-if="lots.length && !weightIsBalanced"
+                    v-if="planningLots.length && !weightIsBalanced"
                     class="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2 text-xs text-amber-800"
                 >
                     <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
@@ -307,7 +307,6 @@ const monthsAxis = computed(() => {
                         <tr>
                             <th class="px-4 py-2">Code</th><th class="px-4 py-2">Nom</th>
                             <th class="px-4 py-2 text-right">Pondération</th>
-                            <th class="px-4 py-2 text-right">Avancement</th>
                             <th class="px-4 py-2">Statut</th>
                             <th class="px-4 py-2">Période</th>
                             <th v-if="canManage" class="px-4 py-2 text-right">Actions</th>
@@ -318,7 +317,6 @@ const monthsAxis = computed(() => {
                             <td class="px-4 py-2 font-mono text-xs">{{ l.code }}</td>
                             <td class="px-4 py-2">{{ l.name }}</td>
                             <td class="px-4 py-2 text-right">{{ l.weight_percentage }}%</td>
-                            <td class="px-4 py-2 text-right font-semibold">{{ l.progress_percentage.toFixed(0) }}%</td>
                             <td class="px-4 py-2"><span class="rounded-full px-2 py-0.5 text-[10px] font-medium" :class="statusBadge[l.status]">{{ l.status_label }}</span></td>
                             <td class="px-4 py-2 text-xs text-gray-600">{{ formatDate(l.planned_start_date) }} → {{ formatDate(l.planned_end_date) }}</td>
                             <td v-if="canManage" class="px-4 py-2 text-right">
@@ -333,7 +331,7 @@ const monthsAxis = computed(() => {
                             </td>
                         </tr>
                         <tr v-if="!workLots.length">
-                            <td :colspan="canManage ? 7 : 6" class="px-4 py-6 text-center text-sm text-gray-500">Aucun lot.</td>
+                            <td :colspan="canManage ? 6 : 5" class="px-4 py-6 text-center text-sm text-gray-500">Aucun lot.</td>
                         </tr>
                     </tbody>
                 </table>

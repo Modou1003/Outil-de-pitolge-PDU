@@ -33,6 +33,10 @@ const remove = (p) => {
     router.delete(route('projects.financial.destroy', [props.project.id, p.id]), { preserveScroll: true });
 };
 
+// Seuls les ouvrages d'avancement (kind = physical) sont pilotés ici.
+const ouvrages = computed(() => props.lots.filter((l) => l.kind === 'physical'));
+const physicalLotIds = computed(() => new Set(ouvrages.value.map((l) => Number(l.id))));
+
 const currentLot = computed(() => {
     if (selectedLotId.value === null || selectedLotId.value === undefined) return null;
     return props.lots.find((l) => Number(l.id) === Number(selectedLotId.value)) ?? null;
@@ -49,7 +53,7 @@ const sorted = computed(() =>
 const historySorted = computed(() => [...sorted.value].reverse());
 
 const aggregateByPeriod = computed(() => {
-    const rows = props.progresses.filter((p) => p.project_lot_id !== null && p.project_lot_id !== undefined);
+    const rows = props.progresses.filter((p) => p.project_lot_id != null && physicalLotIds.value.has(Number(p.project_lot_id)));
     const grouped = new Map();
 
     rows.forEach((p) => {
@@ -177,9 +181,10 @@ const addLot = () => {
         {
             code,
             name,
+            kind: 'physical',
             weight_percentage: 0,
             status: 'not_started',
-            sort_order: props.lots.length,
+            sort_order: ouvrages.value.length,
         },
         { preserveScroll: true },
     );
@@ -192,7 +197,7 @@ const addLot = () => {
         <div v-if="selectedLotId === null" class="space-y-4">
             <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Ouvrages financiers ({{ lots.length }})</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Ouvrages financiers ({{ ouvrages.length }})</h3>
                     <button
                         v-if="canManageLots"
                         type="button"
@@ -208,13 +213,13 @@ const addLot = () => {
                 </div>
             </div>
 
-            <div v-if="!lots.length" class="rounded-xl border-2 border-dashed border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
+            <div v-if="!ouvrages.length" class="rounded-xl border-2 border-dashed border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
                 Aucun ouvrage pour l'instant. Clique sur <span class="font-semibold">Ajouter un ouvrage financier</span>.
             </div>
 
             <div v-else class="space-y-2">
                 <button
-                    v-for="l in lots"
+                    v-for="l in ouvrages"
                     :key="l.id"
                     type="button"
                     class="w-full rounded-xl bg-white px-5 py-3 text-left shadow-sm ring-1 ring-gray-200 transition hover:shadow-md"
@@ -364,7 +369,7 @@ const addLot = () => {
                 :show="showModal"
                 :project-id="project.id"
                 :progress="editing"
-                :lots="lots"
+                :lots="ouvrages"
                 :default-lot-id="selectedLotId"
                 @close="showModal = false"
             />

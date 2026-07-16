@@ -14,6 +14,7 @@ const emit = defineEmits(['close']);
 
 const form = useForm({
     building_work_id: null,
+    kind: 'planning',
     code: '',
     name: '',
     description: '',

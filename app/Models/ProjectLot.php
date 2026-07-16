@@ -14,6 +14,7 @@ class ProjectLot extends Model
     protected $fillable = [
         'pdu_project_id',
         'building_work_id',
+        'kind',
         'code',
         'name',
         'description',
@@ -44,6 +45,16 @@ class ProjectLot extends Model
         'completed' => 'Terminé',
         'cancelled' => 'Annulé',
     ];
+
+    public function scopePlanning($query)
+    {
+        return $query->where('kind', 'planning');
+    }
+
+    public function scopePhysical($query)
+    {
+        return $query->where('kind', 'physical');
+    }
 
     public function project(): BelongsTo
     {
