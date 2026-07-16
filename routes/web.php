@@ -127,6 +127,194 @@ Route::get('/debug-mail', function (\Illuminate\Http\Request $request) {
     }
 });
 
+// ⚠️ ROUTE TEMPORAIRE — génère un projet de démonstration complet et EN RETARD.
+// Visite : https://<domaine>/debug-demo-projet?key=pdu-test-2026
+// À SUPPRIMER après la démonstration.
+Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
+    if ($request->query('key') !== 'pdu-test-2026') {
+        abort(403);
+    }
+
+    $userId = \App\Models\User::query()->min('id');
+    $university = \App\Models\University::query()->first();
+    if (! $university) {
+        $university = \App\Models\University::create([
+            'name' => 'Université de Démonstration',
+            'acronym' => 'UDEMO',
+            'location' => 'Abidjan',
+            'region' => 'Lagunes',
+        ]);
+    }
+
+    $result = \Illuminate\Support\Facades\DB::transaction(function () use ($userId, $university) {
+        // Repartir propre si la démo existe déjà (cascade supprime tout).
+        \App\Models\PduProject::withTrashed()->where('code', 'PRJ-DEMO')->forceDelete();
+
+        $project = \App\Models\PduProject::create([
+            'code' => 'PRJ-DEMO',
+            'title' => 'Construction du Bâtiment Pédagogique (DÉMO)',
+            'description' => "Projet de démonstration généré automatiquement — en retard, pour illustrer les indicateurs et alertes.",
+            'university_id' => $university->id,
+            'created_by' => $userId,
+            'start_date' => '2025-02-01',
+            'end_date' => '2026-05-31',
+            'planned_completion_date' => '2026-05-31',
+            'status' => 'in_progress',
+            'type' => 'construction',
+            'progress_percentage' => 0,
+            'budget_allocated' => 500000000,
+            'budget_spent' => 0,
+            'currency' => 'XOF',
+            'objectives' => "Livrer un bâtiment R+2 de 24 salles.",
+        ]);
+
+        // Ouvrages (pondérations = 100 %).
+        $defs = [
+            ['code' => 'OUV-D1', 'name' => 'Fondations',   'weight' => 25, 'status' => 'completed'],
+            ['code' => 'OUV-D2', 'name' => 'Structure',    'weight' => 35, 'status' => 'in_progress'],
+            ['code' => 'OUV-D3', 'name' => 'Second œuvre', 'weight' => 25, 'status' => 'in_progress'],
+            ['code' => 'OUV-D4', 'name' => 'VRD',          'weight' => 15, 'status' => 'not_started'],
+        ];
+        $works = [];
+        foreach ($defs as $i => $d) {
+            $works[$d['code']] = \App\Models\BuildingWork::create([
+                'pdu_project_id' => $project->id,
+                'code' => $d['code'],
+                'name' => $d['name'],
+                'description' => 'Ouvrage de démonstration',
+                'status' => $d['status'],
+                'weight_percentage' => $d['weight'],
+                'sort_order' => $i,
+            ]);
+        }
+
+        // Saisies physiques (planifié vs réel — le réel est en retard).
+        $physical = [
+            'OUV-D1' => [['2025-06', 40, 35], ['2025-09', 80, 70], ['2025-12', 100, 100]],
+            'OUV-D2' => [['2025-09', 20, 15], ['2025-12', 50, 40], ['2026-03', 85, 60], ['2026-06', 100, 70]],
+            'OUV-D3' => [['2025-12', 10, 5], ['2026-03', 45, 25], ['2026-06', 80, 40]],
+            'OUV-D4' => [['2026-03', 30, 10], ['2026-06', 70, 20]],
+        ];
+        foreach ($physical as $code => $rows) {
+            foreach ($rows as $r) {
+                \App\Models\PhysicalProgress::create([
+                    'pdu_project_id' => $project->id,
+                    'building_work_id' => $works[$code]->id,
+                    'period' => $r[0],
+                    'measurement_date' => $r[0] . '-15',
+                    'planned_percentage' => $r[1],
+                    'actual_percentage' => $r[2],
+                    'recorded_by' => $userId,
+                    'status' => 'submitted',
+                ]);
+            }
+        }
+
+        // Saisies financières (increments par période ; CPI et SPI < 1).
+        $financial = [
+            'OUV-D1' => [['2025-09', 60, 55, 65], ['2025-12', 65, 70, 70]],
+            'OUV-D2' => [['2025-12', 50, 35, 45], ['2026-03', 60, 45, 60], ['2026-06', 65, 40, 55]],
+            'OUV-D3' => [['2026-03', 40, 20, 30], ['2026-06', 45, 25, 40]],
+            'OUV-D4' => [['2026-06', 40, 12, 25]],
+        ];
+        foreach ($financial as $code => $rows) {
+            foreach ($rows as $r) {
+                \App\Models\FinancialProgress::create([
+                    'pdu_project_id' => $project->id,
+                    'building_work_id' => $works[$code]->id,
+                    'period' => $r[0],
+                    'measurement_date' => $r[0] . '-15',
+                    'planned_value' => $r[1] * 1000000,
+                    'earned_value' => $r[2] * 1000000,
+                    'actual_cost' => $r[3] * 1000000,
+                    'recorded_by' => $userId,
+                    'status' => 'submitted',
+                ]);
+            }
+        }
+
+        // Lots de planning (Gantt) sous chaque ouvrage.
+        $lots = [
+            ['OUV-D1', 'L01', 'Terrassement', '2025-02-01', '2025-05-31', 'completed'],
+            ['OUV-D1', 'L02', 'Semelles & longrines', '2025-05-01', '2025-12-15', 'completed'],
+            ['OUV-D2', 'L03', 'Poteaux & poutres', '2025-09-01', '2026-04-30', 'in_progress'],
+            ['OUV-D2', 'L04', 'Dalles & planchers', '2025-12-01', '2026-06-30', 'in_progress'],
+            ['OUV-D3', 'L05', 'Cloisons & enduits', '2026-01-01', '2026-06-30', 'in_progress'],
+            ['OUV-D3', 'L06', 'Finitions', '2026-03-01', '2026-09-30', 'not_started'],
+            ['OUV-D4', 'L07', 'Voiries & réseaux', '2026-03-01', '2026-08-31', 'not_started'],
+        ];
+        $lotModels = [];
+        foreach ($lots as $i => $l) {
+            $lotModels[$l[1]] = \App\Models\ProjectLot::create([
+                'pdu_project_id' => $project->id,
+                'building_work_id' => $works[$l[0]]->id,
+                'kind' => 'planning',
+                'code' => $l[1],
+                'name' => $l[2],
+                'weight_percentage' => 0,
+                'planned_start_date' => $l[3],
+                'planned_end_date' => $l[4],
+                'status' => $l[5],
+                'sort_order' => $i,
+            ]);
+        }
+
+        // Jalons (certains atteints, d'autres manqués / en retard).
+        $milestones = [
+            ['OUV-D1', 'L02', 'Réception des fondations', '2025-12-15', '2025-12-20', 'reached', false],
+            ['OUV-D2', 'L03', 'Achèvement de la structure', '2026-04-30', null, 'pending', true],
+            ['OUV-D3', 'L05', 'Réception provisoire second œuvre', '2026-05-31', null, 'pending', false],
+            ['OUV-D4', 'L07', 'Mise en service VRD', '2026-09-30', null, 'pending', false],
+        ];
+        foreach ($milestones as $i => $m) {
+            \App\Models\ProjectMilestone::create([
+                'pdu_project_id' => $project->id,
+                'building_work_id' => $works[$m[0]]->id,
+                'project_lot_id' => $lotModels[$m[1]]->id ?? null,
+                'name' => $m[2],
+                'planned_date' => $m[3],
+                'actual_date' => $m[4],
+                'status' => $m[5],
+                'is_critical' => $m[6],
+                'sort_order' => $i,
+            ]);
+        }
+
+        // Recalcul des agrégats.
+        $agg = app(\App\Services\ProjectAggregationService::class);
+        $agg->recomputeFinancialCumulatives($project);
+        $agg->recomputeProjectBudgetSpent($project);
+        $agg->recomputeProjectProgress($project);
+        $project->refresh();
+
+        return $project;
+    });
+
+    // Génération des alertes. On neutralise l'envoi de notifications le temps
+    // de la requête pour que toutes les alertes soient bien créées.
+    $alerteError = null;
+    try {
+        \Illuminate\Support\Facades\Notification::fake();
+        app(\App\Services\AlerteService::class)->generateForProject($result);
+    } catch (\Throwable $e) {
+        $alerteError = $e->getMessage();
+    }
+
+    return response()->json([
+        'resultat' => '✅ Projet de démonstration créé.',
+        'projet' => [
+            'id' => $result->id,
+            'code' => $result->code,
+            'titre' => $result->title,
+            'avancement_pondere' => (float) $result->fresh()->progress_percentage,
+            'budget_decaisse' => (float) $result->fresh()->budget_spent,
+            'en_retard' => $result->fresh()->is_overdue,
+        ],
+        'lien' => url('/projects/' . $result->id),
+        'alertes' => $alerteError ? ('⚠️ '.$alerteError) : '✅ générées',
+    ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+});
+
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
