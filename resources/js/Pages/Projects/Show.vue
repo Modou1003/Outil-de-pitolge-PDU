@@ -141,6 +141,7 @@ const tabs = [
     { id: 'physical', label: 'Avancement physique', icon: 'chart' },
     { id: 'financial', label: 'Avancement financier', icon: 'coins' },
     { id: 'planning', label: 'Planning', icon: 'calendar' },
+    { id: 'indicators', label: 'Indicateurs', icon: 'gauge' },
     { id: 'documents', label: 'Documents', icon: 'file' },
 ];
 
@@ -150,6 +151,7 @@ const icons = {
     coins: 'M12 8c-2.21 0-4 1.12-4 2.5S9.79 13 12 13s4 1.12 4 2.5S14.21 18 12 18m0-10V6m0 14v-2m0 0c-2.76 0-5-1.79-5-4m10 0c0 2.21-2.24 4-5 4',
     calendar: 'M8 7V3m8 4V3M3 11h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z',
     file: 'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z M13 2v7h7',
+    gauge: 'M3 13a9 9 0 0118 0M12 13l4-3M9 20h6',
 };
 
 const activeTab = ref('general');
@@ -185,88 +187,7 @@ const exportExcel = () => {
                         <span v-if="project.is_overdue" class="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-700">En retard</span>
                     </div>
                 </div>
-                <div class="flex flex-wrap gap-4 text-sm">
-                    <div
-                        v-if="health"
-                        class="min-w-[150px] rounded-lg px-3 py-2 ring-1"
-                        :class="[healthStyle[healthLevel].bg, healthStyle[healthLevel].ring]"
-                        :title="healthTitle"
-                    >
-                        <p class="text-[10px] uppercase tracking-wide" :class="healthStyle[healthLevel].text">Santé du projet</p>
-                        <div class="flex items-baseline gap-1">
-                            <p class="text-lg font-bold" :class="healthStyle[healthLevel].text">
-                                {{ health.score !== null ? health.score : '—' }}<span v-if="health.score !== null" class="text-xs font-medium">/100</span>
-                            </p>
-                            <span class="text-[10px] font-medium" :class="healthStyle[healthLevel].text">{{ healthStyle[healthLevel].label }}</span>
-                        </div>
-                        <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-                            <div class="h-full transition-all" :class="healthStyle[healthLevel].bar" :style="{ width: (health.score ?? 0) + '%' }" />
-                        </div>
-                    </div>
-                    <div class="rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200" title="Avancement physique global — moyenne des ouvrages pondérée par leur pondération">
-                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Avancement physique</p>
-                        <p class="font-semibold text-gray-900">{{ project.progress_percentage !== null && project.progress_percentage !== undefined ? `${Number(project.progress_percentage).toFixed(1)}%` : '—' }}</p>
-                    </div>
-                    <div class="rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200">
-                        <p class="text-[10px] uppercase tracking-wide text-gray-500">SPI</p>
-                        <p class="font-semibold" :class="kpis.spi && kpis.spi >= 1 ? 'text-emerald-600' : 'text-amber-600'">
-                            {{ kpis.spi ? kpis.spi.toFixed(2) : '—' }}
-                        </p>
-                    </div>
-                    <div class="rounded-lg bg-white px-3 py-2 ring-1 ring-gray-200">
-                        <p class="text-[10px] uppercase tracking-wide text-gray-500">CPI</p>
-                        <p class="font-semibold" :class="kpis.cpi && kpis.cpi >= 1 ? 'text-emerald-600' : 'text-amber-600'">
-                            {{ kpis.cpi ? kpis.cpi.toFixed(2) : '—' }}
-                        </p>
-                    </div>
-                    <div v-if="kpis.alerts_open > 0" class="rounded-lg bg-red-50 px-3 py-2 ring-1 ring-red-200">
-                        <p class="text-[10px] uppercase tracking-wide text-red-600">Alertes ouvertes</p>
-                        <p class="font-semibold text-red-700">{{ kpis.alerts_open }}</p>
-                    </div>
-                    <div
-                        v-if="freshness"
-                        class="rounded-lg px-3 py-2 ring-1"
-                        :class="[freshnessStyle[freshness.level].bg, freshnessStyle[freshness.level].ring]"
-                        :title="freshnessTitle"
-                    >
-                        <p class="text-[10px] uppercase tracking-wide" :class="freshnessStyle[freshness.level].label">Fraîcheur donnée</p>
-                        <p class="font-semibold" :class="freshnessStyle[freshness.level].text">
-                            <template v-if="freshness.days_since !== null">
-                                {{ freshness.days_since }} j
-                                <span v-if="freshness.coverage_rate !== null" class="text-[10px] font-normal opacity-75">· {{ freshness.coverage_rate }}%</span>
-                            </template>
-                            <template v-else>—</template>
-                        </p>
-                    </div>
-                    <div
-                        v-if="physFin"
-                        class="rounded-lg px-3 py-2 ring-1"
-                        :class="[physFinClasses.bg, physFinClasses.ring]"
-                        :title="physFinTitle"
-                    >
-                        <p class="text-[10px] uppercase tracking-wide" :class="physFinClasses.label">Écart physique/budget</p>
-                        <p class="font-semibold" :class="physFinClasses.text">
-                            <template v-if="physFin.level !== 'none'">
-                                {{ physFin.gap > 0 ? '+' : '' }}{{ physFin.gap }} pts
-                            </template>
-                            <template v-else>—</template>
-                        </p>
-                    </div>
-                    <div
-                        v-if="forecast"
-                        class="rounded-lg px-3 py-2 ring-1"
-                        :class="[forecastClasses.bg, forecastClasses.ring]"
-                        :title="forecastTitle"
-                    >
-                        <p class="text-[10px] uppercase tracking-wide" :class="forecastClasses.label">Fin projetée</p>
-                        <p class="font-semibold capitalize" :class="forecastClasses.text">
-                            {{ forecastValue }}
-                            <span
-                                v-if="forecast.level !== 'none' && forecast.level !== 'done' && forecast.delay_days > 0"
-                                class="text-[10px] font-normal opacity-75"
-                            >· +{{ forecast.delay_days }} j</span>
-                        </p>
-                    </div>
+                <div class="flex flex-wrap items-start gap-2">
                     <a
                         :href="route('rapports.projet', project.id)"
                         class="inline-flex items-center gap-1.5 self-start rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
@@ -319,6 +240,50 @@ const exportExcel = () => {
             <TabPhysical v-else-if="activeTab === 'physical'" :project="project" :progresses="physical_progresses" :building_works="building_works" />
             <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :building_works="building_works" />
             <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :building_works="building_works" :lots="lots" :milestones="milestones" />
+            <div v-else-if="activeTab === 'indicators'" class="space-y-4">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <div v-if="health" class="rounded-xl p-4 shadow-sm ring-1" :class="[healthStyle[healthLevel].bg, healthStyle[healthLevel].ring]" :title="healthTitle">
+                        <p class="text-[11px] uppercase tracking-wide" :class="healthStyle[healthLevel].text">Santé du projet</p>
+                        <div class="mt-1 flex items-baseline gap-2">
+                            <p class="text-2xl font-bold" :class="healthStyle[healthLevel].text">{{ health.score !== null ? health.score : '—' }}<span v-if="health.score !== null" class="text-sm font-medium">/100</span></p>
+                            <span class="text-xs font-medium" :class="healthStyle[healthLevel].text">{{ healthStyle[healthLevel].label }}</span>
+                        </div>
+                        <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200"><div class="h-full transition-all" :class="healthStyle[healthLevel].bar" :style="{ width: (health.score ?? 0) + '%' }" /></div>
+                    </div>
+                    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200" title="Avancement physique global — moyenne des ouvrages pondérée par leur pondération">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500">Avancement physique</p>
+                        <p class="mt-1 text-2xl font-bold text-gray-900">{{ project.progress_percentage !== null && project.progress_percentage !== undefined ? `${Number(project.progress_percentage).toFixed(1)}%` : '—' }}</p>
+                    </div>
+                    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200" title="Schedule Performance Index (avance/retard planning)">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500">SPI</p>
+                        <p class="mt-1 text-2xl font-bold" :class="kpis.spi && kpis.spi >= 1 ? 'text-emerald-600' : 'text-amber-600'">{{ kpis.spi ? kpis.spi.toFixed(2) : '—' }}</p>
+                    </div>
+                    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200" title="Cost Performance Index (efficience budgétaire)">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500">CPI</p>
+                        <p class="mt-1 text-2xl font-bold" :class="kpis.cpi && kpis.cpi >= 1 ? 'text-emerald-600' : 'text-amber-600'">{{ kpis.cpi ? kpis.cpi.toFixed(2) : '—' }}</p>
+                    </div>
+                    <div v-if="freshness" class="rounded-xl p-4 shadow-sm ring-1" :class="[freshnessStyle[freshness.level].bg, freshnessStyle[freshness.level].ring]" :title="freshnessTitle">
+                        <p class="text-[11px] uppercase tracking-wide" :class="freshnessStyle[freshness.level].label">Fraîcheur donnée</p>
+                        <p class="mt-1 text-2xl font-bold" :class="freshnessStyle[freshness.level].text">
+                            <template v-if="freshness.days_since !== null">{{ freshness.days_since }} j <span v-if="freshness.coverage_rate !== null" class="text-xs font-normal opacity-75">· {{ freshness.coverage_rate }}%</span></template>
+                            <template v-else>—</template>
+                        </p>
+                    </div>
+                    <div v-if="physFin" class="rounded-xl p-4 shadow-sm ring-1" :class="[physFinClasses.bg, physFinClasses.ring]" :title="physFinTitle">
+                        <p class="text-[11px] uppercase tracking-wide" :class="physFinClasses.label">Écart physique/budget</p>
+                        <p class="mt-1 text-2xl font-bold" :class="physFinClasses.text"><template v-if="physFin.level !== 'none'">{{ physFin.gap > 0 ? '+' : '' }}{{ physFin.gap }} pts</template><template v-else>—</template></p>
+                    </div>
+                    <div v-if="forecast" class="rounded-xl p-4 shadow-sm ring-1" :class="[forecastClasses.bg, forecastClasses.ring]" :title="forecastTitle">
+                        <p class="text-[11px] uppercase tracking-wide" :class="forecastClasses.label">Fin projetée</p>
+                        <p class="mt-1 text-2xl font-bold capitalize" :class="forecastClasses.text">{{ forecastValue }} <span v-if="forecast.level !== 'none' && forecast.level !== 'done' && forecast.delay_days > 0" class="text-xs font-normal opacity-75">· +{{ forecast.delay_days }} j</span></p>
+                    </div>
+                    <div class="rounded-xl p-4 shadow-sm ring-1" :class="kpis.alerts_open > 0 ? 'bg-red-50 ring-red-200' : 'bg-white ring-gray-200'">
+                        <p class="text-[11px] uppercase tracking-wide" :class="kpis.alerts_open > 0 ? 'text-red-600' : 'text-gray-500'">Alertes ouvertes</p>
+                        <p class="mt-1 text-2xl font-bold" :class="kpis.alerts_open > 0 ? 'text-red-700' : 'text-gray-900'">{{ kpis.alerts_open }}</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500">Survolez une carte pour le détail du calcul.</p>
+            </div>
             <TabDocuments v-else-if="activeTab === 'documents'" :project="project" :documents="documents" :categories="document_categories" />
         </div>
     </AuthenticatedLayout>
