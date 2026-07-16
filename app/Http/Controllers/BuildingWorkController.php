@@ -15,7 +15,7 @@ class BuildingWorkController extends Controller
     public function store(Request $request, PduProject $project): RedirectResponse
     {
         $this->authorizeWrite($request);
-        $data = $this->validatePayload($request);
+        $data = $this->validatePayload($request, $project);
 
         // Auto-generate code — la contrainte d'unicité est GLOBALE, on calcule
         // donc le prochain numéro sur toute la table (tous projets confondus),
@@ -44,7 +44,7 @@ class BuildingWorkController extends Controller
     {
         abort_if($work->pdu_project_id !== $project->id, 404);
         $this->authorizeWrite($request);
-        $data = $this->validatePayload($request);
+        $data = $this->validatePayload($request, $project, $work->id);
 
         if (empty($data['status'])) unset($data['status']);
         $work->update($data);
@@ -73,12 +73,27 @@ class BuildingWorkController extends Controller
         );
     }
 
-    protected function validatePayload(Request $request): array
+    protected function validatePayload(Request $request, PduProject $project, ?int $ignoreId = null): array
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
             'status' => ['nullable', 'in:not_started,in_progress,on_hold,completed,cancelled'],
+            'weight_percentage' => [
+                'nullable', 'numeric', 'min:0', 'max:100',
+                // La somme des pondérations des ouvrages ne peut dépasser 100 %.
+                function ($attribute, $value, $fail) use ($project, $ignoreId) {
+                    $others = (float) BuildingWork::where('pdu_project_id', $project->id)
+                        ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
+                        ->sum('weight_percentage');
+                    if ($others + (float) $value > 100.001) {
+                        $fail(sprintf(
+                            'La somme des pondérations des ouvrages dépasserait 100 %% (%.1f %% déjà attribués).',
+                            $others,
+                        ));
+                    }
+                },
+            ],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
     }

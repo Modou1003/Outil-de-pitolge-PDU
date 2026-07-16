@@ -191,6 +191,7 @@ class ProjectController extends Controller
             'description' => $w->description,
             'status' => $w->status,
             'status_label' => BuildingWork::STATUSES[$w->status] ?? $w->status,
+            'weight_percentage' => (float) $w->weight_percentage,
             'sort_order' => (int) $w->sort_order,
         ];
     }

@@ -135,22 +135,9 @@ class ProjectLotController extends Controller
             'code' => ['required', 'string', 'max:32'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'weight_percentage' => [
-                'required', 'numeric', 'min:0', 'max:100',
-                // La somme des pondérations des lots du PLANNING ne peut dépasser 100 %.
-                function ($attribute, $value, $fail) use ($project, $ignoreId) {
-                    $others = (float) ProjectLot::where('pdu_project_id', $project->id)
-                        ->where('kind', 'planning')
-                        ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
-                        ->sum('weight_percentage');
-                    if ($others + (float) $value > 100.001) {
-                        $fail(sprintf(
-                            'La somme des pondérations des lots du planning dépasserait 100 %% (%.1f %% déjà attribués).',
-                            $others,
-                        ));
-                    }
-                },
-            ],
+            // La pondération n'est plus portée par les lots du planning mais par
+            // les ouvrages d'avancement ; on tolère la valeur pour compat.
+            'weight_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'planned_start_date' => $plannedStartRules,
             'planned_end_date' => $plannedEndRules,
             'actual_start_date' => ['nullable', 'date'],

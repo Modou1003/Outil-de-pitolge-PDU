@@ -14,7 +14,12 @@ class BuildingWork extends Model
         'name',
         'description',
         'status',
+        'weight_percentage',
         'sort_order',
+    ];
+
+    protected $casts = [
+        'weight_percentage' => 'decimal:2',
     ];
 
     public const STATUSES = [

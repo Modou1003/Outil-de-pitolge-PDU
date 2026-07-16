@@ -16,27 +16,36 @@ class ProjectAggregationService
      */
     public function recomputeProjectProgress(PduProject $project): void
     {
-        // L'avancement du projet = moyenne de l'avancement des ouvrages
-        // (dernière valeur réelle saisie de chaque ouvrage). Les ouvrages sans
-        // aucune saisie ne comptent pas.
+        // L'avancement du projet = moyenne PONDÉRÉE de l'avancement des
+        // ouvrages (dernière valeur réelle de chacun), par leur pondération.
         $works = $project->buildingWorks()->with('physicalProgresses')->get();
 
-        $values = [];
-        foreach ($works as $work) {
-            if ($work->physicalProgresses->isNotEmpty()) {
-                $values[] = (float) $work->progress_percentage;
-            }
-        }
+        $totalWeight = (float) $works->sum('weight_percentage');
 
-        if (! empty($values)) {
-            $progress = round(array_sum($values) / count($values), 2);
+        if ($totalWeight > 0) {
+            // Tous les ouvrages pondérés comptent (0 % s'ils n'ont pas de saisie).
+            $acc = 0.0;
+            foreach ($works as $work) {
+                $acc += (float) $work->weight_percentage * (float) $work->progress_percentage;
+            }
+            $progress = round($acc / $totalWeight, 2);
         } else {
-            // Aucun ouvrage saisi : dernier relevé physique du projet, sinon 0.
-            $last = $project->physicalProgresses()
-                ->orderByDesc('measurement_date')
-                ->orderByDesc('id')
-                ->first();
-            $progress = $last ? round((float) $last->actual_percentage, 2) : 0;
+            // Pas de pondération : moyenne simple des ouvrages ayant une saisie.
+            $values = [];
+            foreach ($works as $work) {
+                if ($work->physicalProgresses->isNotEmpty()) {
+                    $values[] = (float) $work->progress_percentage;
+                }
+            }
+            if (! empty($values)) {
+                $progress = round(array_sum($values) / count($values), 2);
+            } else {
+                $last = $project->physicalProgresses()
+                    ->orderByDesc('measurement_date')
+                    ->orderByDesc('id')
+                    ->first();
+                $progress = $last ? round((float) $last->actual_percentage, 2) : 0;
+            }
         }
 
         $project->progress_percentage = $progress;
