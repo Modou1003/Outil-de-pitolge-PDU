@@ -149,16 +149,15 @@ Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
     }
 
     $result = \Illuminate\Support\Facades\DB::transaction(function () use ($userId, $university) {
-        // Repartir propre : supprime d'abord les ouvrages démo (codes réservés,
-        // globalement uniques) qui auraient survécu à une suppression douce du
-        // projet, puis le projet démo lui-même (soft-deleted inclus).
-        \App\Models\BuildingWork::whereIn('code', ['OUV-D1', 'OUV-D2', 'OUV-D3', 'OUV-D4'])->delete();
-        \App\Models\PduProject::withTrashed()->where('code', 'PRJ-DEMO')->forceDelete();
+        // Code projet unique (comme la création réelle) — un NOUVEAU projet à chaque appel.
+        $maxPrj = \App\Models\PduProject::withTrashed()->get()
+            ->map(fn ($p) => (int) preg_replace('/[^0-9]/', '', (string) $p->code))->max() ?? 0;
+        $projectCode = 'PRJ-' . str_pad($maxPrj + 1, 3, '0', STR_PAD_LEFT);
 
         $project = \App\Models\PduProject::create([
-            'code' => 'PRJ-DEMO',
-            'title' => 'Construction du Bâtiment Pédagogique (DÉMO)',
-            'description' => "Projet de démonstration généré automatiquement — en retard, pour illustrer les indicateurs et alertes.",
+            'code' => $projectCode,
+            'title' => 'Projet exemple ' . $projectCode . ' (EN RETARD)',
+            'description' => "Projet exemple généré automatiquement — en retard, pour illustrer les indicateurs, alertes et le suivi financier.",
             'university_id' => $university->id,
             'created_by' => $userId,
             'start_date' => '2025-02-01',
@@ -196,38 +195,45 @@ Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
             ]);
         }
 
-        // Ouvrages (pondérations = 100 %).
+        // Ouvrages (codes OUV-xxx auto-générés et uniques ; pondérations = 100 %).
         $defs = [
-            ['code' => 'OUV-D1', 'name' => 'Fondations',   'weight' => 25, 'status' => 'completed'],
-            ['code' => 'OUV-D2', 'name' => 'Structure',    'weight' => 35, 'status' => 'in_progress'],
-            ['code' => 'OUV-D3', 'name' => 'Second œuvre', 'weight' => 25, 'status' => 'in_progress'],
-            ['code' => 'OUV-D4', 'name' => 'VRD',          'weight' => 15, 'status' => 'not_started'],
+            'fond'   => ['Fondations',   25, 'completed'],
+            'struct' => ['Structure',    35, 'in_progress'],
+            'second' => ['Second œuvre', 25, 'in_progress'],
+            'vrd'    => ['VRD',          15, 'not_started'],
         ];
+        $maxOuv = \App\Models\BuildingWork::query()->get()
+            ->map(fn ($w) => (int) preg_replace('/[^0-9]/', '', (string) $w->code))->max() ?? 0;
         $works = [];
-        foreach ($defs as $i => $d) {
-            $works[$d['code']] = \App\Models\BuildingWork::create([
+        $iw = 0;
+        foreach ($defs as $key => $d) {
+            do {
+                $maxOuv++;
+                $code = 'OUV-' . str_pad($maxOuv, 3, '0', STR_PAD_LEFT);
+            } while (\App\Models\BuildingWork::where('code', $code)->exists());
+            $works[$key] = \App\Models\BuildingWork::create([
                 'pdu_project_id' => $project->id,
-                'code' => $d['code'],
-                'name' => $d['name'],
+                'code' => $code,
+                'name' => $d[0],
                 'description' => 'Ouvrage de démonstration',
-                'status' => $d['status'],
-                'weight_percentage' => $d['weight'],
-                'sort_order' => $i,
+                'status' => $d[2],
+                'weight_percentage' => $d[1],
+                'sort_order' => $iw++,
             ]);
         }
 
         // Saisies physiques (planifié vs réel — le réel est en retard).
         $physical = [
-            'OUV-D1' => [['2025-06', 40, 35], ['2025-09', 80, 70], ['2025-12', 100, 100]],
-            'OUV-D2' => [['2025-09', 20, 15], ['2025-12', 50, 40], ['2026-03', 85, 60], ['2026-06', 100, 70]],
-            'OUV-D3' => [['2025-12', 10, 5], ['2026-03', 45, 25], ['2026-06', 80, 40]],
-            'OUV-D4' => [['2026-03', 30, 10], ['2026-06', 70, 20]],
+            'fond'   => [['2025-06', 40, 35], ['2025-09', 80, 70], ['2025-12', 100, 100]],
+            'struct' => [['2025-09', 20, 15], ['2025-12', 50, 40], ['2026-03', 85, 60], ['2026-06', 100, 70]],
+            'second' => [['2025-12', 10, 5], ['2026-03', 45, 25], ['2026-06', 80, 40]],
+            'vrd'    => [['2026-03', 30, 10], ['2026-06', 70, 20]],
         ];
-        foreach ($physical as $code => $rows) {
+        foreach ($physical as $key => $rows) {
             foreach ($rows as $r) {
                 \App\Models\PhysicalProgress::create([
                     'pdu_project_id' => $project->id,
-                    'building_work_id' => $works[$code]->id,
+                    'building_work_id' => $works[$key]->id,
                     'period' => $r[0],
                     'measurement_date' => $r[0] . '-15',
                     'planned_percentage' => $r[1],
@@ -240,16 +246,16 @@ Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
 
         // Saisies financières (increments par période ; CPI et SPI < 1).
         $financial = [
-            'OUV-D1' => [['2025-09', 60, 55, 65], ['2025-12', 65, 70, 70]],
-            'OUV-D2' => [['2025-12', 50, 35, 45], ['2026-03', 60, 45, 60], ['2026-06', 65, 40, 55]],
-            'OUV-D3' => [['2026-03', 40, 20, 30], ['2026-06', 45, 25, 40]],
-            'OUV-D4' => [['2026-06', 40, 12, 25]],
+            'fond'   => [['2025-09', 60, 55, 65], ['2025-12', 65, 70, 70]],
+            'struct' => [['2025-12', 50, 35, 45], ['2026-03', 60, 45, 60], ['2026-06', 65, 40, 55]],
+            'second' => [['2026-03', 40, 20, 30], ['2026-06', 45, 25, 40]],
+            'vrd'    => [['2026-06', 40, 12, 25]],
         ];
-        foreach ($financial as $code => $rows) {
+        foreach ($financial as $key => $rows) {
             foreach ($rows as $r) {
                 \App\Models\FinancialProgress::create([
                     'pdu_project_id' => $project->id,
-                    'building_work_id' => $works[$code]->id,
+                    'building_work_id' => $works[$key]->id,
                     'period' => $r[0],
                     'measurement_date' => $r[0] . '-15',
                     'planned_value' => $r[1] * 1000000,
@@ -263,16 +269,16 @@ Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
 
         // Lots de planning (Gantt) sous chaque ouvrage.
         $lots = [
-            ['OUV-D1', 'L01', 'Terrassement', '2025-02-01', '2025-05-31', 'completed'],
-            ['OUV-D1', 'L02', 'Semelles & longrines', '2025-05-01', '2025-12-15', 'completed'],
-            ['OUV-D2', 'L03', 'Poteaux & poutres', '2025-09-01', '2026-04-30', 'in_progress'],
-            ['OUV-D2', 'L04', 'Dalles & planchers', '2025-12-01', '2026-06-30', 'in_progress'],
-            ['OUV-D3', 'L05', 'Cloisons & enduits', '2026-01-01', '2026-06-30', 'in_progress'],
-            ['OUV-D3', 'L06', 'Finitions', '2026-03-01', '2026-09-30', 'not_started'],
-            ['OUV-D4', 'L07', 'Voiries & réseaux', '2026-03-01', '2026-08-31', 'not_started'],
+            ['fond',   'L01', 'Terrassement', '2025-02-01', '2025-05-31', 'completed'],
+            ['fond',   'L02', 'Semelles & longrines', '2025-05-01', '2025-12-15', 'completed'],
+            ['struct', 'L03', 'Poteaux & poutres', '2025-09-01', '2026-04-30', 'in_progress'],
+            ['struct', 'L04', 'Dalles & planchers', '2025-12-01', '2026-06-30', 'in_progress'],
+            ['second', 'L05', 'Cloisons & enduits', '2026-01-01', '2026-06-30', 'in_progress'],
+            ['second', 'L06', 'Finitions', '2026-03-01', '2026-09-30', 'not_started'],
+            ['vrd',    'L07', 'Voiries & réseaux', '2026-03-01', '2026-08-31', 'not_started'],
         ];
         $lotModels = [];
-        foreach ($lots as $i => $l) {
+        foreach ($lots as $il => $l) {
             $lotModels[$l[1]] = \App\Models\ProjectLot::create([
                 'pdu_project_id' => $project->id,
                 'building_work_id' => $works[$l[0]]->id,
@@ -283,18 +289,18 @@ Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
                 'planned_start_date' => $l[3],
                 'planned_end_date' => $l[4],
                 'status' => $l[5],
-                'sort_order' => $i,
+                'sort_order' => $il,
             ]);
         }
 
         // Jalons (certains atteints, d'autres manqués / en retard).
         $milestones = [
-            ['OUV-D1', 'L02', 'Réception des fondations', '2025-12-15', '2025-12-20', 'reached', false],
-            ['OUV-D2', 'L03', 'Achèvement de la structure', '2026-04-30', null, 'pending', true],
-            ['OUV-D3', 'L05', 'Réception provisoire second œuvre', '2026-05-31', null, 'pending', false],
-            ['OUV-D4', 'L07', 'Mise en service VRD', '2026-09-30', null, 'pending', false],
+            ['fond',   'L02', 'Réception des fondations', '2025-12-15', '2025-12-20', 'reached', false],
+            ['struct', 'L03', 'Achèvement de la structure', '2026-04-30', null, 'pending', true],
+            ['second', 'L05', 'Réception provisoire second œuvre', '2026-05-31', null, 'pending', false],
+            ['vrd',    'L07', 'Mise en service VRD', '2026-09-30', null, 'pending', false],
         ];
-        foreach ($milestones as $i => $m) {
+        foreach ($milestones as $im => $m) {
             \App\Models\ProjectMilestone::create([
                 'pdu_project_id' => $project->id,
                 'building_work_id' => $works[$m[0]]->id,
@@ -304,7 +310,7 @@ Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
                 'actual_date' => $m[4],
                 'status' => $m[5],
                 'is_critical' => $m[6],
-                'sort_order' => $i,
+                'sort_order' => $im,
             ]);
         }
 
