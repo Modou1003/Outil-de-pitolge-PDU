@@ -135,6 +135,8 @@ Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
         abort(403);
     }
 
+    try {
+
     $userId = \App\Models\User::query()->min('id');
     $university = \App\Models\University::query()->first();
     if (! $university) {
@@ -336,6 +338,16 @@ Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
         'lien' => url('/projects/' . $result->id),
         'alertes' => $alerteError ? ('⚠️ '.$alerteError) : '✅ générées',
     ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'resultat' => '❌ ÉCHEC de la génération.',
+            'classe' => get_class($e),
+            'message' => $e->getMessage(),
+            'fichier' => $e->getFile() . ':' . $e->getLine(),
+            'trace' => collect($e->getTrace())->take(6)->map(fn ($t) => ($t['file'] ?? '?') . ':' . ($t['line'] ?? '?'))->all(),
+        ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
