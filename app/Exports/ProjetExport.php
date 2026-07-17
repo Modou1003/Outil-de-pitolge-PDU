@@ -382,8 +382,8 @@ class ProjetCourbesSheet implements FromArray, WithTitle, ShouldAutoSize, WithEv
 
         $rows[] = []; // ligne vide
 
-        // --- Section 2 : Courbe EVM — avancement financier (moyenne des ouvrages) ---
-        $rows[] = ['COURBE EVM — AVANCEMENT FINANCIER (moyenne des ouvrages)'];
+        // --- Section 2 : Courbe EVM — avancement financier (cumulé projet) ---
+        $rows[] = ['COURBE EVM — AVANCEMENT FINANCIER (FCFA cumulés)'];
         $rows[] = ['Période', 'Valeur planifiée (PV)', 'Valeur acquise (EV)', 'Coût réel (AC)', 'SPI', 'CPI'];
         foreach ($this->fin as $f) {
             $rows[] = [$f['period'], $f['pv'], $f['ev'], $f['ac'], $f['spi'], $f['cpi']];
@@ -417,33 +417,30 @@ class ProjetCourbesSheet implements FromArray, WithTitle, ShouldAutoSize, WithEv
         return $out;
     }
 
-    /** EVM moyen par période (moyenne des ouvrages), comme l'écran Avancement financier. */
+    /** EVM cumulée au niveau projet : somme des ouvrages par période, puis cumul. */
     protected function aggregateFinancial(): array
     {
         $grouped = [];
         foreach ($this->project->financialProgresses as $f) {
             $k = (string) $f->period;
             if ($k === '') continue;
-            $grouped[$k] ??= ['pv' => 0.0, 'ev' => 0.0, 'ac' => 0.0, 'count' => 0];
+            $grouped[$k] ??= ['pv' => 0.0, 'ev' => 0.0, 'ac' => 0.0];
             $grouped[$k]['pv'] += (float) $f->planned_value;
             $grouped[$k]['ev'] += (float) $f->earned_value;
             $grouped[$k]['ac'] += (float) $f->actual_cost;
-            $grouped[$k]['count']++;
         }
         ksort($grouped);
+        $cumPv = $cumEv = $cumAc = 0.0;
         $out = [];
         foreach ($grouped as $period => $g) {
-            if ($g['count'] === 0) continue;
-            $pv = $g['pv'] / $g['count'];
-            $ev = $g['ev'] / $g['count'];
-            $ac = $g['ac'] / $g['count'];
+            $cumPv += $g['pv']; $cumEv += $g['ev']; $cumAc += $g['ac'];
             $out[] = [
                 'period' => $period,
-                'pv' => round($pv, 2),
-                'ev' => round($ev, 2),
-                'ac' => round($ac, 2),
-                'spi' => $pv > 0 ? round($ev / $pv, 3) : null,
-                'cpi' => $ac > 0 ? round($ev / $ac, 3) : null,
+                'pv' => round($cumPv, 2),
+                'ev' => round($cumEv, 2),
+                'ac' => round($cumAc, 2),
+                'spi' => $cumPv > 0 ? round($cumEv / $cumPv, 3) : null,
+                'cpi' => $cumAc > 0 ? round($cumEv / $cumAc, 3) : null,
             ];
         }
         return $out;

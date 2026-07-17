@@ -52,6 +52,7 @@ const sorted = computed(() =>
 );
 const historySorted = computed(() => [...sorted.value].reverse());
 
+// EVM cumulée au niveau projet : somme des ouvrages par période, puis cumul dans le temps.
 const aggregateByPeriod = computed(() => {
     const rows = props.progresses.filter((p) => p.building_work_id != null);
     const grouped = new Map();
@@ -60,30 +61,28 @@ const aggregateByPeriod = computed(() => {
         const key = String(p.period ?? '');
         if (!key) return;
         if (!grouped.has(key)) {
-            grouped.set(key, { period: key, planned: 0, actual: 0, cost: 0, count: 0 });
+            grouped.set(key, { period: key, pv: 0, ev: 0, ac: 0 });
         }
         const bucket = grouped.get(key);
-        bucket.planned += Number(p.planned_value ?? 0);
-        bucket.actual += Number(p.earned_value ?? 0);
-        bucket.cost += Number(p.actual_cost ?? 0);
-        bucket.count += 1;
+        bucket.pv += Number(p.planned_value ?? 0);
+        bucket.ev += Number(p.earned_value ?? 0);
+        bucket.ac += Number(p.actual_cost ?? 0);
     });
 
-    return [...grouped.values()]
-        .filter((x) => x.count > 0)
-        .map((x) => {
-            const planned = x.planned / x.count;
-            const actual = x.actual / x.count;
-            const cost = x.cost / x.count;
-            return {
-                period: x.period,
-                planned_value: planned,
-                earned_value: actual,
-                actual_cost: cost,
-                variance: actual - planned,
-            };
-        })
-        .sort((a, b) => String(a.period).localeCompare(String(b.period)));
+    const periods = [...grouped.values()].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+    let cpv = 0, cev = 0, cac = 0;
+    return periods.map((x) => {
+        cpv += x.pv;
+        cev += x.ev;
+        cac += x.ac;
+        return {
+            period: x.period,
+            planned_value: cpv,
+            earned_value: cev,
+            actual_cost: cac,
+            variance: cev - cpv,
+        };
+    });
 });
 
 const aggregateHistorySorted = computed(() =>
@@ -122,12 +121,23 @@ const aggregateChartData = computed(() => ({
     ],
 }));
 
+// Cumul EVM de l'ouvrage sélectionné (increments cumulés dans le temps).
+const sortedCumulative = computed(() => {
+    let cpv = 0, cev = 0, cac = 0;
+    return sorted.value.map((p) => {
+        cpv += Number(p.planned_value ?? 0);
+        cev += Number(p.earned_value ?? 0);
+        cac += Number(p.actual_cost ?? 0);
+        return { period: p.period, pv: cpv, ev: cev, ac: cac };
+    });
+});
+
 const chartData = computed(() => ({
-    labels: sorted.value.map((p) => p.period),
+    labels: sortedCumulative.value.map((p) => p.period),
     datasets: [
         {
             label: 'Valeur planifiée (PV)',
-            data: sorted.value.map((p) => p.planned_value),
+            data: sortedCumulative.value.map((p) => p.pv),
             borderColor: '#6366f1',
             backgroundColor: 'rgba(99, 102, 241, 0.05)',
             borderDash: [6, 4],
@@ -136,7 +146,7 @@ const chartData = computed(() => ({
         },
         {
             label: 'Valeur acquise (EV)',
-            data: sorted.value.map((p) => p.earned_value),
+            data: sortedCumulative.value.map((p) => p.ev),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.15)',
             fill: true,
@@ -145,7 +155,7 @@ const chartData = computed(() => ({
         },
         {
             label: 'Coût réel (AC)',
-            data: sorted.value.map((p) => p.actual_cost),
+            data: sortedCumulative.value.map((p) => p.ac),
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245, 158, 11, 0.08)',
             tension: 0.25,
@@ -247,7 +257,7 @@ const addWork = () => {
 
             <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Données moyennes des ouvrages</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">EVM cumulée du projet (somme des ouvrages)</h3>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-100 text-sm">
