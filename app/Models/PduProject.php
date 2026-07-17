@@ -32,6 +32,8 @@ class PduProject extends Model
         'progress_percentage',
         'budget_allocated',
         'budget_spent',
+        'startup_advance_amount',
+        'supply_advance_amount',
         'currency',
         'objectives',
         'stakeholders',
@@ -54,6 +56,8 @@ class PduProject extends Model
         'progress_percentage' => 'decimal:2',
         'budget_allocated' => 'decimal:2',
         'budget_spent' => 'decimal:2',
+        'startup_advance_amount' => 'decimal:2',
+        'supply_advance_amount' => 'decimal:2',
         'objectives' => 'array',
         'stakeholders' => 'array',
         'metadata' => 'array',
@@ -138,6 +142,11 @@ class PduProject extends Model
     public function financialProgresses(): HasMany
     {
         return $this->hasMany(FinancialProgress::class)->orderBy('measurement_date');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(ProjectPayment::class)->orderBy('number');
     }
 
     /**

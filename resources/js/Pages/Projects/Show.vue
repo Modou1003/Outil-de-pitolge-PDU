@@ -15,6 +15,7 @@ const props = defineProps({
     milestones: { type: Array, required: true },
     physical_progresses: { type: Array, required: true },
     financial_progresses: { type: Array, required: true },
+    payments: { type: Array, default: () => [] },
     indicator_trackings: { type: Array, required: true },
     indicator_catalog: { type: Array, default: () => [] },
     alerts: { type: Array, required: true },
@@ -80,6 +81,11 @@ const physFinTitle = computed(() => {
     if (p.direction === 'underspend') return `${base}${eff} — réalisation en avance sur les paiements (décaissements en retard).`;
     return `${base}${eff} — physique et budget alignés.`;
 });
+
+// Synthèse financière maître d'ouvrage
+const moaFin = computed(() => props.kpis?.financial_moa ?? null);
+const fmtFcfa = (v) => new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(v) || 0);
+const pctOr = (v) => v === null || v === undefined ? '—' : `${Number(v).toFixed(1)}%`;
 
 // Score de santé global
 const health = computed(() => props.kpis?.health ?? null);
@@ -238,7 +244,7 @@ const exportExcel = () => {
                 :can-manage-team="can_manage_team"
             />
             <TabPhysical v-else-if="activeTab === 'physical'" :project="project" :progresses="physical_progresses" :building_works="building_works" />
-            <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :building_works="building_works" />
+            <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :building_works="building_works" :payments="payments" />
             <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :building_works="building_works" :lots="lots" :milestones="milestones" />
             <div v-else-if="activeTab === 'indicators'" class="space-y-4">
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -280,6 +286,21 @@ const exportExcel = () => {
                     <div class="rounded-xl p-4 shadow-sm ring-1" :class="kpis.alerts_open > 0 ? 'bg-red-50 ring-red-200' : 'bg-white ring-gray-200'">
                         <p class="text-[11px] uppercase tracking-wide" :class="kpis.alerts_open > 0 ? 'text-red-600' : 'text-gray-500'">Alertes ouvertes</p>
                         <p class="mt-1 text-2xl font-bold" :class="kpis.alerts_open > 0 ? 'text-red-700' : 'text-gray-900'">{{ kpis.alerts_open }}</p>
+                    </div>
+                    <div v-if="moaFin" class="rounded-xl bg-amber-50 p-4 shadow-sm ring-1 ring-amber-200" title="Montant restant à facturer par l'entreprise (marché − facturé)">
+                        <p class="text-[11px] uppercase tracking-wide text-amber-600">Reste à facturer</p>
+                        <p class="mt-1 text-2xl font-bold text-amber-700">{{ pctOr(moaFin.remaining_to_invoice_rate) }}</p>
+                        <p class="text-[11px] text-amber-600">{{ fmtFcfa(moaFin.remaining_to_invoice) }} FCFA</p>
+                    </div>
+                    <div v-if="moaFin" class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200" title="Travaux facturés + avances versées, rapportés au marché">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500">Encaissé</p>
+                        <p class="mt-1 text-2xl font-bold text-emerald-700">{{ pctOr(moaFin.encashment_rate) }}</p>
+                        <p class="text-[11px] text-gray-500">{{ fmtFcfa(moaFin.encashed) }} FCFA</p>
+                    </div>
+                    <div v-if="moaFin" class="rounded-xl p-4 shadow-sm ring-1" :class="moaFin.advance_remaining > 0 ? 'bg-red-50 ring-red-200' : 'bg-white ring-gray-200'" title="Avances versées non encore remboursées — exposition du maître d'ouvrage">
+                        <p class="text-[11px] uppercase tracking-wide" :class="moaFin.advance_remaining > 0 ? 'text-red-600' : 'text-gray-500'">Exposition avances</p>
+                        <p class="mt-1 text-2xl font-bold" :class="moaFin.advance_remaining > 0 ? 'text-red-700' : 'text-gray-900'">{{ fmtFcfa(moaFin.advance_remaining) }}</p>
+                        <p class="text-[11px]" :class="moaFin.advance_remaining > 0 ? 'text-red-600' : 'text-gray-500'">reste à rembourser · {{ pctOr(moaFin.advance_remaining_rate) }}</p>
                     </div>
                 </div>
                 <p class="text-xs text-gray-500">Survolez une carte pour le détail du calcul.</p>

@@ -8,6 +8,7 @@ import {
 import { router } from '@inertiajs/vue3';
 import { useAuth } from '@/Composables/useAuth';
 import FinancialProgressModal from '@/Components/Projects/Forms/FinancialProgressModal.vue';
+import PaymentsSection from '@/Components/Projects/PaymentsSection.vue';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -16,6 +17,7 @@ const props = defineProps({
     progresses: { type: Array, required: true },
     kpis: { type: Object, required: true },
     building_works: { type: Array, default: () => [] },
+    payments: { type: Array, default: () => [] },
 });
 
 const { hasPermission } = useAuth();
@@ -168,6 +170,9 @@ const addWork = () => {
     <div class="space-y-4">
         <!-- Vue liste (choix de l'ouvrage) -->
         <div v-if="selectedWorkId === null" class="space-y-4">
+            <!-- Décomptes & avances (suivi maître d'ouvrage) -->
+            <PaymentsSection :project="project" :payments="payments" :financial="kpis?.financial_moa" />
+
             <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
                     <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Ouvrages financiers ({{ ouvrages.length }})</h3>

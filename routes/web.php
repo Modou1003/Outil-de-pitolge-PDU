@@ -164,9 +164,32 @@ Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
             'progress_percentage' => 0,
             'budget_allocated' => 500000000,
             'budget_spent' => 0,
+            'startup_advance_amount' => 100000000,
+            'supply_advance_amount' => 25000000,
             'currency' => 'XOF',
             'objectives' => "Livrer un bâtiment R+2 de 24 salles.",
         ]);
+
+        // Décomptes / états de paiement.
+        $payments = [
+            ['001', '2025-12', '2025-12-20', 80, 16, 4, 60, true],
+            ['002', '2026-03', '2026-03-25', 120, 24, 6, 90, true],
+            ['003', '2026-06', '2026-06-28', 90, 18, 4.5, 67.5, false],
+        ];
+        foreach ($payments as $p) {
+            \App\Models\ProjectPayment::create([
+                'pdu_project_id' => $project->id,
+                'number' => $p[0],
+                'period' => $p[1],
+                'payment_date' => $p[2],
+                'gross_amount' => $p[3] * 1000000,
+                'startup_advance_recovery' => $p[4] * 1000000,
+                'supply_advance_recovery' => $p[5] * 1000000,
+                'net_paid' => $p[6] * 1000000,
+                'is_paid' => $p[7],
+                'recorded_by' => $userId,
+            ]);
+        }
 
         // Ouvrages (pondérations = 100 %).
         $defs = [
@@ -369,6 +392,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'update'])->middleware('permission:manage_physical')->name('projects.milestones.update');
     Route::delete('/projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'destroy'])->middleware('permission:manage_physical')->name('projects.milestones.destroy');
     Route::patch('/projects/{project}/milestones/{milestone}/reach', [ProjectMilestoneController::class, 'markReached'])->middleware('permission:manage_physical')->name('projects.milestones.reach');
+
+    // Décomptes / paiements (suivi financier maître d'ouvrage)
+    Route::patch('/projects/{project}/advances', [\App\Http\Controllers\ProjectPaymentController::class, 'updateAdvances'])->middleware('permission:manage_finances')->name('projects.advances.update');
+    Route::post('/projects/{project}/payments', [\App\Http\Controllers\ProjectPaymentController::class, 'store'])->middleware('permission:manage_finances')->name('projects.payments.store');
+    Route::put('/projects/{project}/payments/{payment}', [\App\Http\Controllers\ProjectPaymentController::class, 'update'])->middleware('permission:manage_finances')->name('projects.payments.update');
+    Route::delete('/projects/{project}/payments/{payment}', [\App\Http\Controllers\ProjectPaymentController::class, 'destroy'])->middleware('permission:manage_finances')->name('projects.payments.destroy');
 
     // Documents
     Route::post('/projects/{project}/documents', [DocumentController::class, 'store'])->name('projects.documents.store');

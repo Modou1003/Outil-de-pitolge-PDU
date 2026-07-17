@@ -46,6 +46,7 @@ class ProjectController extends Controller
             'milestones',
             'physicalProgresses.work',
             'financialProgresses.work',
+            'payments',
             'indicatorTrackings.indicator',
             'alerts' => fn ($q) => $q->open()->orderByDesc('severity'),
             'documents' => fn ($q) => $q->where('is_archived', false)->with('uploader:id,name')->orderByDesc('uploaded_at'),
@@ -58,6 +59,18 @@ class ProjectController extends Controller
             'milestones' => $project->milestones->map(fn (ProjectMilestone $m) => $this->transformMilestone($m))->values()->all(),
             'physical_progresses' => $project->physicalProgresses->map(fn (PhysicalProgress $p) => $this->transformPhysical($p))->values()->all(),
             'financial_progresses' => $project->financialProgresses->map(fn (FinancialProgress $f) => $this->transformFinancial($f))->values()->all(),
+            'payments' => $project->payments->map(fn (\App\Models\ProjectPayment $p) => [
+                'id' => $p->id,
+                'number' => $p->number,
+                'period' => $p->period,
+                'payment_date' => $p->payment_date?->toDateString(),
+                'gross_amount' => (float) $p->gross_amount,
+                'startup_advance_recovery' => (float) $p->startup_advance_recovery,
+                'supply_advance_recovery' => (float) $p->supply_advance_recovery,
+                'net_paid' => (float) $p->net_paid,
+                'is_paid' => (bool) $p->is_paid,
+                'observations' => $p->observations,
+            ])->values()->all(),
             'indicator_trackings' => $project->indicatorTrackings->map(fn ($t) => [
                 'id' => $t->id,
                 'indicator_id' => $t->indicator_id,
@@ -310,6 +323,46 @@ class ProjectController extends Controller
             'physical_financial' => $this->computePhysicalFinancial($project),
             'forecast_completion' => $this->computeForecastCompletion($project),
             'health' => $this->healthService->score($project),
+            'financial_moa' => $this->computeFinancialMoa($project),
+        ];
+    }
+
+    /**
+     * Synthèse financière « maître d'ouvrage » : facturation, reste à facturer,
+     * décaissement et exposition sur les avances (démarrage + approvisionnement).
+     */
+    private function computeFinancialMoa(PduProject $project): array
+    {
+        $budget = (float) $project->budget_allocated;
+        $payments = $project->payments;
+
+        $invoiced = (float) $payments->sum('gross_amount');
+        $netPaid = (float) $payments->sum('net_paid');
+
+        $advanceGranted = (float) $project->startup_advance_amount + (float) $project->supply_advance_amount;
+        $advanceRecovered = (float) $payments->sum('startup_advance_recovery') + (float) $payments->sum('supply_advance_recovery');
+        $advanceRemaining = max(0.0, $advanceGranted - $advanceRecovered);
+
+        $rate = fn (float $part) => $budget > 0 ? round($part / $budget * 100, 2) : null;
+
+        // « Encaissé » = travaux facturés + avances versées (cf. rapport mensuel).
+        $encashed = $invoiced + $advanceGranted;
+
+        return [
+            'budget' => $budget,
+            'invoiced' => $invoiced,
+            'invoice_rate' => $rate($invoiced),
+            'remaining_to_invoice' => max(0.0, $budget - $invoiced),
+            'remaining_to_invoice_rate' => $budget > 0 ? round(max(0.0, $budget - $invoiced) / $budget * 100, 2) : null,
+            'net_paid' => $netPaid,
+            'encashed' => $encashed,
+            'encashment_rate' => $rate($encashed),
+            'advance_granted' => $advanceGranted,
+            'advance_recovered' => $advanceRecovered,
+            'advance_remaining' => $advanceRemaining,
+            'advance_recovery_rate' => $advanceGranted > 0 ? round($advanceRecovered / $advanceGranted * 100, 2) : null,
+            'advance_remaining_rate' => $advanceGranted > 0 ? round($advanceRemaining / $advanceGranted * 100, 2) : null,
+            'payments_count' => $payments->count(),
         ];
     }
 
