@@ -60,11 +60,12 @@ const aggregateByPeriod = computed(() => {
         const key = String(p.period ?? '');
         if (!key) return;
         if (!grouped.has(key)) {
-            grouped.set(key, { period: key, planned: 0, actual: 0, count: 0 });
+            grouped.set(key, { period: key, planned: 0, actual: 0, cost: 0, count: 0 });
         }
         const bucket = grouped.get(key);
         bucket.planned += Number(p.planned_value ?? 0);
         bucket.actual += Number(p.earned_value ?? 0);
+        bucket.cost += Number(p.actual_cost ?? 0);
         bucket.count += 1;
     });
 
@@ -73,10 +74,12 @@ const aggregateByPeriod = computed(() => {
         .map((x) => {
             const planned = x.planned / x.count;
             const actual = x.actual / x.count;
+            const cost = x.cost / x.count;
             return {
                 period: x.period,
                 planned_value: planned,
                 earned_value: actual,
+                actual_cost: cost,
                 variance: actual - planned,
             };
         })
@@ -91,7 +94,7 @@ const aggregateChartData = computed(() => ({
     labels: aggregateByPeriod.value.map((p) => p.period),
     datasets: [
         {
-            label: 'Prévu moyen (ouvrages)',
+            label: 'Valeur planifiée (PV)',
             data: aggregateByPeriod.value.map((p) => p.planned_value),
             borderColor: '#6366f1',
             backgroundColor: 'rgba(99, 102, 241, 0.05)',
@@ -100,13 +103,21 @@ const aggregateChartData = computed(() => ({
             pointRadius: 2,
         },
         {
-            label: 'Réel moyen (ouvrages)',
+            label: 'Valeur acquise (EV)',
             data: aggregateByPeriod.value.map((p) => p.earned_value),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.15)',
             fill: true,
             tension: 0.25,
             pointRadius: 3,
+        },
+        {
+            label: 'Coût réel (AC)',
+            data: aggregateByPeriod.value.map((p) => p.actual_cost),
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+            tension: 0.25,
+            pointRadius: 2,
         },
     ],
 }));
@@ -115,7 +126,7 @@ const chartData = computed(() => ({
     labels: sorted.value.map((p) => p.period),
     datasets: [
         {
-            label: 'Prévu',
+            label: 'Valeur planifiée (PV)',
             data: sorted.value.map((p) => p.planned_value),
             borderColor: '#6366f1',
             backgroundColor: 'rgba(99, 102, 241, 0.05)',
@@ -124,13 +135,21 @@ const chartData = computed(() => ({
             pointRadius: 2,
         },
         {
-            label: 'Réel',
+            label: 'Valeur acquise (EV)',
             data: sorted.value.map((p) => p.earned_value),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.15)',
             fill: true,
             tension: 0.25,
             pointRadius: 3,
+        },
+        {
+            label: 'Coût réel (AC)',
+            data: sorted.value.map((p) => p.actual_cost),
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+            tension: 0.25,
+            pointRadius: 2,
         },
     ],
 }));
