@@ -149,7 +149,10 @@ Route::get('/debug-demo-projet', function (\Illuminate\Http\Request $request) {
     }
 
     $result = \Illuminate\Support\Facades\DB::transaction(function () use ($userId, $university) {
-        // Repartir propre si la démo existe déjà (cascade supprime tout).
+        // Repartir propre : supprime d'abord les ouvrages démo (codes réservés,
+        // globalement uniques) qui auraient survécu à une suppression douce du
+        // projet, puis le projet démo lui-même (soft-deleted inclus).
+        \App\Models\BuildingWork::whereIn('code', ['OUV-D1', 'OUV-D2', 'OUV-D3', 'OUV-D4'])->delete();
         \App\Models\PduProject::withTrashed()->where('code', 'PRJ-DEMO')->forceDelete();
 
         $project = \App\Models\PduProject::create([
