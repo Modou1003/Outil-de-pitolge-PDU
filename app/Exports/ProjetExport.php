@@ -345,15 +345,15 @@ class ProjetPaymentsSheet implements FromArray, WithTitle, WithHeadings, ShouldA
     }
 }
 
-class ProjetCourbesSheet implements FromArray, WithTitle, ShouldAutoSize, WithEvents
+class ProjetCourbesSheet implements FromArray, WithTitle, ShouldAutoSize, WithEvents, WithCharts
 {
-    protected int $physicalStartRow = 0;
-    protected int $physicalEndRow = 0;
-    protected int $evmStartRow = 0;
-    protected int $evmEndRow = 0;
+    protected array $phys;
+    protected array $fin;
 
     public function __construct(protected PduProject $project)
     {
+        $this->phys = $this->aggregatePhysical();
+        $this->fin = $this->aggregateFinancial();
     }
 
     public function title(): string
@@ -361,48 +361,142 @@ class ProjetCourbesSheet implements FromArray, WithTitle, ShouldAutoSize, WithEv
         return 'Courbes';
     }
 
+    // Positions de lignes déterministes (cf. layout dans array()).
+    protected function phStart(): int { return 3; }
+    protected function phEnd(): int { return 3 + count($this->phys); }        // T0 + n
+    protected function evTitle(): int { return 5 + count($this->phys); }
+    protected function evHeader(): int { return 6 + count($this->phys); }
+    protected function evStart(): int { return 7 + count($this->phys); }      // T0 + n
+    protected function evEnd(): int { return 7 + count($this->phys) + count($this->fin); }
+
     public function array(): array
     {
         $rows = [];
 
-        // --- Section 1: Courbe S (Avancement Physique) ---
-        $rows[] = ['COURBE S — AVANCEMENT PHYSIQUE'];
+        // --- Section 1 : Courbe en S — avancement physique (moyenne par période) ---
+        $rows[] = ['COURBE EN S — AVANCEMENT PHYSIQUE (%)'];
         $rows[] = ['Période', 'Prévu (%)', 'Réel (%)', 'Écart (%)'];
-        $this->physicalStartRow = count($rows) + 1;
-
-        // Point de départ à zéro
         $rows[] = ['T0', 0, 0, 0];
-
-        foreach ($this->project->physicalProgresses as $progress) {
-            $planned = (float) $progress->planned_percentage;
-            $actual = (float) $progress->actual_percentage;
-            $rows[] = [$progress->period, $planned, $actual, round($actual - $planned, 2)];
+        foreach ($this->phys as $p) {
+            $rows[] = [$p['period'], $p['planned'], $p['actual'], round($p['actual'] - $p['planned'], 2)];
         }
-        $this->physicalEndRow = count($rows);
 
         $rows[] = []; // ligne vide
 
-        // --- Section 2: Courbe EVM (Avancement Financier) ---
-        $rows[] = ['COURBE EVM — AVANCEMENT FINANCIER'];
+        // --- Section 2 : Courbe EVM — avancement financier (cumulé projet) ---
+        $rows[] = ['COURBE EVM — AVANCEMENT FINANCIER (FCFA cumulés)'];
         $rows[] = ['Période', 'Valeur planifiée (PV)', 'Valeur acquise (EV)', 'Coût réel (AC)', 'SPI', 'CPI'];
-        $this->evmStartRow = count($rows) + 1;
-
-        // Point de départ à zéro
         $rows[] = ['T0', 0, 0, 0, null, null];
-
-        foreach ($this->project->financialProgresses as $fp) {
-            $rows[] = [
-                $fp->period,
-                (float) $fp->cumulative_planned_value,
-                (float) $fp->cumulative_earned_value,
-                (float) $fp->cumulative_actual_cost,
-                $fp->spi !== null ? (float) $fp->spi : null,
-                $fp->cpi !== null ? (float) $fp->cpi : null,
-            ];
+        foreach ($this->fin as $f) {
+            $rows[] = [$f['period'], $f['pv'], $f['ev'], $f['ac'], $f['spi'], $f['cpi']];
         }
-        $this->evmEndRow = count($rows);
 
         return $rows;
+    }
+
+    /** Avancement physique moyen par période (comme la courbe en S de l'app). */
+    protected function aggregatePhysical(): array
+    {
+        $grouped = [];
+        foreach ($this->project->physicalProgresses as $p) {
+            $k = (string) $p->period;
+            if ($k === '') continue;
+            $grouped[$k] ??= ['planned' => 0.0, 'actual' => 0.0, 'count' => 0];
+            $grouped[$k]['planned'] += (float) $p->planned_percentage;
+            $grouped[$k]['actual'] += (float) $p->actual_percentage;
+            $grouped[$k]['count']++;
+        }
+        ksort($grouped);
+        $out = [];
+        foreach ($grouped as $period => $g) {
+            if ($g['count'] === 0) continue;
+            $out[] = [
+                'period' => $period,
+                'planned' => round($g['planned'] / $g['count'], 2),
+                'actual' => round($g['actual'] / $g['count'], 2),
+            ];
+        }
+        return $out;
+    }
+
+    /** EVM cumulé au niveau projet (somme par période puis cumul). */
+    protected function aggregateFinancial(): array
+    {
+        $grouped = [];
+        foreach ($this->project->financialProgresses as $f) {
+            $k = (string) $f->period;
+            if ($k === '') continue;
+            $grouped[$k] ??= ['pv' => 0.0, 'ev' => 0.0, 'ac' => 0.0];
+            $grouped[$k]['pv'] += (float) $f->planned_value;
+            $grouped[$k]['ev'] += (float) $f->earned_value;
+            $grouped[$k]['ac'] += (float) $f->actual_cost;
+        }
+        ksort($grouped);
+        $cumPv = $cumEv = $cumAc = 0.0;
+        $out = [];
+        foreach ($grouped as $period => $g) {
+            $cumPv += $g['pv']; $cumEv += $g['ev']; $cumAc += $g['ac'];
+            $out[] = [
+                'period' => $period,
+                'pv' => round($cumPv, 2),
+                'ev' => round($cumEv, 2),
+                'ac' => round($cumAc, 2),
+                'spi' => $cumPv > 0 ? round($cumEv / $cumPv, 3) : null,
+                'cpi' => $cumAc > 0 ? round($cumEv / $cumAc, 3) : null,
+            ];
+        }
+        return $out;
+    }
+
+    public function charts(): array
+    {
+        $t = 'Courbes';
+        $charts = [];
+        $chartTop = $this->evEnd() + 3;
+
+        // Courbe en S (physique) : colonnes B (Prévu), C (Réel) sur X = A.
+        $phRows = $this->phEnd() - $this->phStart() + 1;
+        if ($phRows >= 2) {
+            $s = $this->phStart(); $e = $this->phEnd();
+            $categories = [new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$A\${$s}:\$A\${$e}", null, $phRows)];
+            $values = [
+                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$t}'!\$B\${$s}:\$B\${$e}", null, $phRows),
+                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$t}'!\$C\${$s}:\$C\${$e}", null, $phRows),
+            ];
+            $labels = [
+                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$B\$2", null, 1),
+                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$C\$2", null, 1),
+            ];
+            $series = new DataSeries(DataSeries::TYPE_LINECHART, DataSeries::GROUPING_STANDARD, range(0, 1), $labels, $categories, $values);
+            $chart = new Chart('courbe_s', new Title('Courbe en S — Avancement physique'), new Legend(Legend::POSITION_BOTTOM, null, false), new PlotArea(null, [$series]), true, DataSeries::EMPTY_AS_GAP, new Title('Période'), new Title('Avancement (%)'));
+            $chart->setTopLeftPosition('A' . $chartTop);
+            $chart->setBottomRightPosition('H' . ($chartTop + 18));
+            $charts[] = $chart;
+        }
+
+        // Courbe EVM (financier) : PV, EV, AC cumulés.
+        $evRows = $this->evEnd() - $this->evStart() + 1;
+        if ($evRows >= 2) {
+            $s = $this->evStart(); $e = $this->evEnd(); $hdr = $this->evHeader();
+            $categories = [new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$A\${$s}:\$A\${$e}", null, $evRows)];
+            $values = [
+                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$t}'!\$B\${$s}:\$B\${$e}", null, $evRows),
+                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$t}'!\$C\${$s}:\$C\${$e}", null, $evRows),
+                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$t}'!\$D\${$s}:\$D\${$e}", null, $evRows),
+            ];
+            $labels = [
+                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$B\${$hdr}", null, 1),
+                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$C\${$hdr}", null, 1),
+                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$D\${$hdr}", null, 1),
+            ];
+            $series = new DataSeries(DataSeries::TYPE_LINECHART, DataSeries::GROUPING_STANDARD, range(0, 2), $labels, $categories, $values);
+            $chart = new Chart('courbe_evm', new Title('Courbe EVM — Avancement financier'), new Legend(Legend::POSITION_BOTTOM, null, false), new PlotArea(null, [$series]), true, DataSeries::EMPTY_AS_GAP, new Title('Période'), new Title('Montant (FCFA)'));
+            $chart->setTopLeftPosition('J' . $chartTop);
+            $chart->setBottomRightPosition('R' . ($chartTop + 18));
+            $charts[] = $chart;
+        }
+
+        return $charts;
     }
 
     public function registerEvents(): array
@@ -410,138 +504,32 @@ class ProjetCourbesSheet implements FromArray, WithTitle, ShouldAutoSize, WithEv
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-                $sheetTitle = 'Courbes';
-
-                $sectionStyle = [
-                    'font' => ['bold' => true, 'size' => 12, 'color' => ['rgb' => '1F4E79']],
+                $sectionStyle = ['font' => ['bold' => true, 'size' => 12, 'color' => ['rgb' => '1F4E79']]];
+                $headerStyle = [
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1F4E79']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                 ];
 
-                // --- Style section Courbe S ---
-                $phTitleRow = $this->physicalStartRow - 2;
-                $phHeaderRow = $this->physicalStartRow - 1;
-
-                $sheet->getStyle("A{$phTitleRow}")->applyFromArray($sectionStyle);
-                $sheet->getStyle("A{$phHeaderRow}:D{$phHeaderRow}")->applyFromArray([
-                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1F4E79']],
-                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-                ]);
-
-                // Conditional: Écart (col D)
-                for ($row = $this->physicalStartRow; $row <= $this->physicalEndRow; $row++) {
+                // Section physique
+                $sheet->getStyle('A1')->applyFromArray($sectionStyle);
+                $sheet->getStyle('A2:D2')->applyFromArray($headerStyle);
+                for ($row = $this->phStart(); $row <= $this->phEnd(); $row++) {
                     $val = $sheet->getCell("D{$row}")->getValue();
                     if ($val === null) continue;
-                    if ($val < 0) {
-                        $sheet->getStyle("D{$row}")->getFont()->getColor()->setARGB('FFFF0000');
-                    } else {
-                        $sheet->getStyle("D{$row}")->getFont()->getColor()->setARGB('FF00B050');
-                    }
+                    $sheet->getStyle("D{$row}")->getFont()->getColor()->setARGB($val < 0 ? 'FFFF0000' : 'FF00B050');
                 }
 
-                // --- Style section Courbe EVM ---
-                $evmTitleRow = $this->evmStartRow - 2;
-                $evmHeaderRow = $this->evmStartRow - 1;
-
-                $sheet->getStyle("A{$evmTitleRow}")->applyFromArray($sectionStyle);
-                $sheet->getStyle("A{$evmHeaderRow}:F{$evmHeaderRow}")->applyFromArray([
-                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1F4E79']],
-                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-                ]);
-
-                // Conditional: SPI/CPI (cols E, F)
-                for ($row = $this->evmStartRow; $row <= $this->evmEndRow; $row++) {
+                // Section EVM
+                $sheet->getStyle('A' . $this->evTitle())->applyFromArray($sectionStyle);
+                $sheet->getStyle('A' . $this->evHeader() . ':F' . $this->evHeader())->applyFromArray($headerStyle);
+                $sheet->getStyle('B' . $this->evStart() . ':D' . $this->evEnd())->getNumberFormat()->setFormatCode('#,##0');
+                for ($row = $this->evStart(); $row <= $this->evEnd(); $row++) {
                     foreach (['E', 'F'] as $col) {
                         $val = $sheet->getCell("{$col}{$row}")->getValue();
                         if ($val === null) continue;
-                        if ($val < 0.8) {
-                            $sheet->getStyle("{$col}{$row}")->getFont()->getColor()->setARGB('FFFF0000');
-                        } elseif ($val >= 1) {
-                            $sheet->getStyle("{$col}{$row}")->getFont()->getColor()->setARGB('FF00B050');
-                        }
+                        $sheet->getStyle("{$col}{$row}")->getFont()->getColor()->setARGB($val < 0.8 ? 'FFFF0000' : ($val >= 1 ? 'FF00B050' : 'FFB07D00'));
                     }
-                }
-
-                // --- Charts côte à côte ---
-                $chartStartRow = $this->evmEndRow + 3;
-                $physRows = $this->physicalEndRow - $this->physicalStartRow + 1;
-                $evmRows = $this->evmEndRow - $this->evmStartRow + 1;
-
-                // Chart gauche: Courbe S
-                if ($physRows >= 2) {
-                    $pStart = $this->physicalStartRow;
-                    $pEnd = $this->physicalEndRow;
-
-                    $categories = [new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$sheetTitle}'!\$A\${$pStart}:\$A\${$pEnd}", null, $physRows)];
-                    $values = [
-                        new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$sheetTitle}'!\$B\${$pStart}:\$B\${$pEnd}", null, $physRows),
-                        new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$sheetTitle}'!\$C\${$pStart}:\$C\${$pEnd}", null, $physRows),
-                    ];
-                    $phHdr = $this->physicalStartRow - 1;
-                    $labels = [
-                        new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$sheetTitle}'!\$B\${$phHdr}", null, 1),
-                        new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$sheetTitle}'!\$C\${$phHdr}", null, 1),
-                    ];
-
-                    $series = new DataSeries(
-                        DataSeries::TYPE_LINECHART,
-                        DataSeries::GROUPING_STANDARD,
-                        range(0, 1),
-                        $labels,
-                        $categories,
-                        $values,
-                    );
-
-                    $plotArea = new PlotArea(null, [$series]);
-                    $legend = new Legend(Legend::POSITION_BOTTOM, null, false);
-                    $chartTitle = new Title('Courbe en S — Avancement physique cumulé');
-
-                    $xAxisLabel = new Title('Date');
-                    $yAxisLabel = new Title('Avancement (%)');
-
-                    $chart1 = new Chart('courbe_s', $chartTitle, $legend, $plotArea, true, DataSeries::EMPTY_AS_GAP, $xAxisLabel, $yAxisLabel);
-                    $chart1->setTopLeftPosition('A' . $chartStartRow);
-                    $chart1->setBottomRightPosition('G' . ($chartStartRow + 15));
-                    $sheet->addChart($chart1);
-                }
-
-                // Chart droite: Courbe EVM
-                if ($evmRows >= 2) {
-                    $eStart = $this->evmStartRow;
-                    $eEnd = $this->evmEndRow;
-
-                    $categories = [new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$sheetTitle}'!\$A\${$eStart}:\$A\${$eEnd}", null, $evmRows)];
-                    $values = [
-                        new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$sheetTitle}'!\$B\${$eStart}:\$B\${$eEnd}", null, $evmRows),
-                        new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$sheetTitle}'!\$C\${$eStart}:\$C\${$eEnd}", null, $evmRows),
-                        new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$sheetTitle}'!\$D\${$eStart}:\$D\${$eEnd}", null, $evmRows),
-                    ];
-                    $evHdr = $this->evmStartRow - 1;
-                    $labels = [
-                        new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$sheetTitle}'!\$B\${$evHdr}", null, 1),
-                        new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$sheetTitle}'!\$C\${$evHdr}", null, 1),
-                        new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$sheetTitle}'!\$D\${$evHdr}", null, 1),
-                    ];
-
-                    $series = new DataSeries(
-                        DataSeries::TYPE_LINECHART,
-                        DataSeries::GROUPING_STANDARD,
-                        range(0, 2),
-                        $labels,
-                        $categories,
-                        $values,
-                    );
-
-                    $plotArea = new PlotArea(null, [$series]);
-                    $legend = new Legend(Legend::POSITION_BOTTOM, null, false);
-                    $chartTitle = new Title('Courbe EVM — Avancement Financier');
-                    $xAxisLabel = new Title('Date');
-                    $yAxisLabel = new Title('Montant (FCFA)');
-
-                    $chart2 = new Chart('courbe_evm', $chartTitle, $legend, $plotArea, true, DataSeries::EMPTY_AS_GAP, $xAxisLabel, $yAxisLabel);
-                    $chart2->setTopLeftPosition('H' . $chartStartRow);
-                    $chart2->setBottomRightPosition('O' . ($chartStartRow + 15));
-                    $sheet->addChart($chart2);
                 }
             },
         ];
