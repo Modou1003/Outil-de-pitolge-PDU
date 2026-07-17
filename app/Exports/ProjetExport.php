@@ -448,51 +448,64 @@ class ProjetCourbesSheet implements FromArray, WithTitle, ShouldAutoSize, WithEv
         return $out;
     }
 
+    /**
+     * Style « courbe en S » : ligne lissée, épaisse, colorée, sans marqueurs.
+     */
+    protected function line(string $range, int $count, string $hex): DataSeriesValues
+    {
+        $dsv = new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, $range, null, $count);
+        $dsv->setFillColor($hex);
+        $dsv->setLineWidth(28000);   // ~2,2 pt
+        $dsv->setPointMarker('none');
+        $dsv->setSmoothLine(true);
+        return $dsv;
+    }
+
     public function charts(): array
     {
         $t = 'Courbes';
         $charts = [];
         $chartTop = $this->evEnd() + 3;
 
-        // Courbe en S (physique) : colonnes B (Prévu), C (Réel) sur X = A.
+        // Courbe en S — avancement physique (Prévu orange / Réel bordeaux).
         $phRows = $this->phEnd() - $this->phStart() + 1;
         if ($phRows >= 2) {
             $s = $this->phStart(); $e = $this->phEnd();
             $categories = [new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$A\${$s}:\$A\${$e}", null, $phRows)];
             $values = [
-                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$t}'!\$B\${$s}:\$B\${$e}", null, $phRows),
-                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$t}'!\$C\${$s}:\$C\${$e}", null, $phRows),
+                $this->line("'{$t}'!\$B\${$s}:\$B\${$e}", $phRows, 'ED7D31'),
+                $this->line("'{$t}'!\$C\${$s}:\$C\${$e}", $phRows, '9E2B25'),
             ];
             $labels = [
                 new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$B\$2", null, 1),
                 new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$C\$2", null, 1),
             ];
-            $series = new DataSeries(DataSeries::TYPE_LINECHART, DataSeries::GROUPING_STANDARD, range(0, 1), $labels, $categories, $values);
+            $series = new DataSeries(DataSeries::TYPE_LINECHART, DataSeries::GROUPING_STANDARD, range(0, 1), $labels, $categories, $values, null, true);
             $chart = new Chart('courbe_s', new Title('Courbe en S — Avancement physique'), new Legend(Legend::POSITION_BOTTOM, null, false), new PlotArea(null, [$series]), true, DataSeries::EMPTY_AS_GAP, new Title('Période'), new Title('Avancement (%)'));
             $chart->setTopLeftPosition('A' . $chartTop);
-            $chart->setBottomRightPosition('H' . ($chartTop + 18));
+            $chart->setBottomRightPosition('K' . ($chartTop + 20));
             $charts[] = $chart;
         }
 
-        // Courbe EVM (financier) : PV, EV, AC cumulés.
+        // Courbe EVM — avancement financier (PV bleu / EV vert / AC rouge).
         $evRows = $this->evEnd() - $this->evStart() + 1;
         if ($evRows >= 2) {
             $s = $this->evStart(); $e = $this->evEnd(); $hdr = $this->evHeader();
             $categories = [new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$A\${$s}:\$A\${$e}", null, $evRows)];
             $values = [
-                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$t}'!\$B\${$s}:\$B\${$e}", null, $evRows),
-                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$t}'!\$C\${$s}:\$C\${$e}", null, $evRows),
-                new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_NUMBER, "'{$t}'!\$D\${$s}:\$D\${$e}", null, $evRows),
+                $this->line("'{$t}'!\$B\${$s}:\$B\${$e}", $evRows, '4E79A7'),
+                $this->line("'{$t}'!\$C\${$s}:\$C\${$e}", $evRows, '59A14F'),
+                $this->line("'{$t}'!\$D\${$s}:\$D\${$e}", $evRows, 'E15759'),
             ];
             $labels = [
                 new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$B\${$hdr}", null, 1),
                 new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$C\${$hdr}", null, 1),
                 new DataSeriesValues(DataSeriesValues::DATASERIES_TYPE_STRING, "'{$t}'!\$D\${$hdr}", null, 1),
             ];
-            $series = new DataSeries(DataSeries::TYPE_LINECHART, DataSeries::GROUPING_STANDARD, range(0, 2), $labels, $categories, $values);
+            $series = new DataSeries(DataSeries::TYPE_LINECHART, DataSeries::GROUPING_STANDARD, range(0, 2), $labels, $categories, $values, null, true);
             $chart = new Chart('courbe_evm', new Title('Courbe EVM — Avancement financier'), new Legend(Legend::POSITION_BOTTOM, null, false), new PlotArea(null, [$series]), true, DataSeries::EMPTY_AS_GAP, new Title('Période'), new Title('Montant (FCFA)'));
-            $chart->setTopLeftPosition('J' . $chartTop);
-            $chart->setBottomRightPosition('R' . ($chartTop + 18));
+            $chart->setTopLeftPosition('A' . ($chartTop + 23));
+            $chart->setBottomRightPosition('K' . ($chartTop + 43));
             $charts[] = $chart;
         }
 
