@@ -150,6 +150,43 @@ class PduProject extends Model
     }
 
     /**
+     * Synthèse financière « maître d'ouvrage » : facturation, reste à facturer,
+     * décaissement et exposition sur les avances (démarrage + approvisionnement).
+     */
+    public function financialMoa(): array
+    {
+        $budget = (float) $this->budget_allocated;
+        $payments = $this->payments;
+
+        $invoiced = (float) $payments->sum('gross_amount');
+        $netPaid = (float) $payments->sum('net_paid');
+
+        $advanceGranted = (float) $this->startup_advance_amount + (float) $this->supply_advance_amount;
+        $advanceRecovered = (float) $payments->sum('startup_advance_recovery') + (float) $payments->sum('supply_advance_recovery');
+        $advanceRemaining = max(0.0, $advanceGranted - $advanceRecovered);
+
+        $rate = fn (float $part) => $budget > 0 ? round($part / $budget * 100, 2) : null;
+        $encashed = $invoiced + $advanceGranted;
+
+        return [
+            'budget' => $budget,
+            'invoiced' => $invoiced,
+            'invoice_rate' => $rate($invoiced),
+            'remaining_to_invoice' => max(0.0, $budget - $invoiced),
+            'remaining_to_invoice_rate' => $rate(max(0.0, $budget - $invoiced)),
+            'net_paid' => $netPaid,
+            'encashed' => $encashed,
+            'encashment_rate' => $rate($encashed),
+            'advance_granted' => $advanceGranted,
+            'advance_recovered' => $advanceRecovered,
+            'advance_remaining' => $advanceRemaining,
+            'advance_recovery_rate' => $advanceGranted > 0 ? round($advanceRecovered / $advanceGranted * 100, 2) : null,
+            'advance_remaining_rate' => $advanceGranted > 0 ? round($advanceRemaining / $advanceGranted * 100, 2) : null,
+            'payments_count' => $payments->count(),
+        ];
+    }
+
+    /**
      * Get the reports for the project.
      */
     public function reports(): HasMany

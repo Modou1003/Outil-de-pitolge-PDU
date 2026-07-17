@@ -42,10 +42,12 @@ class RapportController extends Controller
             'director:id,name,email',
             'projectManager:id,name,email',
             'financialAgent:id,name,email',
+            'buildingWorks.physicalProgresses',
             'lots',
             'milestones',
             'physicalProgresses',
             'financialProgresses',
+            'payments',
             'indicatorTrackings.indicator',
             'alerts' => fn ($q) => $q->where('is_resolved', false)->orderByDesc('severity'),
         ]);
@@ -70,6 +72,7 @@ class RapportController extends Controller
         $pdf = Pdf::loadView('pdf.rapport-projet', [
             'project' => $project,
             'kpis' => $kpis,
+            'moa' => $project->financialMoa(),
             'generatedAt' => now(),
         ])->setPaper('A4', 'portrait');
 
@@ -128,7 +131,7 @@ class RapportController extends Controller
     {
         $this->authorizeGenerate();
 
-        $project->load(['university', 'lots', 'milestones', 'physicalProgresses.work', 'financialProgresses']);
+        $project->load(['university', 'buildingWorks.physicalProgresses', 'lots', 'milestones', 'physicalProgresses.work', 'financialProgresses', 'payments']);
 
         $filename = sprintf('projet-%s-%s.xlsx', $project->code, now()->format('Y-m-d'));
 

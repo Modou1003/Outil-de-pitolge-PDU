@@ -333,37 +333,7 @@ class ProjectController extends Controller
      */
     private function computeFinancialMoa(PduProject $project): array
     {
-        $budget = (float) $project->budget_allocated;
-        $payments = $project->payments;
-
-        $invoiced = (float) $payments->sum('gross_amount');
-        $netPaid = (float) $payments->sum('net_paid');
-
-        $advanceGranted = (float) $project->startup_advance_amount + (float) $project->supply_advance_amount;
-        $advanceRecovered = (float) $payments->sum('startup_advance_recovery') + (float) $payments->sum('supply_advance_recovery');
-        $advanceRemaining = max(0.0, $advanceGranted - $advanceRecovered);
-
-        $rate = fn (float $part) => $budget > 0 ? round($part / $budget * 100, 2) : null;
-
-        // « Encaissé » = travaux facturés + avances versées (cf. rapport mensuel).
-        $encashed = $invoiced + $advanceGranted;
-
-        return [
-            'budget' => $budget,
-            'invoiced' => $invoiced,
-            'invoice_rate' => $rate($invoiced),
-            'remaining_to_invoice' => max(0.0, $budget - $invoiced),
-            'remaining_to_invoice_rate' => $budget > 0 ? round(max(0.0, $budget - $invoiced) / $budget * 100, 2) : null,
-            'net_paid' => $netPaid,
-            'encashed' => $encashed,
-            'encashment_rate' => $rate($encashed),
-            'advance_granted' => $advanceGranted,
-            'advance_recovered' => $advanceRecovered,
-            'advance_remaining' => $advanceRemaining,
-            'advance_recovery_rate' => $advanceGranted > 0 ? round($advanceRecovered / $advanceGranted * 100, 2) : null,
-            'advance_remaining_rate' => $advanceGranted > 0 ? round($advanceRemaining / $advanceGranted * 100, 2) : null,
-            'payments_count' => $payments->count(),
-        ];
+        return $project->financialMoa();
     }
 
     /**
@@ -792,7 +762,7 @@ class ProjectController extends Controller
 
     public function exportExcel(PduProject $project)
     {
-        $project->load(['lots', 'milestones', 'physicalProgresses.work', 'financialProgresses']);
+        $project->load(['buildingWorks.physicalProgresses', 'lots', 'milestones', 'physicalProgresses.work', 'financialProgresses', 'payments']);
 
         return Excel::download(
             new ProjetExport($project),

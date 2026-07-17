@@ -35,8 +35,10 @@ class ProjetExport implements WithMultipleSheets, WithCharts
     {
         return [
             new ProjetInfoSheet($this->project),
+            new ProjetOuvragesSheet($this->project),
             new ProjetPhysicalSheet($this->project),
             new ProjetFinancialSheet($this->project),
+            new ProjetPaymentsSheet($this->project),
             new ProjetJalonsSheet($this->project),
             new ProjetCourbesSheet($this->project),
         ];
@@ -66,6 +68,8 @@ class ProjetInfoSheet implements FromArray, WithTitle, WithHeadings, ShouldAutoS
 
     public function array(): array
     {
+        $moa = $this->project->financialMoa();
+
         return [
             ['Code', $this->project->code],
             ['Titre', $this->project->title],
@@ -79,8 +83,16 @@ class ProjetInfoSheet implements FromArray, WithTitle, WithHeadings, ShouldAutoS
             ['Date de fin réelle', optional($this->project->planned_completion_date)->toDateString()],
             ['Avancement physique', $this->project->progress_percentage . '%'],
             ['Budget alloué', $this->formatCurrency($this->project->budget_allocated)],
-            ['Budget dépensé', $this->formatCurrency($this->project->budget_spent)],
+            ['Budget dépensé (coût réel)', $this->formatCurrency($this->project->budget_spent)],
             ['Taux d’exécution budget', $this->project->budget_execution_rate . '%'],
+            ['— Situation financière (MOA) —', ''],
+            ['Facturé (HT)', $this->formatCurrency($moa['invoiced'])],
+            ['Reste à facturer', $this->formatCurrency($moa['remaining_to_invoice'])],
+            ['Encaissé (travaux + avances)', $this->formatCurrency($moa['encashed'])],
+            ['Net décaissé', $this->formatCurrency($moa['net_paid'])],
+            ['Avances versées', $this->formatCurrency($moa['advance_granted'])],
+            ['Avances remboursées', $this->formatCurrency($moa['advance_recovered'])],
+            ['Reste à rembourser (exposition)', $this->formatCurrency($moa['advance_remaining'])],
             ['Objectifs', $this->formatArray($this->project->objectives)],
             ['Parties prenantes', $this->formatArray($this->project->stakeholders)],
         ];
@@ -243,6 +255,93 @@ class ProjetFinancialSheet implements FromArray, WithTitle, WithHeadings, Should
     private function formatCurrency(?float $value): string
     {
         return $value === null ? '' : number_format($value, 2, ',', ' ') . ' FCFA';
+    }
+}
+
+class ProjetOuvragesSheet implements FromArray, WithTitle, WithHeadings, ShouldAutoSize, WithEvents
+{
+    public function __construct(protected PduProject $project)
+    {
+    }
+
+    public function title(): string
+    {
+        return 'Ouvrages';
+    }
+
+    public function headings(): array
+    {
+        return ['Code', 'Ouvrage', 'Pondération', 'Avancement', 'Statut'];
+    }
+
+    public function array(): array
+    {
+        return $this->project->buildingWorks->map(fn ($w) => [
+            $w->code,
+            $w->name,
+            number_format((float) $w->weight_percentage, 2, ',', ' ') . ' %',
+            number_format((float) $w->progress_percentage, 2, ',', ' ') . ' %',
+            \App\Models\BuildingWork::STATUSES[$w->status] ?? $w->status,
+        ])->all();
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                $sheet->getStyle('A1:E1')->applyFromArray([
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1F4E79']],
+                ]);
+            },
+        ];
+    }
+}
+
+class ProjetPaymentsSheet implements FromArray, WithTitle, WithHeadings, ShouldAutoSize, WithEvents
+{
+    public function __construct(protected PduProject $project)
+    {
+    }
+
+    public function title(): string
+    {
+        return 'Décomptes';
+    }
+
+    public function headings(): array
+    {
+        return ['N° décompte', 'Période', 'Date', 'Brut HT', 'Remb. avance démarrage', 'Remb. avance appro.', 'Net payé', 'Statut'];
+    }
+
+    public function array(): array
+    {
+        $fmt = fn ($v) => $v === null ? '' : number_format((float) $v, 2, ',', ' ') . ' FCFA';
+
+        return $this->project->payments->map(fn ($p) => [
+            $p->number,
+            $p->period,
+            optional($p->payment_date)->format('d/m/Y'),
+            $fmt($p->gross_amount),
+            $fmt($p->startup_advance_recovery),
+            $fmt($p->supply_advance_recovery),
+            $fmt($p->net_paid),
+            $p->is_paid ? 'Payé' : 'En attente',
+        ])->all();
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                $sheet->getStyle('A1:H1')->applyFromArray([
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1F4E79']],
+                ]);
+            },
+        ];
     }
 }
 

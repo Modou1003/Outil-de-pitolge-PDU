@@ -67,19 +67,76 @@
         <tr><td>Agent financier</td><td>{{ $project->financialAgent?->name ?? '—' }}</td><td class="muted">{{ $project->financialAgent?->email ?? '' }}</td></tr>
     </table>
 
+    <h2>Situation financière (maître d'ouvrage)</h2>
+    <table class="kpi-grid">
+        <tr>
+            <td><div class="label">Marché (budget)</div><div class="value">{{ $fmt($moa['budget']) }} {{ $project->currency }}</div></td>
+            <td><div class="label">Facturé</div><div class="value">{{ $fmt($moa['invoiced']) }} ({{ $moa['invoice_rate'] !== null ? number_format($moa['invoice_rate'], 1, ',', ' ') . ' %' : '—' }})</div></td>
+            <td><div class="label">Reste à facturer</div><div class="value warn">{{ $fmt($moa['remaining_to_invoice']) }} ({{ $moa['remaining_to_invoice_rate'] !== null ? number_format($moa['remaining_to_invoice_rate'], 1, ',', ' ') . ' %' : '—' }})</div></td>
+            <td><div class="label">Encaissé (travaux + avances)</div><div class="value">{{ $fmt($moa['encashed']) }} ({{ $moa['encashment_rate'] !== null ? number_format($moa['encashment_rate'], 1, ',', ' ') . ' %' : '—' }})</div></td>
+        </tr>
+        <tr>
+            <td><div class="label">Avances versées</div><div class="value">{{ $fmt($moa['advance_granted']) }}</div></td>
+            <td><div class="label">Avances remboursées</div><div class="value">{{ $fmt($moa['advance_recovered']) }}</div></td>
+            <td><div class="label">Reste à rembourser (exposition)</div><div class="value {{ $moa['advance_remaining'] > 0 ? 'bad' : '' }}">{{ $fmt($moa['advance_remaining']) }} ({{ $moa['advance_remaining_rate'] !== null ? number_format($moa['advance_remaining_rate'], 1, ',', ' ') . ' %' : '—' }})</div></td>
+            <td><div class="label">Net décaissé</div><div class="value">{{ $fmt($moa['net_paid']) }}</div></td>
+        </tr>
+    </table>
+
+    @if($project->payments->count())
+        <table style="margin-top: 8px;">
+            <thead>
+                <tr><th>N° décompte</th><th>Période</th><th>Date</th><th class="right">Brut HT</th><th class="right">Remb. avances</th><th class="right">Net payé</th><th>Statut</th></tr>
+            </thead>
+            <tbody>
+                @foreach($project->payments as $p)
+                    <tr>
+                        <td><strong>{{ $p->number }}</strong></td>
+                        <td class="muted">{{ $p->period ?? '—' }}</td>
+                        <td class="muted">{{ $p->payment_date?->format('d/m/Y') ?? '—' }}</td>
+                        <td class="right">{{ $fmt($p->gross_amount) }}</td>
+                        <td class="right">{{ $fmt($p->startup_advance_recovery + $p->supply_advance_recovery) }}</td>
+                        <td class="right">{{ $fmt($p->net_paid) }}</td>
+                        <td>{{ $p->is_paid ? 'Payé' : 'En attente' }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
+    <h2>Ouvrages ({{ $project->buildingWorks->count() }})</h2>
+    @if($project->buildingWorks->count())
+        <table>
+            <thead>
+                <tr><th>Code</th><th>Ouvrage</th><th class="right">Pondération</th><th class="right">Avancement</th><th>Statut</th></tr>
+            </thead>
+            <tbody>
+                @foreach($project->buildingWorks as $w)
+                    <tr>
+                        <td><strong>{{ $w->code }}</strong></td>
+                        <td>{{ $w->name }}</td>
+                        <td class="right">{{ number_format((float) $w->weight_percentage, 1, ',', ' ') }} %</td>
+                        <td class="right">{{ number_format((float) $w->progress_percentage, 1, ',', ' ') }} %</td>
+                        <td>{{ $statusLabels[$w->status] ?? $w->status }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @else
+        <p class="muted">Aucun ouvrage défini.</p>
+    @endif
+
     <h2>Planning &middot; Lots ({{ $project->lots->count() }})</h2>
     @if($project->lots->count())
         <table>
             <thead>
-                <tr><th>Code</th><th>Lot</th><th class="right">Pondération</th><th class="right">Avancement</th><th>Statut</th><th>Période prévue</th></tr>
+                <tr><th>Code</th><th>Lot</th><th>Statut</th><th>Période prévue</th></tr>
             </thead>
             <tbody>
                 @foreach($project->lots as $lot)
                     <tr>
                         <td><strong>{{ $lot->code }}</strong></td>
                         <td>{{ $lot->name }}</td>
-                        <td class="right">{{ number_format((float) $lot->weight_percentage, 1, ',', ' ') }} %</td>
-                        <td class="right">{{ number_format((float) $lot->progress_percentage, 1, ',', ' ') }} %</td>
                         <td>{{ $statusLabels[$lot->status] ?? $lot->status }}</td>
                         <td class="muted">{{ $lot->planned_start_date?->format('d/m/Y') }} → {{ $lot->planned_end_date?->format('d/m/Y') }}</td>
                     </tr>
