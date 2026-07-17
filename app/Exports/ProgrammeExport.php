@@ -212,11 +212,11 @@ class ProgrammeProjetSheet implements FromArray, WithTitle, ShouldAutoSize, With
 
     // Positions de lignes déterministes (bloc infos = 13 lignes + 1 vide).
     protected function phStart(): int { return 17; }
-    protected function phEnd(): int { return 17 + count($this->phys); }
-    protected function evTitle(): int { return 19 + count($this->phys); }
-    protected function evHeader(): int { return 20 + count($this->phys); }
-    protected function evStart(): int { return 21 + count($this->phys); }
-    protected function evEnd(): int { return 21 + count($this->phys) + count($this->fin); }
+    protected function phEnd(): int { return 16 + count($this->phys); }
+    protected function evTitle(): int { return 18 + count($this->phys); }
+    protected function evHeader(): int { return 19 + count($this->phys); }
+    protected function evStart(): int { return 20 + count($this->phys); }
+    protected function evEnd(): int { return 19 + count($this->phys) + count($this->fin); }
 
     public function array(): array
     {
@@ -241,17 +241,15 @@ class ProgrammeProjetSheet implements FromArray, WithTitle, ShouldAutoSize, With
         // --- Courbe en S : avancement physique moyen par période ---
         $rows[] = ['COURBE EN S — AVANCEMENT PHYSIQUE (%)'];
         $rows[] = ['Période', 'Prévu (%)', 'Réel (%)', 'Écart (%)'];
-        $rows[] = ['T0', 0, 0, 0];
         foreach ($this->phys as $p) {
             $rows[] = [$p['period'], $p['planned'], $p['actual'], round($p['actual'] - $p['planned'], 2)];
         }
 
         $rows[] = []; // ligne vide
 
-        // --- Courbe EVM : cumulé projet par période ---
-        $rows[] = ['COURBE EVM — AVANCEMENT FINANCIER (FCFA cumulés)'];
+        // --- Courbe EVM : moyenne des ouvrages par période ---
+        $rows[] = ['COURBE EVM — AVANCEMENT FINANCIER (moyenne des ouvrages)'];
         $rows[] = ['Période', 'Valeur planifiée (PV)', 'Valeur acquise (EV)', 'Coût réel (AC)', 'SPI', 'CPI'];
-        $rows[] = ['T0', 0, 0, 0, null, null];
         foreach ($this->fin as $f) {
             $rows[] = [$f['period'], $f['pv'], $f['ev'], $f['ac'], $f['spi'], $f['cpi']];
         }
@@ -289,23 +287,26 @@ class ProgrammeProjetSheet implements FromArray, WithTitle, ShouldAutoSize, With
         foreach ($this->project->financialProgresses as $f) {
             $k = (string) $f->period;
             if ($k === '') continue;
-            $grouped[$k] ??= ['pv' => 0.0, 'ev' => 0.0, 'ac' => 0.0];
+            $grouped[$k] ??= ['pv' => 0.0, 'ev' => 0.0, 'ac' => 0.0, 'count' => 0];
             $grouped[$k]['pv'] += (float) $f->planned_value;
             $grouped[$k]['ev'] += (float) $f->earned_value;
             $grouped[$k]['ac'] += (float) $f->actual_cost;
+            $grouped[$k]['count']++;
         }
         ksort($grouped);
-        $cumPv = $cumEv = $cumAc = 0.0;
         $out = [];
         foreach ($grouped as $period => $g) {
-            $cumPv += $g['pv']; $cumEv += $g['ev']; $cumAc += $g['ac'];
+            if ($g['count'] === 0) continue;
+            $pv = $g['pv'] / $g['count'];
+            $ev = $g['ev'] / $g['count'];
+            $ac = $g['ac'] / $g['count'];
             $out[] = [
                 'period' => $period,
-                'pv' => round($cumPv, 2),
-                'ev' => round($cumEv, 2),
-                'ac' => round($cumAc, 2),
-                'spi' => $cumPv > 0 ? round($cumEv / $cumPv, 3) : null,
-                'cpi' => $cumAc > 0 ? round($cumEv / $cumAc, 3) : null,
+                'pv' => round($pv, 2),
+                'ev' => round($ev, 2),
+                'ac' => round($ac, 2),
+                'spi' => $pv > 0 ? round($ev / $pv, 3) : null,
+                'cpi' => $ac > 0 ? round($ev / $ac, 3) : null,
             ];
         }
         return $out;

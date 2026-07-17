@@ -363,11 +363,11 @@ class ProjetCourbesSheet implements FromArray, WithTitle, ShouldAutoSize, WithEv
 
     // Positions de lignes déterministes (cf. layout dans array()).
     protected function phStart(): int { return 3; }
-    protected function phEnd(): int { return 3 + count($this->phys); }        // T0 + n
-    protected function evTitle(): int { return 5 + count($this->phys); }
-    protected function evHeader(): int { return 6 + count($this->phys); }
-    protected function evStart(): int { return 7 + count($this->phys); }      // T0 + n
-    protected function evEnd(): int { return 7 + count($this->phys) + count($this->fin); }
+    protected function phEnd(): int { return 2 + count($this->phys); }
+    protected function evTitle(): int { return 4 + count($this->phys); }
+    protected function evHeader(): int { return 5 + count($this->phys); }
+    protected function evStart(): int { return 6 + count($this->phys); }
+    protected function evEnd(): int { return 5 + count($this->phys) + count($this->fin); }
 
     public function array(): array
     {
@@ -376,17 +376,15 @@ class ProjetCourbesSheet implements FromArray, WithTitle, ShouldAutoSize, WithEv
         // --- Section 1 : Courbe en S — avancement physique (moyenne par période) ---
         $rows[] = ['COURBE EN S — AVANCEMENT PHYSIQUE (%)'];
         $rows[] = ['Période', 'Prévu (%)', 'Réel (%)', 'Écart (%)'];
-        $rows[] = ['T0', 0, 0, 0];
         foreach ($this->phys as $p) {
             $rows[] = [$p['period'], $p['planned'], $p['actual'], round($p['actual'] - $p['planned'], 2)];
         }
 
         $rows[] = []; // ligne vide
 
-        // --- Section 2 : Courbe EVM — avancement financier (cumulé projet) ---
-        $rows[] = ['COURBE EVM — AVANCEMENT FINANCIER (FCFA cumulés)'];
+        // --- Section 2 : Courbe EVM — avancement financier (moyenne des ouvrages) ---
+        $rows[] = ['COURBE EVM — AVANCEMENT FINANCIER (moyenne des ouvrages)'];
         $rows[] = ['Période', 'Valeur planifiée (PV)', 'Valeur acquise (EV)', 'Coût réel (AC)', 'SPI', 'CPI'];
-        $rows[] = ['T0', 0, 0, 0, null, null];
         foreach ($this->fin as $f) {
             $rows[] = [$f['period'], $f['pv'], $f['ev'], $f['ac'], $f['spi'], $f['cpi']];
         }
@@ -419,30 +417,33 @@ class ProjetCourbesSheet implements FromArray, WithTitle, ShouldAutoSize, WithEv
         return $out;
     }
 
-    /** EVM cumulé au niveau projet (somme par période puis cumul). */
+    /** EVM moyen par période (moyenne des ouvrages), comme l'écran Avancement financier. */
     protected function aggregateFinancial(): array
     {
         $grouped = [];
         foreach ($this->project->financialProgresses as $f) {
             $k = (string) $f->period;
             if ($k === '') continue;
-            $grouped[$k] ??= ['pv' => 0.0, 'ev' => 0.0, 'ac' => 0.0];
+            $grouped[$k] ??= ['pv' => 0.0, 'ev' => 0.0, 'ac' => 0.0, 'count' => 0];
             $grouped[$k]['pv'] += (float) $f->planned_value;
             $grouped[$k]['ev'] += (float) $f->earned_value;
             $grouped[$k]['ac'] += (float) $f->actual_cost;
+            $grouped[$k]['count']++;
         }
         ksort($grouped);
-        $cumPv = $cumEv = $cumAc = 0.0;
         $out = [];
         foreach ($grouped as $period => $g) {
-            $cumPv += $g['pv']; $cumEv += $g['ev']; $cumAc += $g['ac'];
+            if ($g['count'] === 0) continue;
+            $pv = $g['pv'] / $g['count'];
+            $ev = $g['ev'] / $g['count'];
+            $ac = $g['ac'] / $g['count'];
             $out[] = [
                 'period' => $period,
-                'pv' => round($cumPv, 2),
-                'ev' => round($cumEv, 2),
-                'ac' => round($cumAc, 2),
-                'spi' => $cumPv > 0 ? round($cumEv / $cumPv, 3) : null,
-                'cpi' => $cumAc > 0 ? round($cumEv / $cumAc, 3) : null,
+                'pv' => round($pv, 2),
+                'ev' => round($ev, 2),
+                'ac' => round($ac, 2),
+                'spi' => $pv > 0 ? round($ev / $pv, 3) : null,
+                'cpi' => $ac > 0 ? round($ev / $ac, 3) : null,
             ];
         }
         return $out;
