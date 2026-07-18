@@ -17,10 +17,8 @@ use App\Models\University;
 use App\Models\User;
 use App\Services\AlerteService;
 use App\Services\ProjectHealthService;
-use App\Exports\ProjetExport;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
-use Maatwebsite\Excel\Facades\Excel;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Validation\Rule;
@@ -758,16 +756,6 @@ class ProjectController extends Controller
             ->delete();
 
         return back()->with('success', 'Indicateur supprime du projet.');
-    }
-
-    public function exportExcel(PduProject $project)
-    {
-        $project->load(['buildingWorks.physicalProgresses', 'lots', 'milestones', 'physicalProgresses.work', 'financialProgresses', 'payments']);
-
-        return Excel::download(
-            new ProjetExport($project),
-            sprintf('projet-%s.xlsx', $project->id)
-        );
     }
 
     private function computeEacFromCpi(?float $cpi, float $bac): ?float

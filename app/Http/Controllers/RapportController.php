@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\ProgrammeExport;
-use App\Exports\ProjetExport;
 use App\Models\Alert;
 use App\Models\PduProject;
 use App\Models\University;
@@ -12,8 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
-use Maatwebsite\Excel\Facades\Excel;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class RapportController extends Controller
 {
@@ -125,26 +121,6 @@ class RapportController extends Controller
         $filename = 'rapport-global-pdu-ci-' . now()->format('Y-m-d') . '.pdf';
 
         return $pdf->download($filename);
-    }
-
-    public function excelProjet(PduProject $project): BinaryFileResponse
-    {
-        $this->authorizeGenerate();
-
-        $project->load(['university', 'buildingWorks.physicalProgresses', 'lots', 'milestones', 'physicalProgresses.work', 'financialProgresses', 'payments']);
-
-        $filename = sprintf('projet-%s-%s.xlsx', $project->code, now()->format('Y-m-d'));
-
-        return Excel::download(new ProjetExport($project), $filename);
-    }
-
-    public function excelGlobal(): BinaryFileResponse
-    {
-        $this->authorizeGenerate();
-
-        $filename = sprintf('programme-pdu-%s.xlsx', now()->format('Y-m-d'));
-
-        return Excel::download(new ProgrammeExport(), $filename);
     }
 
     protected function authorizeGenerate(): void

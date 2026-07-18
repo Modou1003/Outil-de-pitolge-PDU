@@ -170,10 +170,6 @@ const breadcrumbs = computed(() => ([
     { label: 'Projets', href: route('dashboard') },
     { label: props.project.code },
 ]));
-
-const exportExcel = () => {
-    window.location.href = route('projects.export', props.project.id);
-};
 </script>
 
 <template>
@@ -201,14 +197,6 @@ const exportExcel = () => {
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
                         PDF
                     </a>
-                    <button
-                        type="button"
-                        @click.prevent="exportExcel"
-                        class="inline-flex items-center gap-1.5 self-start rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
-                    >
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5" /></svg>
-                        Excel
-                    </button>
                 </div>
             </div>
         </template>

@@ -32,21 +32,6 @@ const downloadGlobalReport = () => {
     setTimeout(() => (generatingGlobal.value = false), 2500);
 };
 
-const generatingExcelProject = ref(false);
-const generatingExcelGlobal = ref(false);
-
-const downloadProjectExcel = () => {
-    if (!selectedProjectId.value) return;
-    generatingExcelProject.value = true;
-    window.location.href = route('rapports.excel.projet', selectedProjectId.value);
-    setTimeout(() => (generatingExcelProject.value = false), 2500);
-};
-
-const downloadGlobalExcel = () => {
-    generatingExcelGlobal.value = true;
-    window.location.href = route('rapports.excel.global');
-    setTimeout(() => (generatingExcelGlobal.value = false), 2500);
-};
 </script>
 
 <template>
@@ -144,70 +129,6 @@ const downloadGlobalExcel = () => {
                     >
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
                         {{ generatingGlobal ? 'Génération…' : 'Télécharger le PDF' }}
-                    </button>
-                </div>
-            </div>
-
-            <!-- Exports Excel -->
-            <h3 class="text-base font-semibold text-gray-900">Exports Excel (XLSX)</h3>
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <!-- Excel projet -->
-                <div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <h3 class="text-base font-semibold text-gray-900">Export Excel d'un projet</h3>
-                            <p class="mt-1 text-sm text-gray-500">5 feuilles : Infos, Avancement physique, Avancement financier, Jalons, Courbe S.</p>
-                        </div>
-                        <span class="rounded-lg bg-emerald-50 p-2 text-emerald-600">
-                            <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h4l3-7 4 14 3-7h4" /></svg>
-                        </span>
-                    </div>
-
-                    <div class="mt-5">
-                        <label class="mb-1 block text-xs font-medium text-gray-700">Projet</label>
-                        <select v-model="selectedProjectId" class="w-full rounded-md border-gray-300 text-sm">
-                            <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.code }} — {{ p.title }}</option>
-                        </select>
-                    </div>
-
-                    <button
-                        type="button"
-                        class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
-                        :disabled="!canGenerate || generatingExcelProject || !selectedProjectId"
-                        @click="downloadProjectExcel"
-                    >
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
-                        {{ generatingExcelProject ? 'Génération…' : 'Télécharger le XLSX' }}
-                    </button>
-                    <p v-if="!canGenerate" class="mt-2 text-center text-xs text-red-600">Vous n'avez pas le droit de générer d'exports.</p>
-                </div>
-
-                <!-- Excel global -->
-                <div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <h3 class="text-base font-semibold text-gray-900">Export Excel global du programme</h3>
-                            <p class="mt-1 text-sm text-gray-500">2 feuilles : Synthèse programme (1 ligne/projet) + Courbe S consolidée.</p>
-                        </div>
-                        <span class="rounded-lg bg-teal-50 p-2 text-teal-600">
-                            <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6h2v6H9zm4 0v-4h2v4h-2zm4 0V9h2v8h-2zM5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                        </span>
-                    </div>
-
-                    <ul class="mt-5 space-y-2 text-sm text-gray-700">
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-600">✓</span> Tous les projets avec KPI (CPI, SPI, alertes)</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-600">✓</span> Formatage conditionnel : retards en rouge, à jour en vert</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-600">✓</span> Données brutes pour pivot et consolidation</li>
-                    </ul>
-
-                    <button
-                        type="button"
-                        class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-teal-700 disabled:opacity-50"
-                        :disabled="!canGenerate || generatingExcelGlobal"
-                        @click="downloadGlobalExcel"
-                    >
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
-                        {{ generatingExcelGlobal ? 'Génération…' : 'Télécharger le XLSX' }}
                     </button>
                 </div>
             </div>

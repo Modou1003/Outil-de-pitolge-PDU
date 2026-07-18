@@ -385,7 +385,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/projects/{project}/team-members', [ProjectController::class, 'updateTeamMembers'])->middleware('permission:edit_project')->name('projects.team-members.update');
     Route::post('/projects/{project}/indicators', [ProjectController::class, 'addIndicator'])->middleware('permission:edit_project')->name('projects.indicators.store');
     Route::delete('/projects/{project}/indicators/{indicator}', [ProjectController::class, 'removeIndicator'])->middleware('permission:edit_project')->name('projects.indicators.destroy');
-    Route::get('/projects/{project}/export-excel', [ProjectController::class, 'exportExcel'])->middleware('permission:export_reports')->name('projects.export');
 
     // Saisie avancement physique
     Route::post('/projects/{project}/physical', [PhysicalProgressController::class, 'store'])->middleware('permission:manage_physical')->name('projects.physical.store');
@@ -429,10 +428,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/rapports', [RapportController::class, 'index'])->name('rapports.index');
     Route::get('/rapports/projet/{project}', [RapportController::class, 'projet'])->name('rapports.projet');
     Route::get('/rapports/global', [RapportController::class, 'globalReport'])->name('rapports.global');
-
-    // Exports Excel
-    Route::get('/rapports/excel/projet/{project}', [RapportController::class, 'excelProjet'])->middleware('permission:export_reports')->name('rapports.excel.projet');
-    Route::get('/rapports/excel/global', [RapportController::class, 'excelGlobal'])->middleware('permission:export_reports')->name('rapports.excel.global');
 
     // Administration (Gestion des utilisateurs)
     Route::middleware('permission:manage_users')->group(function () {
