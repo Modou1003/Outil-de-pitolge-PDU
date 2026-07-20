@@ -44,7 +44,6 @@ class RapportController extends Controller
             'physicalProgresses',
             'financialProgresses',
             'payments',
-            'indicatorTrackings.indicator',
             'alerts' => fn ($q) => $q->where('is_resolved', false)->orderByDesc('severity'),
         ]);
 

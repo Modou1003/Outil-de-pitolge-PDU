@@ -191,31 +191,6 @@
         <p class="muted">Aucun jalon.</p>
     @endif
 
-    <h2>Indicateurs PDU ({{ $project->indicatorTrackings->count() }})</h2>
-    @if($project->indicatorTrackings->count())
-        <table>
-            <thead>
-                <tr><th>Indicateur</th><th class="right">Cible</th><th class="right">Réalisé</th><th class="right">Taux</th></tr>
-            </thead>
-            <tbody>
-                @foreach($project->indicatorTrackings as $t)
-                    @php
-                        $rate = ($t->target_value && (float) $t->target_value > 0) ? ((float) $t->actual_value / (float) $t->target_value * 100) : null;
-                        $cls = $rate === null ? '' : ($rate >= 90 ? 'ok' : ($rate >= 70 ? 'warn' : 'bad'));
-                    @endphp
-                    <tr>
-                        <td>{{ $t->indicator?->name ?? '—' }}</td>
-                        <td class="right">{{ $t->target_value !== null ? number_format((float) $t->target_value, 1, ',', ' ') . ' ' . ($t->indicator?->unit_symbol ?? '') : '—' }}</td>
-                        <td class="right">{{ $t->actual_value !== null ? number_format((float) $t->actual_value, 1, ',', ' ') . ' ' . ($t->indicator?->unit_symbol ?? '') : '—' }}</td>
-                        <td class="right {{ $cls }}">{{ $rate !== null ? number_format($rate, 1, ',', ' ') . ' %' : '—' }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    @else
-        <p class="muted">Aucun indicateur tracké.</p>
-    @endif
-
     @if($project->alerts->count())
         <h2>Alertes ouvertes ({{ $project->alerts->count() }})</h2>
         <table>
