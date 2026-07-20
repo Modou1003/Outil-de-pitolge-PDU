@@ -57,6 +57,28 @@
         </tr>
     </table>
 
+    <h2>Courbes d'avancement</h2>
+    @if($physicalChartSvg)
+        <p style="margin: 6px 0 1px 0; font-weight: bold; font-size: 11px;">Courbe en S — Avancement physique (%)</p>
+        <p class="muted" style="margin: 0 0 3px 0; font-size: 9px;">
+            <span style="color: #6366f1;">━━</span> Prévu moyen &nbsp;&nbsp;
+            <span style="color: #10b981;">━━</span> Réel moyen
+        </p>
+        <img src="data:image/svg+xml;base64,{{ base64_encode($physicalChartSvg) }}" style="width: 100%; max-width: 700px;" alt="Courbe en S — avancement physique" />
+    @else
+        <p class="muted">Aucune donnée d'avancement physique.</p>
+    @endif
+
+    @if($financialChartSvg)
+        <p style="margin: 10px 0 1px 0; font-weight: bold; font-size: 11px;">Courbe EVM — Avancement financier (FCFA cumulés, en millions)</p>
+        <p class="muted" style="margin: 0 0 3px 0; font-size: 9px;">
+            <span style="color: #6366f1;">━━</span> Valeur planifiée (PV) &nbsp;&nbsp;
+            <span style="color: #10b981;">━━</span> Valeur acquise (EV) &nbsp;&nbsp;
+            <span style="color: #f59e0b;">━━</span> Coût réel (AC)
+        </p>
+        <img src="data:image/svg+xml;base64,{{ base64_encode($financialChartSvg) }}" style="width: 100%; max-width: 700px;" alt="Courbe EVM — avancement financier" />
+    @endif
+
     <h2>Équipe projet</h2>
     <table>
         <tr>

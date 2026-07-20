@@ -65,10 +65,37 @@ class RapportController extends Controller
             'milestones_total' => $project->milestones->count(),
         ];
 
+        // Courbes (SVG rendu côté serveur pour DomPDF).
+        $phys = $this->aggregatePhysicalCurve($project);
+        $fin = $this->aggregateFinancialCurve($project);
+
+        $physicalChartSvg = count($phys['labels']) >= 1
+            ? $this->lineChartSvg($phys['labels'], [
+                ['color' => '#6366f1', 'dash' => true, 'values' => $phys['planned']],
+                ['color' => '#10b981', 'dash' => false, 'values' => $phys['actual']],
+            ], 100.0, fn ($v) => round($v) . ' %')
+            : null;
+
+        $finMax = 0.0;
+        foreach (['pv', 'ev', 'ac'] as $kk) {
+            foreach ($fin[$kk] as $v) {
+                $finMax = max($finMax, (float) $v);
+            }
+        }
+        $financialChartSvg = count($fin['labels']) >= 1
+            ? $this->lineChartSvg($fin['labels'], [
+                ['color' => '#6366f1', 'dash' => true, 'values' => $fin['pv']],
+                ['color' => '#10b981', 'dash' => false, 'values' => $fin['ev']],
+                ['color' => '#f59e0b', 'dash' => false, 'values' => $fin['ac']],
+            ], max(1.0, $finMax * 1.1), fn ($v) => number_format($v / 1000000, 0, ',', ' ') . ' M')
+            : null;
+
         $pdf = Pdf::loadView('pdf.rapport-projet', [
             'project' => $project,
             'kpis' => $kpis,
             'moa' => $project->financialMoa(),
+            'physicalChartSvg' => $physicalChartSvg,
+            'financialChartSvg' => $financialChartSvg,
             'generatedAt' => now(),
         ])->setPaper('A4', 'portrait');
 
@@ -121,6 +148,107 @@ class RapportController extends Controller
         $filename = 'rapport-global-pdu-ci-' . now()->format('Y-m-d') . '.pdf';
 
         return $pdf->download($filename);
+    }
+
+    /** Avancement physique moyen par période (courbe en S). */
+    private function aggregatePhysicalCurve(PduProject $project): array
+    {
+        $grouped = [];
+        foreach ($project->physicalProgresses as $p) {
+            $k = (string) $p->period;
+            if ($k === '') continue;
+            $grouped[$k] ??= ['pl' => 0.0, 'ac' => 0.0, 'c' => 0];
+            $grouped[$k]['pl'] += (float) $p->planned_percentage;
+            $grouped[$k]['ac'] += (float) $p->actual_percentage;
+            $grouped[$k]['c']++;
+        }
+        ksort($grouped);
+        $labels = $planned = $actual = [];
+        foreach ($grouped as $period => $g) {
+            if ($g['c'] === 0) continue;
+            $labels[] = $period;
+            $planned[] = round($g['pl'] / $g['c'], 1);
+            $actual[] = round($g['ac'] / $g['c'], 1);
+        }
+        return ['labels' => $labels, 'planned' => $planned, 'actual' => $actual];
+    }
+
+    /** EVM cumulée du projet : somme des ouvrages par période, puis cumul. */
+    private function aggregateFinancialCurve(PduProject $project): array
+    {
+        $grouped = [];
+        foreach ($project->financialProgresses as $f) {
+            $k = (string) $f->period;
+            if ($k === '') continue;
+            $grouped[$k] ??= ['pv' => 0.0, 'ev' => 0.0, 'ac' => 0.0];
+            $grouped[$k]['pv'] += (float) $f->planned_value;
+            $grouped[$k]['ev'] += (float) $f->earned_value;
+            $grouped[$k]['ac'] += (float) $f->actual_cost;
+        }
+        ksort($grouped);
+        $labels = $pv = $ev = $ac = [];
+        $cpv = $cev = $cac = 0.0;
+        foreach ($grouped as $period => $g) {
+            $cpv += $g['pv']; $cev += $g['ev']; $cac += $g['ac'];
+            $labels[] = $period;
+            $pv[] = round($cpv, 2);
+            $ev[] = round($cev, 2);
+            $ac[] = round($cac, 2);
+        }
+        return ['labels' => $labels, 'pv' => $pv, 'ev' => $ev, 'ac' => $ac];
+    }
+
+    /**
+     * Génère un graphique en courbes au format SVG (rendu par DomPDF).
+     * $series : [ ['color'=>hex, 'dash'=>bool, 'values'=>[...]], ... ]
+     */
+    private function lineChartSvg(array $labels, array $series, float $yMax, callable $yFormat, int $yTicks = 5): string
+    {
+        if ($yMax <= 0) $yMax = 1;
+        $W = 760; $H = 300; $L = 58; $R = 18; $T = 16; $B = 34;
+        $pw = $W - $L - $R; $ph = $H - $T - $B;
+        $n = count($labels);
+
+        $x = fn ($i) => $n <= 1 ? $L + $pw / 2 : $L + ($i / ($n - 1)) * $pw;
+        $y = fn ($v) => $T + $ph * (1 - max(0.0, min($yMax, (float) $v)) / $yMax);
+        $esc = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES);
+
+        $svg = '<svg width="700" height="276" viewBox="0 0 ' . $W . ' ' . $H . '" xmlns="http://www.w3.org/2000/svg" font-family="DejaVu Sans, sans-serif">';
+        $svg .= '<rect x="0" y="0" width="' . $W . '" height="' . $H . '" fill="#ffffff"/>';
+
+        // Grille + labels Y
+        for ($t = 0; $t <= $yTicks; $t++) {
+            $val = $yMax * $t / $yTicks;
+            $yy = round($y($val), 1);
+            $svg .= '<line x1="' . $L . '" y1="' . $yy . '" x2="' . ($W - $R) . '" y2="' . $yy . '" stroke="#e5e7eb" stroke-width="1"/>';
+            $svg .= '<text x="' . ($L - 6) . '" y="' . ($yy + 3) . '" text-anchor="end" font-size="10" fill="#6b7280">' . $esc($yFormat($val)) . '</text>';
+        }
+
+        // Labels X
+        for ($i = 0; $i < $n; $i++) {
+            $svg .= '<text x="' . round($x($i), 1) . '" y="' . ($H - $B + 16) . '" text-anchor="middle" font-size="10" fill="#6b7280">' . $esc($labels[$i]) . '</text>';
+        }
+
+        // Axes
+        $svg .= '<line x1="' . $L . '" y1="' . $T . '" x2="' . $L . '" y2="' . ($T + $ph) . '" stroke="#9ca3af" stroke-width="1"/>';
+        $svg .= '<line x1="' . $L . '" y1="' . ($T + $ph) . '" x2="' . ($W - $R) . '" y2="' . ($T + $ph) . '" stroke="#9ca3af" stroke-width="1"/>';
+
+        // Séries
+        foreach ($series as $s) {
+            $pts = [];
+            foreach ($s['values'] as $i => $v) {
+                $pts[] = round($x($i), 1) . ',' . round($y($v), 1);
+            }
+            if (! $pts) continue;
+            $dash = ! empty($s['dash']) ? ' stroke-dasharray="7,4"' : '';
+            $svg .= '<polyline points="' . implode(' ', $pts) . '" fill="none" stroke="' . $s['color'] . '" stroke-width="2.5"' . $dash . '/>';
+            foreach ($s['values'] as $i => $v) {
+                $svg .= '<circle cx="' . round($x($i), 1) . '" cy="' . round($y($v), 1) . '" r="2.6" fill="' . $s['color'] . '"/>';
+            }
+        }
+
+        $svg .= '</svg>';
+        return $svg;
     }
 
     protected function authorizeGenerate(): void
