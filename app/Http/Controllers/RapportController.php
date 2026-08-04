@@ -44,6 +44,7 @@ class RapportController extends Controller
             'physicalProgresses',
             'financialProgresses',
             'payments',
+            'amendments',
             'alerts' => fn ($q) => $q->where('is_resolved', false)->orderByDesc('severity'),
         ]);
 
@@ -54,10 +55,10 @@ class RapportController extends Controller
             'cv' => $latestFinancial?->cv,
             'sv' => $latestFinancial?->sv,
             'eac' => ($latestFinancial && $latestFinancial->cpi > 0)
-                ? round((float) $project->budget_allocated / $latestFinancial->cpi, 2)
+                ? round($project->budget_revised / $latestFinancial->cpi, 2)
                 : null,
-            'budget_rate' => $project->budget_allocated > 0
-                ? round(((float) $project->budget_spent / (float) $project->budget_allocated) * 100, 1)
+            'budget_rate' => $project->budget_revised > 0
+                ? round(((float) $project->budget_spent / $project->budget_revised) * 100, 1)
                 : null,
             'planned_progress' => $project->planned_progress,
             'milestones_reached' => $project->milestones->where('status', 'reached')->count(),
@@ -107,7 +108,7 @@ class RapportController extends Controller
     {
         $this->authorizeGenerate();
 
-        $projects = PduProject::with('university:id,name,acronym,region')
+        $projects = PduProject::with(['university:id,name,acronym,region', 'amendments'])
             ->orderBy('code')
             ->get();
 
@@ -121,7 +122,7 @@ class RapportController extends Controller
             'active_projects' => $projects->whereIn('status', ['approved', 'in_progress'])->count(),
             'completed_projects' => $projects->where('status', 'completed')->count(),
             'on_hold_projects' => $projects->where('status', 'on_hold')->count(),
-            'total_budget' => (float) $projects->sum('budget_allocated'),
+            'total_budget' => (float) $projects->sum(fn (PduProject $p) => $p->budget_revised),
             'total_spent' => (float) $projects->sum('budget_spent'),
             'avg_progress' => $projects->count() ? round((float) $projects->avg('progress_percentage'), 1) : 0,
             'open_alerts' => Alert::where('is_resolved', false)->count(),
@@ -132,7 +133,7 @@ class RapportController extends Controller
             ->map(fn ($group, $region) => [
                 'region' => $region,
                 'count' => $group->count(),
-                'budget' => (float) $group->sum('budget_allocated'),
+                'budget' => (float) $group->sum(fn (PduProject $p) => $p->budget_revised),
                 'avg_progress' => round((float) $group->avg('progress_percentage'), 1),
             ])->values();
 

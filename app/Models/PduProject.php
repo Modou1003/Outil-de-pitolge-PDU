@@ -149,13 +149,41 @@ class PduProject extends Model
         return $this->hasMany(ProjectPayment::class)->orderBy('number');
     }
 
+    public function amendments(): HasMany
+    {
+        return $this->hasMany(ProjectAmendment::class)->orderBy('signed_date')->orderBy('id');
+    }
+
+    /**
+     * Somme des avenants (positive = plus-value, négative = moins-value).
+     */
+    public function getAmendmentsTotalAttribute(): float
+    {
+        $sum = $this->relationLoaded('amendments')
+            ? $this->amendments->sum('amount')
+            : $this->amendments()->sum('amount');
+
+        return round((float) $sum, 2);
+    }
+
+    /**
+     * Montant du marché actualisé = montant initial + avenants.
+     * Référence de tous les taux financiers ; budget_allocated reste le montant
+     * initial, jamais modifié par un avenant.
+     */
+    public function getBudgetRevisedAttribute(): float
+    {
+        return round((float) $this->budget_allocated + $this->amendments_total, 2);
+    }
+
     /**
      * Synthèse financière « maître d'ouvrage » : facturation, reste à facturer,
      * décaissement et exposition sur les avances (démarrage + approvisionnement).
      */
     public function financialMoa(): array
     {
-        $budget = (float) $this->budget_allocated;
+        // Le marché de référence est le montant actualisé (initial + avenants).
+        $budget = $this->budget_revised;
         $payments = $this->payments;
 
         $invoiced = (float) $payments->sum('gross_amount');
@@ -170,6 +198,11 @@ class PduProject extends Model
 
         return [
             'budget' => $budget,
+            'budget_initial' => (float) $this->budget_allocated,
+            'amendments_total' => $this->amendments_total,
+            'amendments_count' => $this->relationLoaded('amendments')
+                ? $this->amendments->count()
+                : $this->amendments()->count(),
             'invoiced' => $invoiced,
             'invoice_rate' => $rate($invoiced),
             'remaining_to_invoice' => max(0.0, $budget - $invoiced),
@@ -232,22 +265,23 @@ class PduProject extends Model
     }
 
     /**
-     * Get the remaining budget.
+     * Get the remaining budget (sur le montant actualisé).
      */
     public function getRemainingBudgetAttribute(): float
     {
-        return $this->budget_allocated - $this->budget_spent;
+        return round($this->budget_revised - (float) $this->budget_spent, 2);
     }
 
     /**
-     * Get the budget execution rate.
+     * Get the budget execution rate (sur le montant actualisé).
      */
     public function getBudgetExecutionRateAttribute(): float
     {
-        if ($this->budget_allocated == 0) {
+        $budget = $this->budget_revised;
+        if ($budget <= 0) {
             return 0;
         }
-        return round(($this->budget_spent / $this->budget_allocated) * 100, 2);
+        return round(((float) $this->budget_spent / $budget) * 100, 2);
     }
 
     /**

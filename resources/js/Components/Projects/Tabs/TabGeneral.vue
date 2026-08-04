@@ -318,8 +318,11 @@ const saveExtendedTeam = () => {
                 <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700">Budget</h3>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div class="rounded-lg bg-indigo-50 p-3">
-                        <p class="text-xs font-medium text-indigo-700">Alloué</p>
-                        <p class="mt-1 text-lg font-bold text-indigo-900">{{ formatMoney(project.budget_allocated) }} <span class="text-xs font-normal">{{ project.currency }}</span></p>
+                        <p class="text-xs font-medium text-indigo-700">Marché actualisé</p>
+                        <p class="mt-1 text-lg font-bold text-indigo-900">{{ formatMoney(project.budget_revised ?? project.budget_allocated) }} <span class="text-xs font-normal">{{ project.currency }}</span></p>
+                        <p v-if="project.amendments_total" class="mt-0.5 text-[11px] text-indigo-600">
+                            initial {{ formatMoney(project.budget_allocated) }} · avenants {{ project.amendments_total > 0 ? '+' : '' }}{{ formatMoney(project.amendments_total) }}
+                        </p>
                     </div>
                     <div class="rounded-lg bg-amber-50 p-3">
                         <p class="text-xs font-medium text-amber-700">Décaissé</p>

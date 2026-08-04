@@ -94,7 +94,7 @@ class ProjectHealthService
     /** Effet de façade : décaissement en avance sur l'avancement physique. */
     private function facadeScore(PduProject $project): ?float
     {
-        if (! $project->budget_allocated || $project->budget_allocated <= 0) {
+        if ($project->budget_revised <= 0) {
             return null;
         }
         $physical = (float) $project->progress_percentage;

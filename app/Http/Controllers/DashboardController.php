@@ -20,6 +20,7 @@ class DashboardController extends Controller
                 'physicalProgresses',
                 'financialProgresses',
                 'milestones',
+                'amendments',
                 'alerts' => fn ($q) => $q->where('is_resolved', false),
             ])
             ->orderBy('code')
@@ -47,6 +48,8 @@ class DashboardController extends Controller
                 'planned_progress' => $p->planned_progress,
                 'budget_execution_rate' => $p->budget_execution_rate,
                 'budget_allocated' => (float) $p->budget_allocated,
+                'amendments_total' => $p->amendments_total,
+                'budget_revised' => $p->budget_revised,
                 'budget_spent' => (float) $p->budget_spent,
                 'university_id' => $p->university_id,
                 'university_name' => $p->university?->name,

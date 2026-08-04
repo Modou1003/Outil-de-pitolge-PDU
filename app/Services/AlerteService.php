@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Notification;
 
 class AlerteService
 {
-    /** Seuil de dépassement budgétaire (budget_spent / budget_allocated). */
+    /** Seuil de dépassement budgétaire (budget_spent / montant actualisé). */
     public const BUDGET_THRESHOLD = 0.9;
 
     /** Seuil d'écart d'avancement (réel - prévu). */
@@ -35,7 +35,7 @@ class AlerteService
         $summary = ['created' => 0, 'closed' => 0, 'scanned' => 0];
 
         PduProject::query()
-            ->with(['physicalProgresses', 'lots', 'milestones'])
+            ->with(['physicalProgresses', 'lots', 'milestones', 'amendments'])
             ->chunk(50, function (Collection $projects) use (&$summary) {
                 foreach ($projects as $project) {
                     $summary['scanned']++;
@@ -129,14 +129,16 @@ class AlerteService
                 'severity' => 'warning',
                 'title' => 'Dépassement budgétaire imminent',
                 'message' => sprintf(
-                    'Montant décaissé %.2f > 90%% du budget total (%.2f).',
+                    'Montant décaissé %.2f > 90%% du marché actualisé (%.2f).',
                     (float) $project->budget_spent,
-                    (float) $project->budget_allocated * self::BUDGET_THRESHOLD,
+                    $project->budget_revised * self::BUDGET_THRESHOLD,
                 ),
                 'context' => [
                     'rate' => (float) $project->budget_execution_rate,
                     'spent' => (float) $project->budget_spent,
                     'allocated' => (float) $project->budget_allocated,
+                    'revised' => $project->budget_revised,
+                    'amendments_total' => $project->amendments_total,
                     'threshold_rate' => self::BUDGET_THRESHOLD * 100,
                 ],
             ],
@@ -181,8 +183,9 @@ class AlerteService
 
     protected function detectBudgetOverrun(PduProject $project): bool
     {
-        if (! $project->budget_allocated || $project->budget_allocated <= 0) return false;
-        return ($project->budget_spent / $project->budget_allocated) >= self::BUDGET_THRESHOLD;
+        $budget = $project->budget_revised;
+        if ($budget <= 0) return false;
+        return ((float) $project->budget_spent / $budget) >= self::BUDGET_THRESHOLD;
     }
 
     protected function detectProgressGap(PduProject $project): bool
@@ -262,7 +265,7 @@ class AlerteService
         if (in_array($project->status, ['draft', 'completed', 'cancelled', 'archived'], true)) {
             return false;
         }
-        if (! $project->budget_allocated || $project->budget_allocated <= 0) {
+        if ($project->budget_revised <= 0) {
             return false;
         }
 

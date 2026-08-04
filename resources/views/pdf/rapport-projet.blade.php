@@ -52,10 +52,46 @@
         <tr>
             <td><div class="label">CPI (coût)</div><div class="value {{ $cpiClass }}">{{ $kpis['cpi'] ? number_format($kpis['cpi'], 2) : '—' }}</div></td>
             <td><div class="label">SPI (délai)</div><div class="value {{ $spiClass }}">{{ $kpis['spi'] ? number_format($kpis['spi'], 2) : '—' }}</div></td>
-            <td><div class="label">Budget alloué</div><div class="value">{{ $fmt($project->budget_allocated) }} {{ $project->currency }}</div></td>
+            <td><div class="label">Marché actualisé</div><div class="value">{{ $fmt($project->budget_revised) }} {{ $project->currency }}</div></td>
             <td><div class="label">Budget consommé</div><div class="value">{{ $fmt($project->budget_spent) }} ({{ $kpis['budget_rate'] !== null ? number_format($kpis['budget_rate'], 1, ',', ' ') . ' %' : '—' }})</div></td>
         </tr>
     </table>
+
+    @if($project->amendments->isNotEmpty())
+        <h2>Avenants au marché</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 12%;">N°</th>
+                    <th style="width: 15%;">Date</th>
+                    <th>Objet</th>
+                    <th class="right" style="width: 20%;">Montant</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($project->amendments as $a)
+                    <tr>
+                        <td><strong>{{ $a->number }}</strong></td>
+                        <td class="muted">{{ $a->signed_date?->format('d/m/Y') ?? '—' }}</td>
+                        <td>{{ $a->object ?: '—' }}</td>
+                        <td class="right {{ $a->amount < 0 ? 'warn' : '' }}">{{ $a->amount > 0 ? '+' : '' }}{{ $fmt($a->amount) }}</td>
+                    </tr>
+                @endforeach
+                <tr>
+                    <td colspan="3"><strong>Marché initial</strong></td>
+                    <td class="right">{{ $fmt($project->budget_allocated) }}</td>
+                </tr>
+                <tr>
+                    <td colspan="3"><strong>Total avenants</strong></td>
+                    <td class="right">{{ $project->amendments_total > 0 ? '+' : '' }}{{ $fmt($project->amendments_total) }}</td>
+                </tr>
+                <tr>
+                    <td colspan="3"><strong>Marché actualisé</strong></td>
+                    <td class="right"><strong>{{ $fmt($project->budget_revised) }} {{ $project->currency }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    @endif
 
     <h2>Courbes d'avancement</h2>
     @if($physicalChartSvg)

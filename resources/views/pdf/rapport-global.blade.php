@@ -63,14 +63,15 @@
                 <th style="width: 18%;">Université</th>
                 <th style="width: 12%;">Statut</th>
                 <th class="right" style="width: 10%;">Avancement</th>
-                <th class="right" style="width: 15%;">Budget alloué</th>
+                <th class="right" style="width: 15%;">Marché actualisé</th>
                 <th class="right" style="width: 15%;">Consommé</th>
             </tr>
         </thead>
         <tbody>
             @foreach($projects as $p)
                 @php
-                    $rate = $p->budget_allocated > 0 ? ($p->budget_spent / $p->budget_allocated * 100) : 0;
+                    $revised = $p->budget_revised;
+                    $rate = $revised > 0 ? ($p->budget_spent / $revised * 100) : 0;
                     $rateClass = $rate >= 95 ? 'bad' : ($rate >= 80 ? 'warn' : '');
                 @endphp
                 <tr>
@@ -84,7 +85,12 @@
                         </div>
                         <span style="margin-left: 4px;">{{ number_format((float) $p->progress_percentage, 0) }}%</span>
                     </td>
-                    <td class="right">{{ $fmt($p->budget_allocated) }}</td>
+                    <td class="right">
+                        {{ $fmt($revised) }}
+                        @if($p->amendments_total != 0)
+                            <span class="muted" style="font-size: 8px;">(dont avenants {{ $p->amendments_total > 0 ? '+' : '' }}{{ $fmt($p->amendments_total) }})</span>
+                        @endif
+                    </td>
                     <td class="right {{ $rateClass }}">{{ $fmt($p->budget_spent) }} <span class="muted" style="font-size: 8px;">({{ number_format($rate, 0) }}%)</span></td>
                 </tr>
             @endforeach

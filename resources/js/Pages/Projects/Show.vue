@@ -16,6 +16,7 @@ const props = defineProps({
     physical_progresses: { type: Array, required: true },
     financial_progresses: { type: Array, required: true },
     payments: { type: Array, default: () => [] },
+    amendments: { type: Array, default: () => [] },
     indicator_trackings: { type: Array, required: true },
     indicator_catalog: { type: Array, default: () => [] },
     alerts: { type: Array, required: true },
@@ -232,7 +233,7 @@ const breadcrumbs = computed(() => ([
                 :can-manage-team="can_manage_team"
             />
             <TabPhysical v-else-if="activeTab === 'physical'" :project="project" :progresses="physical_progresses" :building_works="building_works" />
-            <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :building_works="building_works" :payments="payments" />
+            <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :building_works="building_works" :payments="payments" :amendments="amendments" />
             <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :building_works="building_works" :lots="lots" :milestones="milestones" />
             <div v-else-if="activeTab === 'indicators'" class="space-y-4">
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
