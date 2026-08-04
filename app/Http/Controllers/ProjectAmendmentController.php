@@ -7,6 +7,7 @@ use App\Models\ProjectAmendment;
 use App\Services\AlerteService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class ProjectAmendmentController extends Controller
 {
@@ -65,18 +66,29 @@ class ProjectAmendmentController extends Controller
 
     protected function validatePayload(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'number' => ['required', 'string', 'max:40'],
             'object' => ['nullable', 'string', 'max:255'],
             'signed_date' => ['nullable', 'date'],
             // Un avenant peut être en plus-value (+) ou en moins-value (−).
-            'amount' => ['required', 'numeric'],
+            'amount' => ['nullable', 'numeric'],
             // Prolongation de délai en jours (négative = réduction).
             'duration_days' => ['nullable', 'integer', 'between:-3650,3650'],
             'observations' => ['nullable', 'string', 'max:1000'],
         ], [
-            'amount.required' => "Le montant de l'avenant est obligatoire.",
             'duration_days.between' => 'La prolongation doit être comprise entre -3650 et 3650 jours.',
         ]);
+
+        $data['amount'] = (float) ($data['amount'] ?? 0);
+        $data['duration_days'] = (int) ($data['duration_days'] ?? 0);
+
+        // Montant seul, délai seul ou les deux — mais pas un avenant sans effet.
+        if ($data['amount'] == 0.0 && $data['duration_days'] === 0) {
+            throw ValidationException::withMessages([
+                'amount' => "Renseigne au moins un montant ou une prolongation de délai.",
+            ]);
+        }
+
+        return $data;
     }
 }

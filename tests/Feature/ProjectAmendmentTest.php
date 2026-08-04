@@ -199,6 +199,60 @@ class ProjectAmendmentTest extends TestCase
         $this->assertSame('2027-02-14', $project->planned_end_date_revised->toDateString());
     }
 
+    public function test_un_avenant_peut_ne_porter_quun_delai_sans_montant(): void
+    {
+        [$user, $project] = $this->makeContext();
+
+        // Aucun champ « amount » envoyé : l'avenant ne porte qu'un délai.
+        $this->actingAs($user)
+            ->post(route('projects.amendments.store', $project), [
+                'number' => 'AV-DELAI',
+                'object' => 'Prolongation pour intempéries',
+                'duration_days' => 120,
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $project->refresh();
+        $this->assertSame(0.0, $project->amendments_total);
+        $this->assertSame(100000000.0, $project->budget_revised, 'Le montant du marché ne bouge pas');
+        $this->assertSame(120, $project->amendments_duration_days);
+        $this->assertSame('2027-04-30', $project->planned_end_date_revised->toDateString());
+    }
+
+    public function test_un_avenant_peut_ne_porter_quun_montant_sans_delai(): void
+    {
+        [$user, $project] = $this->makeContext();
+
+        $this->actingAs($user)
+            ->post(route('projects.amendments.store', $project), [
+                'number' => 'AV-MONTANT',
+                'amount' => 15000000,
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $project->refresh();
+        $this->assertSame(115000000.0, $project->budget_revised);
+        $this->assertSame(0, $project->amendments_duration_days);
+        $this->assertSame('2026-12-31', $project->planned_end_date_revised->toDateString());
+    }
+
+    public function test_un_avenant_sans_montant_ni_delai_est_refuse(): void
+    {
+        [$user, $project] = $this->makeContext();
+
+        $this->actingAs($user)
+            ->post(route('projects.amendments.store', $project), [
+                'number' => 'AV-VIDE',
+                'amount' => 0,
+                'duration_days' => 0,
+            ])
+            ->assertSessionHasErrors('amount');
+
+        $this->assertSame(0, ProjectAmendment::count());
+    }
+
     public function test_la_suppression_ramene_au_montant_initial(): void
     {
         [$user, $project] = $this->makeContext();

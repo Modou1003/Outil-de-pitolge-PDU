@@ -15,10 +15,14 @@ const form = useForm({
     number: '',
     object: '',
     signed_date: '',
-    amount: 0,
-    duration_days: 0,
+    amount: '',
+    duration_days: '',
     observations: '',
 });
+
+// Un effet non renseigné vaut 0 en base : on l'affiche vide pour que la
+// distinction « montant seul / délai seul » reste lisible à la réouverture.
+const blankIfZero = (v) => (Number(v) === 0 ? '' : v);
 
 watch(() => props.show, (v) => {
     if (v) {
@@ -26,6 +30,8 @@ watch(() => props.show, (v) => {
             Object.keys(form.data()).forEach((k) => {
                 if (props.amendment[k] !== undefined && props.amendment[k] !== null) form[k] = props.amendment[k];
             });
+            form.amount = blankIfZero(props.amendment.amount);
+            form.duration_days = blankIfZero(props.amendment.duration_days);
         } else {
             form.reset();
         }
@@ -67,16 +73,20 @@ const submit = () => {
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-700">Montant — FCFA</label>
-                    <input v-model.number="form.amount" type="number" step="any" class="w-full rounded-md border-gray-300 text-sm" required />
+                    <label class="mb-1 block text-xs font-medium text-gray-700">
+                        Montant — FCFA <span class="font-normal text-gray-400">(optionnel)</span>
+                    </label>
+                    <input v-model="form.amount" type="number" step="any" placeholder="0" class="w-full rounded-md border-gray-300 text-sm" />
                     <p class="mt-1 text-xs text-gray-500">
                         Positif = plus-value, négatif = moins-value. Le marché initial reste inchangé.
                     </p>
                     <p v-if="form.errors.amount" class="mt-1 text-xs text-red-600">{{ form.errors.amount }}</p>
                 </div>
                 <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-700">Prolongation de délai — jours</label>
-                    <input v-model.number="form.duration_days" type="number" step="1" class="w-full rounded-md border-gray-300 text-sm" />
+                    <label class="mb-1 block text-xs font-medium text-gray-700">
+                        Prolongation de délai — jours <span class="font-normal text-gray-400">(optionnel)</span>
+                    </label>
+                    <input v-model="form.duration_days" type="number" step="1" placeholder="0" class="w-full rounded-md border-gray-300 text-sm" />
                     <p class="mt-1 text-xs text-gray-500">
                         Positif = prolongation, négatif = réduction. La date de fin initiale reste inchangée.
                     </p>
@@ -85,7 +95,7 @@ const submit = () => {
             </div>
 
             <p class="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                Un avenant peut porter un montant seul, un délai seul, ou les deux. Laisse à 0 ce qui ne s'applique pas.
+                Un avenant de délai seul, de montant seul, ou les deux — laisse vide ce qui ne s'applique pas.
             </p>
 
             <div>
