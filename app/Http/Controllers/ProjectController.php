@@ -76,6 +76,7 @@ class ProjectController extends Controller
                 'object' => $a->object,
                 'signed_date' => $a->signed_date?->toDateString(),
                 'amount' => (float) $a->amount,
+                'duration_days' => (int) $a->duration_days,
                 'observations' => $a->observations,
             ])->values()->all(),
             'indicator_trackings' => $project->indicatorTrackings->map(fn ($t) => [
@@ -167,6 +168,9 @@ class ProjectController extends Controller
             'start_date' => $p->start_date?->toDateString(),
             'end_date' => $p->end_date?->toDateString(),
             'planned_completion_date' => $p->planned_completion_date?->toDateString(),
+            'planned_end_date' => $p->planned_end_date?->toDateString(),
+            'planned_end_date_revised' => $p->planned_end_date_revised?->toDateString(),
+            'amendments_duration_days' => $p->amendments_duration_days,
             'is_overdue' => $p->is_overdue,
             'objectives' => $p->objectives,
             'stakeholders' => $p->stakeholders,
@@ -364,7 +368,7 @@ class ProjectController extends Controller
         ];
 
         $start = $project->start_date;
-        $plannedEnd = $project->planned_completion_date ?: $project->end_date;
+        $plannedEnd = $project->planned_end_date_revised;
         if (! $start || ! $plannedEnd) {
             return $none('no_dates');
         }

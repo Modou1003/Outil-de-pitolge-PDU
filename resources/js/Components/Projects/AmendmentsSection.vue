@@ -21,45 +21,86 @@ const remove = (a) => {
     router.delete(route('projects.amendments.destroy', [props.project.id, a.id]), { preserveScroll: true });
 };
 
+// --- Volet montant ---
 const initial = computed(() => Number(props.project.budget_allocated) || 0);
-const total = computed(() => props.amendments.reduce((s, a) => s + (Number(a.amount) || 0), 0));
-const revised = computed(() => initial.value + total.value);
+const totalAmount = computed(() => props.amendments.reduce((s, a) => s + (Number(a.amount) || 0), 0));
+const revised = computed(() => initial.value + totalAmount.value);
+const variationRate = computed(() => (initial.value > 0 ? (totalAmount.value / initial.value) * 100 : null));
 
-// Variation du marché par rapport au montant initial.
-const variationRate = computed(() => (initial.value > 0 ? (total.value / initial.value) * 100 : null));
+// --- Volet délai ---
+const totalDays = computed(() => props.amendments.reduce((s, a) => s + (Number(a.duration_days) || 0), 0));
+const initialEnd = computed(() => props.project.planned_end_date ?? props.project.planned_completion_date ?? props.project.end_date ?? null);
+const revisedEnd = computed(() => {
+    if (props.project.planned_end_date_revised) return props.project.planned_end_date_revised;
+    if (!initialEnd.value) return null;
+    const d = new Date(initialEnd.value);
+    d.setDate(d.getDate() + totalDays.value);
+    return d.toISOString().slice(0, 10);
+});
 
 const fmt = (v) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(v) || 0);
 const signed = (v) => `${Number(v) > 0 ? '+' : ''}${fmt(v)}`;
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
+const days = (n) => `${Number(n) > 0 ? '+' : ''}${Number(n) || 0} j`;
+
+// Couleur selon le sens de la variation (hausse = ambre, baisse = bleu, nul = neutre).
+const toneClasses = (v) => v > 0
+    ? { box: 'bg-amber-50 ring-amber-200', label: 'text-amber-600', value: 'text-amber-700' }
+    : (v < 0
+        ? { box: 'bg-sky-50 ring-sky-200', label: 'text-sky-600', value: 'text-sky-700' }
+        : { box: 'bg-white ring-gray-200', label: 'text-gray-500', value: 'text-gray-900' });
+
+const amountTone = computed(() => toneClasses(totalAmount.value));
+const dayTone = computed(() => toneClasses(totalDays.value));
 </script>
 
 <template>
-    <div class="space-y-3">
-        <!-- Marché initial → avenants → marché actualisé -->
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-                <p class="text-[11px] uppercase tracking-wide text-gray-500">Marché initial</p>
-                <p class="mt-1 text-lg font-bold text-gray-900">{{ fmt(initial) }}</p>
-                <p class="text-[11px] text-gray-500">montant de base, inchangé</p>
+    <div class="space-y-4">
+        <!-- Montant : initial → avenants → actualisé -->
+        <div>
+            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Montant du marché</h3>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
+                    <p class="text-[11px] uppercase tracking-wide text-gray-500">Montant initial</p>
+                    <p class="mt-1 text-lg font-bold text-gray-900">{{ fmt(initial) }}</p>
+                    <p class="text-[11px] text-gray-500">montant de base, inchangé</p>
+                </div>
+                <div class="rounded-xl p-4 shadow-sm ring-1" :class="amountTone.box">
+                    <p class="text-[11px] uppercase tracking-wide" :class="amountTone.label">Total avenants</p>
+                    <p class="mt-1 text-lg font-bold" :class="amountTone.value">{{ signed(totalAmount) }}</p>
+                    <p class="text-[11px]" :class="amountTone.label">
+                        {{ variationRate !== null ? `${variationRate > 0 ? '+' : ''}${variationRate.toFixed(1)}% du montant initial` : '—' }}
+                    </p>
+                </div>
+                <div class="rounded-xl bg-indigo-50 p-4 shadow-sm ring-1 ring-indigo-200">
+                    <p class="text-[11px] uppercase tracking-wide text-indigo-600">Montant actualisé</p>
+                    <p class="mt-1 text-lg font-bold text-indigo-900">{{ fmt(revised) }}</p>
+                    <p class="text-[11px] text-indigo-600">référence des taux financiers</p>
+                </div>
             </div>
-            <div
-                class="rounded-xl p-4 shadow-sm ring-1"
-                :class="total > 0 ? 'bg-amber-50 ring-amber-200' : (total < 0 ? 'bg-sky-50 ring-sky-200' : 'bg-white ring-gray-200')"
-            >
-                <p class="text-[11px] uppercase tracking-wide" :class="total > 0 ? 'text-amber-600' : (total < 0 ? 'text-sky-600' : 'text-gray-500')">
-                    Total avenants ({{ amendments.length }})
-                </p>
-                <p class="mt-1 text-lg font-bold" :class="total > 0 ? 'text-amber-700' : (total < 0 ? 'text-sky-700' : 'text-gray-900')">
-                    {{ signed(total) }}
-                </p>
-                <p class="text-[11px]" :class="total > 0 ? 'text-amber-600' : (total < 0 ? 'text-sky-600' : 'text-gray-500')">
-                    {{ variationRate !== null ? `${variationRate > 0 ? '+' : ''}${variationRate.toFixed(1)}% du marché initial` : '—' }}
-                </p>
-            </div>
-            <div class="rounded-xl bg-indigo-50 p-4 shadow-sm ring-1 ring-indigo-200">
-                <p class="text-[11px] uppercase tracking-wide text-indigo-600">Marché actualisé</p>
-                <p class="mt-1 text-lg font-bold text-indigo-900">{{ fmt(revised) }}</p>
-                <p class="text-[11px] text-indigo-600">référence des taux financiers</p>
+        </div>
+
+        <!-- Délai : date initiale → prolongation → date actualisée -->
+        <div>
+            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Délai d'exécution</h3>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
+                    <p class="text-[11px] uppercase tracking-wide text-gray-500">Date de fin initiale</p>
+                    <p class="mt-1 text-lg font-bold text-gray-900">{{ fmtDate(initialEnd) }}</p>
+                    <p class="text-[11px] text-gray-500">date contractuelle, inchangée</p>
+                </div>
+                <div class="rounded-xl p-4 shadow-sm ring-1" :class="dayTone.box">
+                    <p class="text-[11px] uppercase tracking-wide" :class="dayTone.label">Prolongation cumulée</p>
+                    <p class="mt-1 text-lg font-bold" :class="dayTone.value">{{ days(totalDays) }}</p>
+                    <p class="text-[11px]" :class="dayTone.label">
+                        {{ totalDays > 0 ? 'délai rallongé par avenant' : (totalDays < 0 ? 'délai raccourci par avenant' : 'aucune prolongation') }}
+                    </p>
+                </div>
+                <div class="rounded-xl bg-indigo-50 p-4 shadow-sm ring-1 ring-indigo-200">
+                    <p class="text-[11px] uppercase tracking-wide text-indigo-600">Date de fin actualisée</p>
+                    <p class="mt-1 text-lg font-bold text-indigo-900">{{ fmtDate(revisedEnd) }}</p>
+                    <p class="text-[11px] text-indigo-600">référence des indicateurs de délai</p>
+                </div>
             </div>
         </div>
 
@@ -85,6 +126,7 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
                             <th class="px-4 py-2">Date</th>
                             <th class="px-4 py-2">Objet</th>
                             <th class="px-4 py-2 text-right">Montant</th>
+                            <th class="px-4 py-2 text-right">Délai</th>
                             <th v-if="canWrite" class="px-4 py-2 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -93,8 +135,11 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
                             <td class="px-4 py-2 font-mono text-xs">{{ a.number }}</td>
                             <td class="px-4 py-2 text-xs text-gray-600">{{ fmtDate(a.signed_date) }}</td>
                             <td class="px-4 py-2 text-gray-700">{{ a.object || '—' }}</td>
-                            <td class="px-4 py-2 text-right font-semibold" :class="a.amount < 0 ? 'text-sky-700' : 'text-amber-700'">
-                                {{ signed(a.amount) }}
+                            <td class="px-4 py-2 text-right font-semibold" :class="a.amount < 0 ? 'text-sky-700' : (a.amount > 0 ? 'text-amber-700' : 'text-gray-400')">
+                                {{ a.amount ? signed(a.amount) : '—' }}
+                            </td>
+                            <td class="px-4 py-2 text-right font-semibold" :class="a.duration_days < 0 ? 'text-sky-700' : (a.duration_days > 0 ? 'text-amber-700' : 'text-gray-400')">
+                                {{ a.duration_days ? days(a.duration_days) : '—' }}
                             </td>
                             <td v-if="canWrite" class="px-4 py-2 text-right">
                                 <div class="flex justify-end gap-1">
@@ -108,8 +153,8 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
                             </td>
                         </tr>
                         <tr v-if="!amendments.length">
-                            <td :colspan="canWrite ? 5 : 4" class="px-4 py-6 text-center text-sm text-gray-500">
-                                Aucun avenant. Le marché actualisé est égal au marché initial.
+                            <td :colspan="canWrite ? 6 : 5" class="px-4 py-6 text-center text-sm text-gray-500">
+                                Aucun avenant. Le marché actualisé est identique au marché initial.
                             </td>
                         </tr>
                     </tbody>

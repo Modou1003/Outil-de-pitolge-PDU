@@ -124,6 +124,81 @@ class ProjectAmendmentTest extends TestCase
                 ->where('project.budget_revised', 110000000));
     }
 
+    public function test_la_date_de_fin_initiale_reste_intacte_et_lactualisee_suit_les_avenants(): void
+    {
+        [$user, $project] = $this->makeContext();
+
+        // Sans avenant : date actualisée = date initiale (fin 2026-12-31).
+        $this->assertSame('2026-12-31', $project->planned_end_date_revised->toDateString());
+
+        $this->actingAs($user)
+            ->post(route('projects.amendments.store', $project), [
+                'number' => 'AV-01',
+                'object' => 'Prolongation de délai',
+                'amount' => 0,
+                'duration_days' => 90,
+            ])
+            ->assertRedirect();
+
+        $project->refresh();
+        $this->assertSame('2026-12-31', $project->end_date->toDateString(), 'La date de fin initiale doit rester intacte');
+        $this->assertSame(90, $project->amendments_duration_days);
+        $this->assertSame('2027-03-31', $project->planned_end_date_revised->toDateString());
+
+        // Une réduction de délai ramène la date en arrière.
+        $this->actingAs($user)
+            ->post(route('projects.amendments.store', $project), [
+                'number' => 'AV-02',
+                'amount' => 0,
+                'duration_days' => -30,
+            ])
+            ->assertRedirect();
+
+        $project->refresh();
+        $this->assertSame(60, $project->amendments_duration_days);
+        $this->assertSame('2027-03-01', $project->planned_end_date_revised->toDateString());
+        $this->assertSame('2026-12-31', $project->planned_end_date->toDateString());
+    }
+
+    public function test_un_avenant_de_delai_repousse_la_date_de_retard(): void
+    {
+        [, $project] = $this->makeContext();
+        // Projet dont l'échéance initiale est déjà dépassée.
+        $project->update(['end_date' => now()->subDays(10)->toDateString()]);
+
+        $project->refresh();
+        $this->assertTrue($project->is_overdue, 'Sans avenant, le projet est en retard');
+
+        ProjectAmendment::create([
+            'pdu_project_id' => $project->id,
+            'number' => 'AV-01',
+            'amount' => 0,
+            'duration_days' => 60,
+        ]);
+
+        $project->refresh();
+        $this->assertFalse($project->is_overdue, "L'avenant de délai repousse l'échéance");
+    }
+
+    public function test_un_avenant_peut_porter_montant_et_delai(): void
+    {
+        [$user, $project] = $this->makeContext();
+
+        $this->actingAs($user)
+            ->post(route('projects.amendments.store', $project), [
+                'number' => 'AV-01',
+                'object' => 'Travaux supplémentaires avec prolongation',
+                'amount' => 20000000,
+                'duration_days' => 45,
+            ])
+            ->assertRedirect();
+
+        $project->refresh();
+        $this->assertSame(120000000.0, $project->budget_revised);
+        $this->assertSame(45, $project->amendments_duration_days);
+        $this->assertSame('2027-02-14', $project->planned_end_date_revised->toDateString());
+    }
+
     public function test_la_suppression_ramene_au_montant_initial(): void
     {
         [$user, $project] = $this->makeContext();

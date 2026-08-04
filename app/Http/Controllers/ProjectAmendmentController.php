@@ -71,9 +71,12 @@ class ProjectAmendmentController extends Controller
             'signed_date' => ['nullable', 'date'],
             // Un avenant peut être en plus-value (+) ou en moins-value (−).
             'amount' => ['required', 'numeric'],
+            // Prolongation de délai en jours (négative = réduction).
+            'duration_days' => ['nullable', 'integer', 'between:-3650,3650'],
             'observations' => ['nullable', 'string', 'max:1000'],
         ], [
             'amount.required' => "Le montant de l'avenant est obligatoire.",
+            'duration_days.between' => 'La prolongation doit être comprise entre -3650 et 3650 jours.',
         ]);
     }
 }

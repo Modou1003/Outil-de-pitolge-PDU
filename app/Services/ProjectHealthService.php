@@ -174,7 +174,7 @@ class ProjectHealthService
     private function projectedDelayDays(PduProject $project): ?int
     {
         $start = $project->start_date;
-        $plannedEnd = $project->planned_completion_date ?: $project->end_date;
+        $plannedEnd = $project->planned_end_date_revised;
         if (! $start || ! $plannedEnd) {
             return null;
         }

@@ -5,6 +5,7 @@ import { ref, computed } from 'vue';
 import TabGeneral from '@/Components/Projects/Tabs/TabGeneral.vue';
 import TabPhysical from '@/Components/Projects/Tabs/TabPhysical.vue';
 import TabFinancial from '@/Components/Projects/Tabs/TabFinancial.vue';
+import TabMarche from '@/Components/Projects/Tabs/TabMarche.vue';
 import TabPlanning from '@/Components/Projects/Tabs/TabPlanning.vue';
 import TabDocuments from '@/Components/Projects/Tabs/TabDocuments.vue';
 
@@ -147,6 +148,7 @@ const tabs = [
     { id: 'general', label: 'Informations générales', icon: 'info' },
     { id: 'physical', label: 'Avancement physique', icon: 'chart' },
     { id: 'financial', label: 'Avancement financier', icon: 'coins' },
+    { id: 'marche', label: 'Marché', icon: 'contract' },
     { id: 'planning', label: 'Planning', icon: 'calendar' },
     { id: 'indicators', label: 'Indicateurs', icon: 'gauge' },
     { id: 'documents', label: 'Documents', icon: 'file' },
@@ -159,6 +161,7 @@ const icons = {
     calendar: 'M8 7V3m8 4V3M3 11h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z',
     file: 'M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z M13 2v7h7',
     gauge: 'M3 13a9 9 0 0118 0M12 13l4-3M9 20h6',
+    contract: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
 };
 
 const activeTab = ref('general');
@@ -233,7 +236,8 @@ const breadcrumbs = computed(() => ([
                 :can-manage-team="can_manage_team"
             />
             <TabPhysical v-else-if="activeTab === 'physical'" :project="project" :progresses="physical_progresses" :building_works="building_works" />
-            <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :building_works="building_works" :payments="payments" :amendments="amendments" />
+            <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :building_works="building_works" :payments="payments" />
+            <TabMarche v-else-if="activeTab === 'marche'" :project="project" :amendments="amendments" />
             <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :building_works="building_works" :lots="lots" :milestones="milestones" />
             <div v-else-if="activeTab === 'indicators'" class="space-y-4">
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

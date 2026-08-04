@@ -336,7 +336,7 @@ class AlerteService
     protected function projectedDelayDays(PduProject $project): ?int
     {
         $start = $project->start_date;
-        $plannedEnd = $project->planned_completion_date ?: $project->end_date;
+        $plannedEnd = $project->planned_end_date_revised;
         if (! $start || ! $plannedEnd) {
             return null;
         }
@@ -374,13 +374,11 @@ class AlerteService
 
     protected function resolvePlannedEndDate(PduProject $project): ?Carbon
     {
-        if ($project->planned_completion_date) {
-            return Carbon::parse($project->planned_completion_date);
-        }
-        if ($project->end_date) {
-            return Carbon::parse($project->end_date);
-        }
-        return null;
+        // Date contractuelle actualisée : un avenant de délai repousse l'échéance
+        // au-delà de laquelle le projet est considéré en retard.
+        $revised = $project->planned_end_date_revised;
+
+        return $revised ? Carbon::parse($revised) : null;
     }
 
     protected function resolveActualEndDate(PduProject $project): ?Carbon

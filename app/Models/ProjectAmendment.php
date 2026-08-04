@@ -13,6 +13,7 @@ class ProjectAmendment extends Model
         'object',
         'signed_date',
         'amount',
+        'duration_days',
         'observations',
         'recorded_by',
     ];
@@ -20,6 +21,7 @@ class ProjectAmendment extends Model
     protected $casts = [
         'signed_date' => 'date',
         'amount' => 'decimal:2',
+        'duration_days' => 'integer',
     ];
 
     public function project(): BelongsTo

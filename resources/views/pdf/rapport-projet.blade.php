@@ -65,7 +65,8 @@
                     <th style="width: 12%;">N°</th>
                     <th style="width: 15%;">Date</th>
                     <th>Objet</th>
-                    <th class="right" style="width: 20%;">Montant</th>
+                    <th class="right" style="width: 18%;">Montant</th>
+                    <th class="right" style="width: 12%;">Délai</th>
                 </tr>
             </thead>
             <tbody>
@@ -74,20 +75,24 @@
                         <td><strong>{{ $a->number }}</strong></td>
                         <td class="muted">{{ $a->signed_date?->format('d/m/Y') ?? '—' }}</td>
                         <td>{{ $a->object ?: '—' }}</td>
-                        <td class="right {{ $a->amount < 0 ? 'warn' : '' }}">{{ $a->amount > 0 ? '+' : '' }}{{ $fmt($a->amount) }}</td>
+                        <td class="right {{ $a->amount < 0 ? 'warn' : '' }}">{{ $a->amount ? ($a->amount > 0 ? '+' : '') . $fmt($a->amount) : '—' }}</td>
+                        <td class="right {{ $a->duration_days < 0 ? 'warn' : '' }}">{{ $a->duration_days ? ($a->duration_days > 0 ? '+' : '') . $a->duration_days . ' j' : '—' }}</td>
                     </tr>
                 @endforeach
                 <tr>
                     <td colspan="3"><strong>Marché initial</strong></td>
                     <td class="right">{{ $fmt($project->budget_allocated) }}</td>
+                    <td class="right muted">{{ $project->planned_end_date?->format('d/m/Y') ?? '—' }}</td>
                 </tr>
                 <tr>
                     <td colspan="3"><strong>Total avenants</strong></td>
                     <td class="right">{{ $project->amendments_total > 0 ? '+' : '' }}{{ $fmt($project->amendments_total) }}</td>
+                    <td class="right">{{ $project->amendments_duration_days > 0 ? '+' : '' }}{{ $project->amendments_duration_days }} j</td>
                 </tr>
                 <tr>
                     <td colspan="3"><strong>Marché actualisé</strong></td>
                     <td class="right"><strong>{{ $fmt($project->budget_revised) }} {{ $project->currency }}</strong></td>
+                    <td class="right"><strong>{{ $project->planned_end_date_revised?->format('d/m/Y') ?? '—' }}</strong></td>
                 </tr>
             </tbody>
         </table>

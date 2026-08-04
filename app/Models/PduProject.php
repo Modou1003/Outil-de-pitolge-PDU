@@ -177,6 +177,19 @@ class PduProject extends Model
     }
 
     /**
+     * Somme des prolongations de délai portées par les avenants, en jours
+     * (positive = prolongation, négative = réduction).
+     */
+    public function getAmendmentsDurationDaysAttribute(): int
+    {
+        $sum = $this->relationLoaded('amendments')
+            ? $this->amendments->sum('duration_days')
+            : $this->amendments()->sum('duration_days');
+
+        return (int) $sum;
+    }
+
+    /**
      * Synthèse financière « maître d'ouvrage » : facturation, reste à facturer,
      * décaissement et exposition sur les avances (démarrage + approvisionnement).
      */
@@ -289,12 +302,14 @@ class PduProject extends Model
      */
     public function getIsOverdueAttribute(): bool
     {
-        return $this->end_date && $this->end_date->isPast() && $this->status !== 'completed';
+        $end = $this->planned_end_date_revised;
+
+        return $end && $end->isPast() && $this->status !== 'completed';
     }
 
     /**
-     * Date de fin planifiée de référence, unique pour tous les indicateurs :
-     * la date de livraison prévue si renseignée, sinon la date de fin.
+     * Date de fin contractuelle initiale : la date de livraison prévue si
+     * renseignée, sinon la date de fin. Jamais décalée par un avenant.
      */
     public function getPlannedEndDateAttribute()
     {
@@ -302,11 +317,28 @@ class PduProject extends Model
     }
 
     /**
+     * Date de fin actualisée = date de fin initiale + prolongations des avenants.
+     * Référence de tous les indicateurs de délai ; la date initiale reste intacte.
+     */
+    public function getPlannedEndDateRevisedAttribute()
+    {
+        $base = $this->planned_end_date;
+        if (! $base) {
+            return null;
+        }
+
+        $days = $this->amendments_duration_days;
+
+        return $days === 0 ? $base->copy() : $base->copy()->addDays($days);
+    }
+
+    /**
      * Get the planned progress based on elapsed time between start_date and planned end date.
      */
     public function getPlannedProgressAttribute(): float
     {
-        $plannedEnd = $this->planned_end_date;
+        // L'avancement attendu se mesure sur le calendrier actualisé.
+        $plannedEnd = $this->planned_end_date_revised;
         if (! $this->start_date || ! $plannedEnd) {
             return 0;
         }
