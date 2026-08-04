@@ -14,6 +14,17 @@ const formatMoney = (v) => new Intl.NumberFormat('fr-FR').format(v ?? 0);
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
 const page = usePage();
 
+// Prolongation cumulée des avenants : les dates contractuelles affichées
+// tiennent compte du délai accordé, la date initiale restant visible.
+const shiftDays = computed(() => Number(props.project.amendments_duration_days) || 0);
+const shiftDate = (d) => {
+    if (!d || !shiftDays.value) return d ?? null;
+    const x = new Date(d);
+    x.setDate(x.getDate() + shiftDays.value);
+    return x.toISOString().slice(0, 10);
+};
+const signedDays = computed(() => `${shiftDays.value > 0 ? '+' : ''}${shiftDays.value} j`);
+
 const typeLabels = {
     construction: 'Construction', rehabilitation: 'Réhabilitation',
     equipment: 'Équipement', training: 'Formation',
@@ -309,8 +320,20 @@ const saveExtendedTeam = () => {
                     <div><dt class="text-xs uppercase text-gray-500">Localisation</dt><dd class="font-medium text-gray-900">{{ project.university?.location }} · {{ project.university?.region }}</dd></div>
                     <div><dt class="text-xs uppercase text-gray-500">Devise</dt><dd class="font-medium text-gray-900">{{ project.currency ?? 'XOF' }}</dd></div>
                     <div><dt class="text-xs uppercase text-gray-500">Début prévu</dt><dd class="font-medium text-gray-900">{{ formatDate(project.start_date) }}</dd></div>
-                    <div><dt class="text-xs uppercase text-gray-500">Fin prévue</dt><dd class="font-medium text-gray-900">{{ formatDate(project.end_date) }}</dd></div>
-                    <div><dt class="text-xs uppercase text-gray-500">Livraison prévue</dt><dd class="font-medium text-gray-900">{{ formatDate(project.planned_completion_date) }}</dd></div>
+                    <div>
+                        <dt class="text-xs uppercase text-gray-500">Fin prévue</dt>
+                        <dd class="font-medium text-gray-900">{{ formatDate(shiftDate(project.end_date)) }}</dd>
+                        <dd v-if="shiftDays" class="text-[11px] text-amber-600">
+                            initiale {{ formatDate(project.end_date) }} · avenants {{ signedDays }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase text-gray-500">Livraison prévue</dt>
+                        <dd class="font-medium text-gray-900">{{ formatDate(shiftDate(project.planned_completion_date)) }}</dd>
+                        <dd v-if="shiftDays && project.planned_completion_date" class="text-[11px] text-amber-600">
+                            initiale {{ formatDate(project.planned_completion_date) }} · avenants {{ signedDays }}
+                        </dd>
+                    </div>
                 </dl>
             </div>
 

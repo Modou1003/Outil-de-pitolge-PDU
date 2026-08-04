@@ -141,7 +141,11 @@ const forecastTitle = computed(() => {
     const plan = new Date(f.planned_end_date).toLocaleDateString('fr-FR');
     const d = f.delay_days;
     const verdict = d > 0 ? `retard projeté de ${d} j` : (d < 0 ? `avance de ${Math.abs(d)} j` : 'dans les temps');
-    return `Au rythme actuel : fin le ${proj} (planifié : ${plan}) — ${verdict}.`;
+    const days = Number(props.project?.amendments_duration_days) || 0;
+    const base = days
+        ? `échéance actualisée : ${plan}, avenants ${days > 0 ? '+' : ''}${days} j`
+        : `planifié : ${plan}`;
+    return `Au rythme actuel : fin le ${proj} (${base}) — ${verdict}.`;
 });
 
 const tabs = [
@@ -275,6 +279,9 @@ const breadcrumbs = computed(() => ([
                     <div v-if="forecast" class="rounded-xl p-4 shadow-sm ring-1" :class="[forecastClasses.bg, forecastClasses.ring]" :title="forecastTitle">
                         <p class="text-[11px] uppercase tracking-wide" :class="forecastClasses.label">Fin projetée</p>
                         <p class="mt-1 text-2xl font-bold capitalize" :class="forecastClasses.text">{{ forecastValue }} <span v-if="forecast.level !== 'none' && forecast.level !== 'done' && forecast.delay_days > 0" class="text-xs font-normal opacity-75">· +{{ forecast.delay_days }} j</span></p>
+                        <p v-if="project.amendments_duration_days && forecast.planned_end_date" class="text-[10px]" :class="forecastClasses.label">
+                            vs échéance actualisée {{ new Date(forecast.planned_end_date).toLocaleDateString('fr-FR') }}
+                        </p>
                     </div>
                     <div class="rounded-xl p-4 shadow-sm ring-1" :class="kpis.alerts_open > 0 ? 'bg-red-50 ring-red-200' : 'bg-white ring-gray-200'">
                         <p class="text-[11px] uppercase tracking-wide" :class="kpis.alerts_open > 0 ? 'text-red-600' : 'text-gray-500'">Alertes ouvertes</p>

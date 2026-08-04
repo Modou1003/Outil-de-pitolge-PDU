@@ -253,6 +253,40 @@ class ProjectAmendmentTest extends TestCase
         $this->assertSame(0, ProjectAmendment::count());
     }
 
+    public function test_la_fin_projetee_se_compare_a_lecheance_actualisee(): void
+    {
+        [$user, $project] = $this->makeContext();
+        // Chantier à mi-parcours mais au rythme trop lent : retard projeté.
+        $project->update(['start_date' => now()->subDays(300)->toDateString(), 'progress_percentage' => 50]);
+
+        $before = $this->actingAs($user)
+            ->get(route('projects.show', $project))
+            ->viewData('page')['props']['kpis']['forecast_completion'];
+
+        $this->assertNotNull($before['delay_days']);
+        $this->assertSame('2026-12-31', $before['planned_end_date']);
+
+        // Un avenant de 200 jours repousse l'échéance contractuelle d'autant.
+        ProjectAmendment::create([
+            'pdu_project_id' => $project->id,
+            'number' => 'AV-01',
+            'amount' => 0,
+            'duration_days' => 200,
+        ]);
+
+        $after = $this->actingAs($user)
+            ->get(route('projects.show', $project))
+            ->viewData('page')['props']['kpis']['forecast_completion'];
+
+        $this->assertSame('2027-07-19', $after['planned_end_date'], "L'échéance de référence suit l'avenant");
+        $this->assertSame(
+            $before['projected_end_date'],
+            $after['projected_end_date'],
+            'La date projetée dépend du rythme réel, pas du contrat',
+        );
+        $this->assertSame($before['delay_days'] - 200, $after['delay_days'], "Le retard se réduit de la prolongation");
+    }
+
     public function test_la_suppression_ramene_au_montant_initial(): void
     {
         [$user, $project] = $this->makeContext();
