@@ -40,17 +40,6 @@ const primaryRole = computed(() => {
     return labels[roleKey.value] ?? props.userRoles[0];
 });
 
-const avatarUrl = computed(() => {
-    const map = {
-        admin: '/images/avatars/admin.jpg',
-        directeur: '/images/avatars/directeur.jpg',
-        chef_projet: '/images/avatars/chef_projet.jpg',
-        agent_financier: '/images/avatars/agent_financier.jpg',
-        visiteur: '/images/avatars/visiteur.jpg',
-    };
-    return map[roleKey.value] ?? '/images/avatars/admin.jpg';
-});
-
 const goToDashboard = () => {
     router.post(route('greeting.acknowledge'));
 };
@@ -80,10 +69,6 @@ onUnmounted(() => {
             class="relative z-10 mx-4 w-full max-w-2xl transform rounded-2xl bg-white/95 p-10 text-center shadow-2xl backdrop-blur transition duration-700 ease-out"
             :class="show ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'"
         >
-            <div class="mx-auto mb-6 h-36 w-36 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-lg">
-                <img :src="avatarUrl" alt="Photo de profil" class="h-full w-full object-cover" />
-            </div>
-
             <p class="text-sm font-medium uppercase tracking-widest text-indigo-600">
                 {{ todayFr }}
             </p>
