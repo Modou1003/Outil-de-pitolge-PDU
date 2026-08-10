@@ -256,13 +256,34 @@ class ProjectAmendmentTest extends TestCase
     public function test_la_fin_projetee_se_compare_a_lecheance_actualisee(): void
     {
         [$user, $project] = $this->makeContext();
-        // Chantier à mi-parcours mais au rythme trop lent : retard projeté.
-        $project->update(['start_date' => now()->subDays(300)->toDateString(), 'progress_percentage' => 50]);
+        // Chantier à mi-parcours mais en retard sur sa courbe planifiée.
+        $start = now()->subDays(300)->startOfDay();
+        $project->update(['start_date' => $start->toDateString(), 'progress_percentage' => 50]);
+
+        // L'Earned Schedule a besoin d'une courbe planifiée : sans elle, aucune
+        // projection n'est affichée (c'est le comportement voulu).
+        $work = \App\Models\BuildingWork::create([
+            'pdu_project_id' => $project->id,
+            'code' => 'OUV-01',
+            'name' => 'Ouvrage principal',
+            'weight_percentage' => 100,
+        ]);
+        foreach ([0 => 0, 100 => 25, 200 => 50, 300 => 75] as $day => $planned) {
+            \App\Models\PhysicalProgress::create([
+                'pdu_project_id' => $project->id,
+                'building_work_id' => $work->id,
+                'period' => $start->copy()->addDays($day)->format('Y-m'),
+                'measurement_date' => $start->copy()->addDays($day)->toDateString(),
+                'planned_percentage' => $planned,
+                'actual_percentage' => 50,
+            ]);
+        }
 
         $before = $this->actingAs($user)
             ->get(route('projects.show', $project))
             ->viewData('page')['props']['kpis']['forecast_completion'];
 
+        $this->assertSame('earned_schedule', $before['method']);
         $this->assertNotNull($before['delay_days']);
         $this->assertSame('2026-12-31', $before['planned_end_date']);
 
@@ -282,7 +303,7 @@ class ProjectAmendmentTest extends TestCase
         $this->assertSame(
             $before['projected_end_date'],
             $after['projected_end_date'],
-            'La date projetée dépend du rythme réel, pas du contrat',
+            "La date projetée découle de la performance constatée, que l'avenant ne modifie pas",
         );
         $this->assertSame($before['delay_days'] - 200, $after['delay_days'], "Le retard se réduit de la prolongation");
     }

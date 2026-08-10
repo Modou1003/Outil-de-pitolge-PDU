@@ -24,7 +24,7 @@ class ProjectAmendmentController extends Controller
         ]));
 
         // Le montant actualisé change : les seuils budgétaires sont réévalués.
-        $this->alerteService->generateForProject($project->fresh(['physicalProgresses', 'lots', 'milestones', 'amendments']));
+        $this->alerteService->generateForProject($project->fresh(['physicalProgresses', 'buildingWorks', 'lots', 'milestones', 'amendments']));
 
         return back()->with('success', 'Avenant enregistré.');
     }
@@ -37,7 +37,7 @@ class ProjectAmendmentController extends Controller
 
         $amendment->update($data);
 
-        $this->alerteService->generateForProject($project->fresh(['physicalProgresses', 'lots', 'milestones', 'amendments']));
+        $this->alerteService->generateForProject($project->fresh(['physicalProgresses', 'buildingWorks', 'lots', 'milestones', 'amendments']));
 
         return back()->with('success', 'Avenant mis à jour.');
     }
@@ -49,7 +49,7 @@ class ProjectAmendmentController extends Controller
 
         $amendment->delete();
 
-        $this->alerteService->generateForProject($project->fresh(['physicalProgresses', 'lots', 'milestones', 'amendments']));
+        $this->alerteService->generateForProject($project->fresh(['physicalProgresses', 'buildingWorks', 'lots', 'milestones', 'amendments']));
 
         return back()->with('success', 'Avenant supprimé.');
     }

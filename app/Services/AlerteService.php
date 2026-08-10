@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Notification;
 
 class AlerteService
 {
+    public function __construct(protected EarnedScheduleService $earnedSchedule) {}
+
     /** Seuil de dépassement budgétaire (budget_spent / montant actualisé). */
     public const BUDGET_THRESHOLD = 0.9;
 
@@ -35,7 +37,7 @@ class AlerteService
         $summary = ['created' => 0, 'closed' => 0, 'scanned' => 0];
 
         PduProject::query()
-            ->with(['physicalProgresses', 'lots', 'milestones', 'amendments'])
+            ->with(['physicalProgresses', 'buildingWorks', 'lots', 'milestones', 'amendments'])
             ->chunk(50, function (Collection $projects) use (&$summary) {
                 foreach ($projects as $project) {
                     $summary['scanned']++;
@@ -322,7 +324,7 @@ class AlerteService
             'severity' => $critical ? 'critical' : 'warning',
             'title' => $critical ? 'Dérive de planning majeure' : 'Retard de livraison projeté',
             'message' => sprintf(
-                'Au rythme d\'avancement physique actuel, la livraison accuserait un retard d\'environ %d jours sur la date planifiée.',
+                'Au rythme d\'exécution constaté par rapport à la courbe planifiée, la livraison accuserait un retard d\'environ %d jours sur l\'échéance contractuelle.',
                 $delay,
             ),
             'context' => ['delay_days' => $delay, 'threshold' => self::FORECAST_DELAY_THRESHOLD],
@@ -330,36 +332,12 @@ class AlerteService
     }
 
     /**
-     * Retard de livraison projeté (en jours) au rythme d'avancement physique
-     * réellement constaté ; null si non calculable.
+     * Retard de livraison projeté (en jours) par la méthode Earned Schedule ;
+     * null si la projection n'est pas calculable.
      */
     protected function projectedDelayDays(PduProject $project): ?int
     {
-        $start = $project->start_date;
-        $plannedEnd = $project->planned_end_date_revised;
-        if (! $start || ! $plannedEnd) {
-            return null;
-        }
-
-        $physical = (float) $project->progress_percentage;
-        if ($physical <= 0 || $physical >= 100) {
-            return null;
-        }
-
-        $today = now()->startOfDay();
-        $start = $start->copy()->startOfDay();
-        $plannedEnd = $plannedEnd->copy()->startOfDay();
-
-        $elapsed = $start->diffInDays($today, false);
-        if ($elapsed <= 0) {
-            return null;
-        }
-
-        $pacePerDay = $physical / $elapsed;
-        $remainingDays = (int) ceil((100 - $physical) / $pacePerDay);
-        $projectedEnd = $today->copy()->addDays($remainingDays);
-
-        return (int) $plannedEnd->diffInDays($projectedEnd, false);
+        return $this->earnedSchedule->projectedDelayDays($project);
     }
 
     protected function detectMilestoneMissed(PduProject $project): bool

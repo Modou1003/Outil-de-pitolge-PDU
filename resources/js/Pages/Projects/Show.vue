@@ -89,26 +89,6 @@ const moaFin = computed(() => props.kpis?.financial_moa ?? null);
 const fmtFcfa = (v) => new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(v) || 0);
 const pctOr = (v) => v === null || v === undefined ? '—' : `${Number(v).toFixed(1)}%`;
 
-// Score de santé global
-const health = computed(() => props.kpis?.health ?? null);
-const healthStyle = {
-    healthy: { bar: 'bg-emerald-500', text: 'text-emerald-700', ring: 'ring-emerald-200', bg: 'bg-emerald-50', label: 'Bonne santé' },
-    fair: { bar: 'bg-lime-500', text: 'text-lime-700', ring: 'ring-lime-200', bg: 'bg-lime-50', label: 'Correcte' },
-    at_risk: { bar: 'bg-amber-500', text: 'text-amber-700', ring: 'ring-amber-200', bg: 'bg-amber-50', label: 'À risque' },
-    critical: { bar: 'bg-red-500', text: 'text-red-700', ring: 'ring-red-200', bg: 'bg-red-50', label: 'Critique' },
-    unknown: { bar: 'bg-gray-300', text: 'text-gray-500', ring: 'ring-gray-200', bg: 'bg-white', label: 'Non évaluable' },
-};
-const healthLevel = computed(() => health.value?.level ?? 'unknown');
-const healthTitle = computed(() => {
-    const h = health.value;
-    if (!h || h.score === null) return "Pas assez de données pour évaluer la santé du projet.";
-    const labels = { schedule: 'Planning', cost: 'Coût', facade: 'Façade', data: 'Donnée', milestones: 'Jalons', alerts: 'Alertes' };
-    const parts = Object.entries(h.components || {})
-        .filter(([, v]) => v !== null)
-        .map(([k, v]) => `${labels[k]} ${v}`);
-    return parts.length ? `Composantes — ${parts.join(' · ')}` : '';
-});
-
 // Date de fin projetée (au rythme réel)
 const forecast = computed(() => props.kpis?.forecast_completion ?? null);
 const forecastClasses = computed(() => {
@@ -245,14 +225,6 @@ const breadcrumbs = computed(() => ([
             <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :building_works="building_works" :lots="lots" :milestones="milestones" />
             <div v-else-if="activeTab === 'indicators'" class="space-y-4">
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <div v-if="health" class="rounded-xl p-4 shadow-sm ring-1" :class="[healthStyle[healthLevel].bg, healthStyle[healthLevel].ring]" :title="healthTitle">
-                        <p class="text-[11px] uppercase tracking-wide" :class="healthStyle[healthLevel].text">Santé du projet</p>
-                        <div class="mt-1 flex items-baseline gap-2">
-                            <p class="text-2xl font-bold" :class="healthStyle[healthLevel].text">{{ health.score !== null ? health.score : '—' }}<span v-if="health.score !== null" class="text-sm font-medium">/100</span></p>
-                            <span class="text-xs font-medium" :class="healthStyle[healthLevel].text">{{ healthStyle[healthLevel].label }}</span>
-                        </div>
-                        <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200"><div class="h-full transition-all" :class="healthStyle[healthLevel].bar" :style="{ width: (health.score ?? 0) + '%' }" /></div>
-                    </div>
                     <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200" title="Avancement physique global — moyenne des ouvrages pondérée par leur pondération">
                         <p class="text-[11px] uppercase tracking-wide text-gray-500">Avancement physique</p>
                         <p class="mt-1 text-2xl font-bold text-gray-900">{{ project.progress_percentage !== null && project.progress_percentage !== undefined ? `${Number(project.progress_percentage).toFixed(1)}%` : '—' }}</p>

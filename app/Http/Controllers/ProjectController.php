@@ -16,7 +16,7 @@ use App\Models\ProjectTeamMember;
 use App\Models\University;
 use App\Models\User;
 use App\Services\AlerteService;
-use App\Services\ProjectHealthService;
+use App\Services\EarnedScheduleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -27,7 +27,7 @@ class ProjectController extends Controller
 {
     public function __construct(
         protected AlerteService $alerteService,
-        protected ProjectHealthService $healthService,
+        protected EarnedScheduleService $earnedSchedule,
     ) {}
 
     public function show(PduProject $project): Response
@@ -334,8 +334,7 @@ class ProjectController extends Controller
             'milestones_missed' => $project->milestones->where('status', 'missed')->count(),
             'data_freshness' => $this->computeDataFreshness($project),
             'physical_financial' => $this->computePhysicalFinancial($project),
-            'forecast_completion' => $this->computeForecastCompletion($project),
-            'health' => $this->healthService->score($project),
+            'forecast_completion' => $this->earnedSchedule->forecast($project),
             'financial_moa' => $this->computeFinancialMoa($project),
         ];
     }
@@ -347,79 +346,6 @@ class ProjectController extends Controller
     private function computeFinancialMoa(PduProject $project): array
     {
         return $project->financialMoa();
-    }
-
-    /**
-     * Date de fin projetée (au rythme réel).
-     *
-     * Extrapole la date de livraison à partir du rythme d'avancement
-     * physique réellement constaté depuis le début, et la compare à la
-     * date planifiée. Répond concrètement à « à ce rythme, on finit quand ? ».
-     */
-    private function computeForecastCompletion(PduProject $project): array
-    {
-        $none = fn (string $reason) => [
-            'level' => 'none',
-            'reason' => $reason,
-            'projected_end_date' => null,
-            'planned_end_date' => null,
-            'delay_days' => null,
-            'physical' => round((float) $project->progress_percentage, 1),
-        ];
-
-        $start = $project->start_date;
-        $plannedEnd = $project->planned_end_date_revised;
-        if (! $start || ! $plannedEnd) {
-            return $none('no_dates');
-        }
-
-        $today = now()->startOfDay();
-        $start = $start->copy()->startOfDay();
-        $plannedEnd = $plannedEnd->copy()->startOfDay();
-        $physical = round((float) $project->progress_percentage, 1);
-
-        // Chantier physiquement terminé : rien à projeter.
-        if ($physical >= 100) {
-            return [
-                'level' => 'done',
-                'reason' => 'completed',
-                'projected_end_date' => null,
-                'planned_end_date' => $plannedEnd->toDateString(),
-                'delay_days' => null,
-                'physical' => $physical,
-            ];
-        }
-
-        // Il faut un temps écoulé et un avancement > 0 pour estimer un rythme.
-        $elapsed = $start->diffInDays($today, false);
-        if ($elapsed <= 0 || $physical <= 0) {
-            return $none('not_enough_data');
-        }
-
-        // Rythme réel (% par jour) → jours restants pour atteindre 100 %.
-        $pacePerDay = $physical / $elapsed;
-        $remainingDays = (int) ceil((100 - $physical) / $pacePerDay);
-        $projectedEnd = $today->copy()->addDays($remainingDays);
-
-        // Écart en jours : positif = retard projeté, négatif = en avance.
-        $delayDays = (int) $plannedEnd->diffInDays($projectedEnd, false);
-
-        if ($delayDays <= 15) {
-            $level = 'on_track';
-        } elseif ($delayDays <= 60) {
-            $level = 'watch';
-        } else {
-            $level = 'critical';
-        }
-
-        return [
-            'level' => $level,
-            'reason' => null,
-            'projected_end_date' => $projectedEnd->toDateString(),
-            'planned_end_date' => $plannedEnd->toDateString(),
-            'delay_days' => $delayDays,
-            'physical' => $physical,
-        ];
     }
 
     /**
