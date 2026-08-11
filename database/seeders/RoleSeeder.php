@@ -22,6 +22,8 @@ class RoleSeeder extends Seeder
         $chefProjetRole = Role::firstOrCreate(['name' => 'chef_projet', 'guard_name' => 'web']);
         $comitePilotageRole = Role::firstOrCreate(['name' => 'comite_pilotage', 'guard_name' => 'web']);
         $agentFinancierRole = Role::firstOrCreate(['name' => 'agent_financier', 'guard_name' => 'web']);
+        // Section des marchés et affaires juridiques : actes contractuels.
+        $chargeMarchesRole = Role::firstOrCreate(['name' => 'charge_marches', 'guard_name' => 'web']);
         $visiteurRole = Role::firstOrCreate(['name' => 'visiteur', 'guard_name' => 'web']);
 
         // Rôles "génie civil" (utilisateurs) – lecture seule par défaut
@@ -62,7 +64,8 @@ class RoleSeeder extends Seeder
             'manage_users',     // Gestion des utilisateurs
             'view_reports',     // Rapports & exports (lecture)
             'export_reports',   // Rapports & exports (export/génération)
-            'manage_finances',  // Suivi financier (écriture)
+            'manage_finances',  // Suivi financier : EVM, décomptes, avances (écriture)
+            'manage_market',    // Marché : avenants (section des marchés et affaires juridiques)
             'manage_physical',  // Avancement physique / lots / jalons (écriture)
             'manage_alerts',    // Alertes & anomalies (résolution/génération/commentaires)
             'view_project',     // Portefeuille projets (lecture)
@@ -85,17 +88,31 @@ class RoleSeeder extends Seeder
             Permission::whereNotIn('name', ['manage_users'])->get()
         );
 
-        // Chef de projet : tous les droits SAUF la gestion des utilisateurs
-        // et l'intervention sur le suivi financier (manage_finances)
+        // Chef de projet : tous les droits SAUF la gestion des utilisateurs,
+        // le suivi financier (manage_finances) et les actes contractuels
+        // relevant de la section des marchés (manage_market)
         $chefProjetRole->syncPermissions(
-            Permission::whereNotIn('name', ['manage_users', 'manage_finances'])->get()
+            Permission::whereNotIn('name', ['manage_users', 'manage_finances', 'manage_market'])->get()
         );
 
-        // Agent financier : tous les droits SAUF la gestion des utilisateurs
-        // et l'intervention sur l'avancement physique / lots / jalons (manage_physical)
+        // Agent financier (section des affaires administratives et financières) :
+        // tous les droits SAUF la gestion des utilisateurs, l'avancement physique
+        // (manage_physical) et les actes contractuels (manage_market), qui relèvent
+        // de la section des marchés. Il conserve néanmoins l'accès à la section
+        // Marché par manage_finances, l'habilitation y étant vérifiée en « ou ».
         $agentFinancierRole->syncPermissions(
-            Permission::whereNotIn('name', ['manage_users', 'manage_physical'])->get()
+            Permission::whereNotIn('name', ['manage_users', 'manage_physical', 'manage_market'])->get()
         );
+
+        // Chargé des marchés (section des marchés et affaires juridiques) :
+        // compétent pour les actes contractuels (avenants), sans accès aux
+        // décomptes ni à l'avancement, conformément à la séparation des tâches.
+        $chargeMarchesRole->syncPermissions([
+            'view_dashboard',
+            'view_project',
+            'view_reports',
+            'manage_market',
+        ]);
 
         // Comité de pilotage : tout en lecture, + export des rapports
         $comitePilotageRole->syncPermissions([

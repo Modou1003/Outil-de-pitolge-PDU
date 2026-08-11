@@ -10,7 +10,8 @@ const props = defineProps({
 });
 
 const { hasPermission } = useAuth();
-const canWrite = computed(() => hasPermission('manage_finances'));
+// Compétence de la section des marchés ; la section financière y garde l'accès.
+const canWrite = computed(() => hasPermission('manage_market') || hasPermission('manage_finances'));
 
 const showModal = ref(false);
 const editing = ref(null);

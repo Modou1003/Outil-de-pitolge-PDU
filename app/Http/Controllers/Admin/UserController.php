@@ -24,6 +24,7 @@ class UserController extends Controller
         'chef_projet',
         'comite_pilotage',
         'agent_financier',
+        'charge_marches',
         'visiteur',
     ];
 

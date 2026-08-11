@@ -39,6 +39,7 @@ const roleLabel = (name) => {
         chef_projet: 'Chef de projet',
         comite_pilotage: 'Comité de pilotage',
         agent_financier: 'Agent financier',
+        charge_marches: 'Chargé des marchés',
         visiteur: 'Visiteur',
         gc_maitre_ouvrage: "Maître d'ouvrage",
         gc_maitre_ouvrage_delegue: "Maître d'ouvrage délégué",
@@ -100,6 +101,7 @@ const roleColors = {
     chef_projet: 'bg-blue-100 text-blue-700',
     comite_pilotage: 'bg-amber-100 text-amber-700',
     agent_financier: 'bg-green-100 text-green-700',
+    charge_marches: 'bg-teal-100 text-teal-700',
     visiteur: 'bg-gray-100 text-gray-700',
 };
 

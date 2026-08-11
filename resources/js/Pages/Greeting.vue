@@ -35,6 +35,7 @@ const primaryRole = computed(() => {
         directeur: 'Directeur',
         chef_projet: 'Chef de projet',
         agent_financier: 'Agent financier',
+        charge_marches: 'Chargé des marchés',
         visiteur: 'Visiteur',
     };
     return labels[roleKey.value] ?? props.userRoles[0];

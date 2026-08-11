@@ -419,10 +419,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/projects/{project}/payments/{payment}', [\App\Http\Controllers\ProjectPaymentController::class, 'update'])->middleware('permission:manage_finances')->name('projects.payments.update');
     Route::delete('/projects/{project}/payments/{payment}', [\App\Http\Controllers\ProjectPaymentController::class, 'destroy'])->middleware('permission:manage_finances')->name('projects.payments.destroy');
 
-    // Avenants au marché (le montant initial reste intact, le montant actualisé est recalculé)
-    Route::post('/projects/{project}/amendments', [\App\Http\Controllers\ProjectAmendmentController::class, 'store'])->middleware('permission:manage_finances')->name('projects.amendments.store');
-    Route::put('/projects/{project}/amendments/{amendment}', [\App\Http\Controllers\ProjectAmendmentController::class, 'update'])->middleware('permission:manage_finances')->name('projects.amendments.update');
-    Route::delete('/projects/{project}/amendments/{amendment}', [\App\Http\Controllers\ProjectAmendmentController::class, 'destroy'])->middleware('permission:manage_finances')->name('projects.amendments.destroy');
+    // Avenants au marché (le montant initial reste intact, le montant actualisé est recalculé).
+    // Compétence de la section des marchés (manage_market) ; la section financière
+    // (manage_finances) y conserve l'accès, d'où l'habilitation en « ou ».
+    Route::post('/projects/{project}/amendments', [\App\Http\Controllers\ProjectAmendmentController::class, 'store'])->middleware('permission:manage_market|manage_finances')->name('projects.amendments.store');
+    Route::put('/projects/{project}/amendments/{amendment}', [\App\Http\Controllers\ProjectAmendmentController::class, 'update'])->middleware('permission:manage_market|manage_finances')->name('projects.amendments.update');
+    Route::delete('/projects/{project}/amendments/{amendment}', [\App\Http\Controllers\ProjectAmendmentController::class, 'destroy'])->middleware('permission:manage_market|manage_finances')->name('projects.amendments.destroy');
 
     // Documents
     Route::post('/projects/{project}/documents', [DocumentController::class, 'store'])->name('projects.documents.store');

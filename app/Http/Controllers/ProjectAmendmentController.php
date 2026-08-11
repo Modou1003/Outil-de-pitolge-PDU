@@ -54,13 +54,18 @@ class ProjectAmendmentController extends Controller
         return back()->with('success', 'Avenant supprimé.');
     }
 
+    /**
+     * Un avenant est un acte contractuel : il relève de la section des marchés
+     * et affaires juridiques (manage_market). La section administrative et
+     * financière (manage_finances) y conserve l'accès.
+     */
     protected function authorizeWrite(Request $request): void
     {
         $user = $request->user();
         abort_unless(
-            $user && $user->can('manage_finances'),
+            $user && ($user->can('manage_market') || $user->can('manage_finances')),
             403,
-            'Réservé aux agents financiers, directeurs et administrateurs.',
+            'Réservé à la section des marchés, aux agents financiers, directeurs et administrateurs.',
         );
     }
 
