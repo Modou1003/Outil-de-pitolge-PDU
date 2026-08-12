@@ -4,20 +4,29 @@ namespace App\Http\Controllers;
 
 use App\Models\PduProject;
 use App\Models\ProjectPayment;
+use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class ProjectPaymentController extends Controller
 {
+    public function __construct(protected ActivityLogger $journal) {}
+
     public function store(Request $request, PduProject $project): RedirectResponse
     {
         $this->authorizeWrite($request);
         $data = $this->validatePayload($request);
 
-        ProjectPayment::create(array_merge($data, [
+        $payment = ProjectPayment::create(array_merge($data, [
             'pdu_project_id' => $project->id,
             'recorded_by' => $request->user()->id,
         ]));
+
+        $this->journal->created(
+            'ProjectPayment',
+            sprintf('Décompte n° %s enregistré (brut %s)', $data['number'], number_format((float) $data['gross_amount'], 0, ',', ' ')),
+            $payment, $project->id,
+        );
 
         return back()->with('success', 'Décompte enregistré.');
     }
@@ -30,6 +39,12 @@ class ProjectPaymentController extends Controller
 
         $payment->update($data);
 
+        $this->journal->updated(
+            'ProjectPayment',
+            sprintf('Décompte n° %s modifié', $data['number']),
+            $payment, $project->id,
+        );
+
         return back()->with('success', 'Décompte mis à jour.');
     }
 
@@ -37,6 +52,12 @@ class ProjectPaymentController extends Controller
     {
         abort_if($payment->pdu_project_id !== $project->id, 404);
         $this->authorizeWrite($request);
+
+        $this->journal->deleted(
+            'ProjectPayment',
+            sprintf('Décompte n° %s supprimé', $payment->number),
+            $payment, $project->id,
+        );
 
         $payment->delete();
 
@@ -53,6 +74,16 @@ class ProjectPaymentController extends Controller
         ]);
 
         $project->update($data);
+
+        $this->journal->updated(
+            'ProjectAdvance',
+            sprintf(
+                'Avances contractuelles fixées : démarrage %s, approvisionnement %s',
+                number_format((float) $data['startup_advance_amount'], 0, ',', ' '),
+                number_format((float) $data['supply_advance_amount'], 0, ',', ' '),
+            ),
+            $project, $project->id,
+        );
 
         return back()->with('success', 'Avances mises à jour.');
     }

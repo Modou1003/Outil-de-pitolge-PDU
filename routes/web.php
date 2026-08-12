@@ -443,6 +443,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/admin/users/{user}', [App\Http\Controllers\Admin\UserController::class, 'update'])->name('admin.users.update');
         Route::patch('/admin/users/{user}/toggle-active', [App\Http\Controllers\Admin\UserController::class, 'toggleActive'])->name('admin.users.toggle-active');
         Route::delete('/admin/users/{user}', [App\Http\Controllers\Admin\UserController::class, 'destroy'])->name('admin.users.destroy');
+
+        // Journal d'activité : qui a fait quoi, quand et sur quel projet.
+        Route::get('/admin/activites', [App\Http\Controllers\Admin\ActivityLogController::class, 'index'])->name('admin.activites.index');
     });
 });
 

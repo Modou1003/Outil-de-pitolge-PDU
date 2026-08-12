@@ -15,6 +15,7 @@ use App\Models\ProjectMilestone;
 use App\Models\ProjectTeamMember;
 use App\Models\University;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use App\Services\AlerteService;
 use App\Services\EarnedScheduleService;
 use Illuminate\Http\Request;
@@ -28,6 +29,7 @@ class ProjectController extends Controller
     public function __construct(
         protected AlerteService $alerteService,
         protected EarnedScheduleService $earnedSchedule,
+        protected ActivityLogger $journal,
     ) {}
 
     public function show(PduProject $project): Response
@@ -474,7 +476,14 @@ class ProjectController extends Controller
             $data['code'] = 'PRJ-' . str_pad($maxCode + 1, 3, '0', STR_PAD_LEFT);
         }
 
-        PduProject::create($data);
+        $project = PduProject::create($data);
+
+        $this->journal->created(
+            'PduProject',
+            sprintf('Projet %s créé : %s', $project->code, $project->title),
+            $project, $project->id,
+        );
+
         $this->alerteService->generateForAll();
 
         return redirect()->route('dashboard');
@@ -501,7 +510,15 @@ class ProjectController extends Controller
             ]);
         }
 
+        $previous = $project->status;
         $project->update($data);
+
+        $this->journal->updated(
+            'PduProject',
+            sprintf('Statut du projet %s : %s -> %s', $project->code, $previous, $data['status']),
+            $project, $project->id,
+            ['from' => $previous, 'to' => $data['status']],
+        );
 
         return redirect()->back();
     }
@@ -511,6 +528,12 @@ class ProjectController extends Controller
         if (! $request->user() || ! $request->user()->can('delete_project')) {
             abort(403);
         }
+
+        $this->journal->deleted(
+            'PduProject',
+            sprintf('Projet %s supprimé : %s', $project->code, $project->title),
+            $project, null,
+        );
 
         $project->delete();
 

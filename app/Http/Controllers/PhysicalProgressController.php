@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BuildingWork;
 use App\Models\PduProject;
 use App\Models\PhysicalProgress;
+use App\Services\ActivityLogger;
 use App\Services\AlerteService;
 use App\Services\ProjectAggregationService;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +16,7 @@ class PhysicalProgressController extends Controller
     public function __construct(
         protected ProjectAggregationService $agg,
         protected AlerteService $alerteService,
+        protected ActivityLogger $journal,
     ) {}
 
     public function store(Request $request, PduProject $project): RedirectResponse
@@ -27,11 +29,17 @@ class PhysicalProgressController extends Controller
             return back()->withErrors(['period' => 'Un relevé existe déjà pour cette période et cet ouvrage.']);
         }
 
-        PhysicalProgress::create(array_merge($data, [
+        $progress = PhysicalProgress::create(array_merge($data, [
             'pdu_project_id' => $project->id,
             'recorded_by' => $request->user()->id,
             'status' => 'submitted',
         ]));
+
+        $this->journal->created(
+            'PhysicalProgress',
+            sprintf("Relevé d'avancement physique %s : %s%% réalisé", $data['period'], $data['actual_percentage']),
+            $progress, $project->id,
+        );
 
         $this->agg->recomputeProjectProgress($project);
         $this->alerteService->generateForAll();
@@ -52,6 +60,12 @@ class PhysicalProgressController extends Controller
 
         $progress->update($data);
 
+        $this->journal->updated(
+            'PhysicalProgress',
+            sprintf("Relevé d'avancement physique %s corrigé : %s%% réalisé", $data['period'], $data['actual_percentage']),
+            $progress, $project->id,
+        );
+
         $this->agg->recomputeProjectProgress($project);
         $this->alerteService->generateForAll();
 
@@ -62,6 +76,12 @@ class PhysicalProgressController extends Controller
     {
         abort_if($progress->pdu_project_id !== $project->id, 404);
         $this->authorizeWrite($request);
+
+        $this->journal->deleted(
+            'PhysicalProgress',
+            sprintf("Relevé d'avancement physique %s supprimé", $progress->period),
+            $progress, $project->id,
+        );
 
         $progress->delete();
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PduProject;
 use App\Models\ProjectAmendment;
+use App\Services\ActivityLogger;
 use App\Services\AlerteService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,17 +12,31 @@ use Illuminate\Validation\ValidationException;
 
 class ProjectAmendmentController extends Controller
 {
-    public function __construct(protected AlerteService $alerteService) {}
+    public function __construct(
+        protected AlerteService $alerteService,
+        protected ActivityLogger $journal,
+    ) {}
 
     public function store(Request $request, PduProject $project): RedirectResponse
     {
         $this->authorizeWrite($request);
         $data = $this->validatePayload($request);
 
-        ProjectAmendment::create(array_merge($data, [
+        $amendment = ProjectAmendment::create(array_merge($data, [
             'pdu_project_id' => $project->id,
             'recorded_by' => $request->user()->id,
         ]));
+
+        $this->journal->created(
+            'ProjectAmendment',
+            sprintf(
+                'Avenant n° %s : montant %s, délai %+d j',
+                $data['number'],
+                number_format($data['amount'], 0, ',', ' '),
+                $data['duration_days'],
+            ),
+            $amendment, $project->id,
+        );
 
         // Le montant actualisé change : les seuils budgétaires sont réévalués.
         $this->alerteService->generateForProject($project->fresh(['physicalProgresses', 'financialProgresses', 'buildingWorks', 'lots', 'milestones', 'amendments', 'payments']));
@@ -37,6 +52,12 @@ class ProjectAmendmentController extends Controller
 
         $amendment->update($data);
 
+        $this->journal->updated(
+            'ProjectAmendment',
+            sprintf('Avenant n° %s modifié', $data['number']),
+            $amendment, $project->id,
+        );
+
         $this->alerteService->generateForProject($project->fresh(['physicalProgresses', 'financialProgresses', 'buildingWorks', 'lots', 'milestones', 'amendments', 'payments']));
 
         return back()->with('success', 'Avenant mis à jour.');
@@ -46,6 +67,12 @@ class ProjectAmendmentController extends Controller
     {
         abort_if($amendment->pdu_project_id !== $project->id, 404);
         $this->authorizeWrite($request);
+
+        $this->journal->deleted(
+            'ProjectAmendment',
+            sprintf('Avenant n° %s supprimé', $amendment->number),
+            $amendment, $project->id,
+        );
 
         $amendment->delete();
 

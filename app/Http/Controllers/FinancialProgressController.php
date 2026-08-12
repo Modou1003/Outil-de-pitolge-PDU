@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BuildingWork;
 use App\Models\FinancialProgress;
 use App\Models\PduProject;
+use App\Services\ActivityLogger;
 use App\Services\AlerteService;
 use App\Services\ProjectAggregationService;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +16,7 @@ class FinancialProgressController extends Controller
     public function __construct(
         protected ProjectAggregationService $agg,
         protected AlerteService $alerteService,
+        protected ActivityLogger $journal,
     ) {}
 
     public function store(Request $request, PduProject $project): RedirectResponse
@@ -27,11 +29,17 @@ class FinancialProgressController extends Controller
             return back()->withErrors(['period' => 'Cette période existe déjà pour cet ouvrage.']);
         }
 
-        FinancialProgress::create(array_merge($data, [
+        $progress = FinancialProgress::create(array_merge($data, [
             'pdu_project_id' => $project->id,
             'recorded_by' => $request->user()->id,
             'status' => 'submitted',
         ]));
+
+        $this->journal->created(
+            'FinancialProgress',
+            sprintf('Relevé EVM %s enregistré (coût réel %s)', $data['period'], number_format((float) $data['actual_cost'], 0, ',', ' ')),
+            $progress, $project->id,
+        );
 
         $this->agg->recomputeFinancialCumulatives($project);
         $this->agg->recomputeProjectBudgetSpent($project);
@@ -53,6 +61,12 @@ class FinancialProgressController extends Controller
 
         $progress->update($data);
 
+        $this->journal->updated(
+            'FinancialProgress',
+            sprintf('Relevé EVM %s corrigé', $data['period']),
+            $progress, $project->id,
+        );
+
         $this->agg->recomputeFinancialCumulatives($project);
         $this->agg->recomputeProjectBudgetSpent($project);
         $this->alerteService->generateForAll();
@@ -64,6 +78,12 @@ class FinancialProgressController extends Controller
     {
         abort_if($progress->pdu_project_id !== $project->id, 404);
         $this->authorizeWrite($request);
+
+        $this->journal->deleted(
+            'FinancialProgress',
+            sprintf('Relevé EVM %s supprimé', $progress->period),
+            $progress, $project->id,
+        );
 
         $progress->delete();
 

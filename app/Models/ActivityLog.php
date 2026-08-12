@@ -14,6 +14,9 @@ class ActivityLog extends Model
         'user_id',
         'action',
         'model',
+        'description',
+        'subject_id',
+        'pdu_project_id',
         'details',
     ];
 
@@ -24,5 +27,10 @@ class ActivityLog extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(PduProject::class, 'pdu_project_id');
     }
 }
