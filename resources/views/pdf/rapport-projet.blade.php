@@ -41,7 +41,7 @@
         </tr>
     </table>
 
-    <h2>Indicateurs clés (EVM)</h2>
+    <h2>Indicateurs clés</h2>
     <table class="kpi-grid">
         <tr>
             <td><div class="label">Avancement réel</div><div class="value">{{ number_format((float) $project->progress_percentage, 1, ',', ' ') }} %</div></td>
@@ -107,7 +107,8 @@
         </p>
         <img src="data:image/svg+xml;base64,{{ base64_encode($physicalChartSvg) }}" style="width: 100%; max-width: 700px;" alt="Courbe en S — avancement physique" />
     @else
-        <p class="muted">Aucune donnée d'avancement physique.</p>
+        <p style="margin: 6px 0 1px 0; font-weight: bold; font-size: 11px;">Courbe en S — Avancement physique (%)</p>
+        <p class="muted" style="margin: 0;">Aucune donnée d'avancement physique.</p>
     @endif
 
     @if($financialChartSvg)
@@ -118,6 +119,9 @@
             <span style="color: #f59e0b;">━━</span> Coût réel (AC)
         </p>
         <img src="data:image/svg+xml;base64,{{ base64_encode($financialChartSvg) }}" style="width: 100%; max-width: 700px;" alt="Courbe EVM — avancement financier" />
+    @else
+        <p style="margin: 10px 0 1px 0; font-weight: bold; font-size: 11px;">Courbe EVM — Avancement financier</p>
+        <p class="muted" style="margin: 0;">Aucune donnée d'avancement financier (EVM).</p>
     @endif
 
     <h2>Équipe projet</h2>

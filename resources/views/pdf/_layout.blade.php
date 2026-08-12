@@ -7,11 +7,11 @@
         @page { margin: 1.5cm 1.2cm 1.8cm 1.2cm; }
         * { box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #1f2937; margin: 0; }
-        h1 { font-size: 18px; margin: 0 0 4px 0; color: #312e81; }
-        h2 { font-size: 13px; margin: 16px 0 6px 0; color: #312e81; border-bottom: 1px solid #c7d2fe; padding-bottom: 3px; }
-        h3 { font-size: 11px; margin: 10px 0 4px 0; color: #4338ca; }
+        h1 { font-size: 18px; margin: 0 0 4px 0; color: #00693A; }
+        h2 { font-size: 13px; margin: 16px 0 6px 0; color: #00693A; border-bottom: 1px solid #BFE3CD; padding-bottom: 3px; }
+        h3 { font-size: 11px; margin: 10px 0 4px 0; color: #C96A00; }
         table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-        th { background: #eef2ff; color: #312e81; font-size: 9px; text-align: left; padding: 5px 6px; border-bottom: 1px solid #c7d2fe; text-transform: uppercase; letter-spacing: 0.03em; }
+        th { background: #E9F5EE; color: #00693A; font-size: 9px; text-align: left; padding: 5px 6px; border-bottom: 1px solid #BFE3CD; text-transform: uppercase; letter-spacing: 0.03em; }
         td { padding: 4px 6px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
         .muted { color: #6b7280; }
         .right { text-align: right; }
@@ -30,26 +30,44 @@
         .kpi-grid .label { font-size: 8px; color: #6b7280; text-transform: uppercase; }
         .kpi-grid .value { font-size: 14px; font-weight: bold; color: #111827; margin-top: 2px; }
         .progress-bar { width: 100%; background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden; }
-        .progress-fill { height: 100%; background: #4f46e5; }
+        .progress-fill { height: 100%; background: #00903C; }
         .progress-fill.completed { background: #10b981; }
-        header.pdf-header { border-bottom: 2px solid #4f46e5; padding-bottom: 8px; margin-bottom: 12px; }
+        header.pdf-header { border-bottom: 2px solid #00903C; padding-bottom: 8px; margin-bottom: 12px; }
         header.pdf-header table { border-collapse: collapse; }
         header.pdf-header td { border: none; padding: 0; }
-        .logo { width: 44px; height: 44px; background: #4f46e5; color: white; font-size: 20px; font-weight: bold; text-align: center; line-height: 44px; border-radius: 6px; }
+        /* Charte PDU : vert et orange repris du logo. */
+        .pdu-logo { width: 132px; height: auto; }
+        .logo-fallback { width: 44px; height: 44px; background: #00903C; color: white; font-size: 20px; font-weight: bold; text-align: center; line-height: 44px; border-radius: 6px; }
+        .pdu-name { color: #00903C; font-weight: bold; }
+        .pdu-tool { color: #F58400; font-weight: bold; }
         footer.pdf-footer { position: fixed; bottom: -1cm; left: 0; right: 0; font-size: 8px; color: #9ca3af; padding: 6px 0; border-top: 1px solid #e5e7eb; text-align: center; }
         .page-number:before { content: counter(page); }
         .page-total:before { content: counter(pages); }
     </style>
 </head>
 <body>
+    @php
+        // Logo officiel du PDU, lu depuis le disque : DomPDF l'incorpore une
+        // seule fois, sans le surcoût d'un encodage base64 dans le gabarit.
+        $pduLogo = public_path('images/login/logo-pdu.png');
+        $hasLogo = is_file($pduLogo);
+    @endphp
     <header class="pdf-header">
         <table>
             <tr>
-                <td style="width: 60px;"><div class="logo">P</div></td>
+                <td style="width: 145px;">
+                    @if($hasLogo)
+                        <img src="{{ $pduLogo }}" alt="Programme de Décentralisation des Universités" class="pdu-logo" />
+                    @else
+                        <div class="logo-fallback">P</div>
+                    @endif
+                </td>
                 <td style="padding-left: 10px;">
                     <h1>@yield('title', 'Rapport PDU-CI')</h1>
-                    <p class="muted" style="margin: 0; font-size: 9px;">
-                        Programme de Décentralisation des Universités de Côte d'Ivoire &middot; Outil de pilotage
+                    <p style="margin: 0; font-size: 9px;">
+                        <span class="pdu-name">Programme de Décentralisation des Universités de Côte d'Ivoire</span>
+                        <span class="muted">&middot;</span>
+                        <span class="pdu-tool">Outil de pilotage</span>
                     </p>
                 </td>
                 <td class="right" style="width: 200px;">
