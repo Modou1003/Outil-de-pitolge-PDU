@@ -40,6 +40,9 @@ class Alert extends Model
         'no_update' => 'Absence de mise à jour',
         'physical_financial_gap' => 'Décalage physico-financier',
         'forecast_delay' => 'Retard de livraison projeté',
+        'cost_drift' => 'Dérive de coût',
+        'amendments_excess' => 'Avenants cumulés excessifs',
+        'payment_pending' => 'Décompte en attente',
     ];
 
     public const SEVERITIES = [

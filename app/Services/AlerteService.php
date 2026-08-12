@@ -32,12 +32,21 @@ class AlerteService
     /** Seuil (en jours) au-delà duquel le retard projeté est critique. */
     public const FORECAST_DELAY_CRITICAL = 120;
 
+    /** Seuil de l'indice de performance des coûts (CPI) sous lequel le coût dérive. */
+    public const CPI_THRESHOLD = 0.95;
+
+    /** Part maximale des avenants rapportée au montant initial du marché. */
+    public const AMENDMENTS_RATIO_THRESHOLD = 0.15;
+
+    /** Ancienneté (en jours) au-delà de laquelle un décompte non réglé est signalé. */
+    public const PAYMENT_PENDING_DAYS = 30;
+
     public function generateForAll(): array
     {
         $summary = ['created' => 0, 'closed' => 0, 'scanned' => 0];
 
         PduProject::query()
-            ->with(['physicalProgresses', 'buildingWorks', 'lots', 'milestones', 'amendments'])
+            ->with(['physicalProgresses', 'financialProgresses', 'buildingWorks', 'lots', 'milestones', 'amendments', 'payments'])
             ->chunk(50, function (Collection $projects) use (&$summary) {
                 foreach ($projects as $project) {
                     $summary['scanned']++;
@@ -64,6 +73,9 @@ class AlerteService
         if ($this->detectMilestoneMissed($project)) $active[] = 'milestone_missed';
         if ($this->detectPhysicalFinancialGap($project)) $active[] = 'physical_financial_gap';
         if ($this->detectForecastDelay($project)) $active[] = 'forecast_delay';
+        if ($this->detectCostDrift($project)) $active[] = 'cost_drift';
+        if ($this->detectAmendmentsExcess($project)) $active[] = 'amendments_excess';
+        if ($this->detectPaymentPending($project)) $active[] = 'payment_pending';
 
         foreach ($active as $type) {
             if ($this->upsertOpen($project, $type)) {
@@ -159,6 +171,9 @@ class AlerteService
                 ],
             ],
             'no_update' => $this->noUpdatePayload($project),
+            'cost_drift' => $this->costDriftPayload($project),
+            'amendments_excess' => $this->amendmentsExcessPayload($project),
+            'payment_pending' => $this->paymentPendingPayload($project),
             'physical_financial_gap' => $this->physicalFinancialPayload($project),
             'forecast_delay' => $this->forecastDelayPayload($project),
             'milestone_missed' => [
@@ -338,6 +353,139 @@ class AlerteService
     protected function projectedDelayDays(PduProject $project): ?int
     {
         return $this->earnedSchedule->projectedDelayDays($project);
+    }
+
+    /**
+     * Indice de performance des coûts (CPI) = valeur acquise ÷ coût réel,
+     * cumulés sur tous les relevés du projet. Null tant qu'aucun coût réel
+     * n'a été saisi : la division n'aurait pas de sens.
+     */
+    protected function costPerformanceIndex(PduProject $project): ?float
+    {
+        $earned = (float) $project->financialProgresses->sum('earned_value');
+        $actual = (float) $project->financialProgresses->sum('actual_cost');
+
+        return $actual > 0 ? round($earned / $actual, 3) : null;
+    }
+
+    protected function detectCostDrift(PduProject $project): bool
+    {
+        if (in_array($project->status, ['draft', 'cancelled', 'archived'], true)) {
+            return false;
+        }
+
+        $cpi = $this->costPerformanceIndex($project);
+
+        return $cpi !== null && $cpi < self::CPI_THRESHOLD;
+    }
+
+    protected function costDriftPayload(PduProject $project): array
+    {
+        $cpi = $this->costPerformanceIndex($project) ?? 0.0;
+
+        return [
+            'severity' => 'warning',
+            'title' => 'Dérive de coût',
+            'message' => sprintf(
+                'Indice de performance des coûts de %.2f (seuil %.2f) : le projet consomme plus de budget qu\'il ne produit de valeur.',
+                $cpi,
+                self::CPI_THRESHOLD,
+            ),
+            'context' => ['cpi' => $cpi, 'threshold' => self::CPI_THRESHOLD],
+        ];
+    }
+
+    /**
+     * Part cumulée des avenants rapportée au montant initial du marché.
+     * On raisonne sur la plus-value nette : une moins-value ne constitue pas
+     * une dérive au sens de la réglementation des marchés.
+     */
+    protected function amendmentsRatio(PduProject $project): ?float
+    {
+        $initial = (float) $project->budget_allocated;
+        if ($initial <= 0) {
+            return null;
+        }
+
+        return round($project->amendments_total / $initial, 4);
+    }
+
+    protected function detectAmendmentsExcess(PduProject $project): bool
+    {
+        $ratio = $this->amendmentsRatio($project);
+
+        return $ratio !== null && $ratio > self::AMENDMENTS_RATIO_THRESHOLD;
+    }
+
+    protected function amendmentsExcessPayload(PduProject $project): array
+    {
+        $ratio = $this->amendmentsRatio($project) ?? 0.0;
+
+        return [
+            'severity' => 'warning',
+            'title' => 'Avenants cumulés excessifs',
+            'message' => sprintf(
+                'Les avenants représentent %.1f%% du montant initial du marché (seuil %.0f%%) : l\'économie du contrat est substantiellement modifiée.',
+                $ratio * 100,
+                self::AMENDMENTS_RATIO_THRESHOLD * 100,
+            ),
+            'context' => [
+                'ratio' => round($ratio * 100, 1),
+                'threshold' => self::AMENDMENTS_RATIO_THRESHOLD * 100,
+                'initial' => (float) $project->budget_allocated,
+                'amendments_total' => $project->amendments_total,
+                'revised' => $project->budget_revised,
+            ],
+        ];
+    }
+
+    /**
+     * Décomptes transmis mais non réglés depuis plus longtemps que le seuil.
+     * La date de référence est celle du décompte, à défaut sa date de saisie.
+     */
+    protected function pendingPayments(PduProject $project)
+    {
+        $limit = now()->startOfDay()->subDays(self::PAYMENT_PENDING_DAYS);
+
+        return $project->payments
+            ->where('is_paid', false)
+            ->filter(function ($payment) use ($limit) {
+                $reference = $payment->payment_date ?: $payment->created_at;
+
+                return $reference && $reference->lessThan($limit);
+            });
+    }
+
+    protected function detectPaymentPending(PduProject $project): bool
+    {
+        return $this->pendingPayments($project)->isNotEmpty();
+    }
+
+    protected function paymentPendingPayload(PduProject $project): array
+    {
+        $pending = $this->pendingPayments($project);
+        $oldest = $pending
+            ->map(fn ($p) => $p->payment_date ?: $p->created_at)
+            ->filter()
+            ->min();
+
+        $days = $oldest ? (int) $oldest->copy()->startOfDay()->diffInDays(now()->startOfDay()) : 0;
+
+        return [
+            'severity' => 'info',
+            'title' => 'Décompte en attente de règlement',
+            'message' => sprintf(
+                '%d décompte(s) transmis et non réglé(s), le plus ancien depuis %d jours (seuil %d j).',
+                $pending->count(),
+                $days,
+                self::PAYMENT_PENDING_DAYS,
+            ),
+            'context' => [
+                'count' => $pending->count(),
+                'oldest_days' => $days,
+                'threshold' => self::PAYMENT_PENDING_DAYS,
+            ],
+        ];
     }
 
     protected function detectMilestoneMissed(PduProject $project): bool
