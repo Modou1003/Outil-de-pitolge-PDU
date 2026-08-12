@@ -99,6 +99,77 @@ class RapportPdfTest extends TestCase
         );
     }
 
+    /** Rend le gabarit de la fiche projet avec la sélection de sections voulue. */
+    private function renderProjet(PduProject $project, array $sections): string
+    {
+        return view('pdf.rapport-projet', [
+            'show' => fn (string $key) => in_array($key, $sections, true),
+            'project' => $project->load(['university', 'buildingWorks', 'lots', 'milestones',
+                'physicalProgresses', 'financialProgresses', 'payments', 'amendments', 'alerts', 'teamMembers']),
+            'kpis' => ['cpi' => null, 'spi' => null, 'cv' => 0, 'sv' => 0, 'eac' => null,
+                'budget_rate' => 0, 'planned_progress' => 0, 'milestones_reached' => 0, 'milestones_total' => 0],
+            'moa' => $project->financialMoa(),
+            'physicalChartSvg' => null,
+            'financialChartSvg' => null,
+            'generatedAt' => now(),
+        ])->render();
+    }
+
+    public function test_le_gabarit_nemet_que_les_sections_demandees(): void
+    {
+        $project = $this->project();
+
+        $complet = $this->renderProjet($project, array_keys(\App\Http\Controllers\RapportController::PROJECT_SECTIONS));
+        $this->assertStringContainsString('Jalons clés', $complet);
+        $this->assertStringContainsString('Équipe projet', $complet);
+        $this->assertStringContainsString('Indicateurs clés', $complet);
+
+        $restreint = $this->renderProjet($project, ['identite', 'indicateurs']);
+        $this->assertStringContainsString('Indicateurs clés', $restreint);
+        $this->assertStringNotContainsString('Jalons clés', $restreint);
+        $this->assertStringNotContainsString('Équipe projet', $restreint);
+        $this->assertStringNotContainsString('Situation financière', $restreint);
+    }
+
+    public function test_le_rapport_restreint_est_plus_leger_que_le_rapport_complet(): void
+    {
+        $project = $this->project();
+
+        $complet = $this->actingAs($this->admin())
+            ->get(route('rapports.projet', $project))->getContent();
+        $restreint = $this->actingAs($this->admin())
+            ->get(route('rapports.projet', [$project, 'sections' => 'identite,indicateurs']))->getContent();
+
+        $this->assertLessThan(strlen($complet), strlen($restreint));
+    }
+
+    public function test_une_section_inconnue_est_ignoree_et_le_rapport_reste_complet(): void
+    {
+        $project = $this->project();
+
+        $reponse = $this->actingAs($this->admin())
+            ->get(route('rapports.projet', [$project, 'sections' => 'nimportequoi']));
+        $this->assertIsPdf($reponse);
+
+        // Une sélection vide après filtrage retombe sur le rapport intégral.
+        $complet = $this->actingAs($this->admin())
+            ->get(route('rapports.projet', $project))->getContent();
+        $this->assertEqualsWithDelta(strlen($complet), strlen($reponse->getContent()), 2000);
+    }
+
+    public function test_le_rapport_global_se_limite_aux_sections_demandees(): void
+    {
+        $this->project();
+
+        $complet = $this->actingAs($this->admin())
+            ->get(route('rapports.global'))->getContent();
+        $restreint = $this->actingAs($this->admin())
+            ->get(route('rapports.global', ['sections' => 'synthese']));
+
+        $this->assertIsPdf($restreint);
+        $this->assertLessThan(strlen($complet), strlen($restreint->getContent()));
+    }
+
     public function test_sans_droit_dexport_la_generation_est_refusee(): void
     {
         $lecteur = User::factory()->create(['is_active' => true]);

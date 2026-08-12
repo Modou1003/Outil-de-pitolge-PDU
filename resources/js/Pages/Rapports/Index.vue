@@ -7,6 +7,7 @@ import { useAuth } from '@/Composables/useAuth';
 const props = defineProps({
     projects: { type: Array, required: true },
     stats: { type: Object, required: true },
+    sections: { type: Object, required: true },
 });
 
 const { hasPermission } = useAuth();
@@ -18,17 +19,47 @@ const selectedProject = computed(() => props.projects.find((p) => p.id === selec
 const generatingProject = ref(false);
 const generatingGlobal = ref(false);
 
+// Sections retenues pour l'édition : tout est coché au départ, le rapport
+// complet restant le cas courant.
+const projectSections = ref(props.sections.project.map((s) => s.key));
+const globalSections = ref(props.sections.global.map((s) => s.key));
+
+const toggle = (list, key) => {
+    const i = list.value.indexOf(key);
+    if (i === -1) list.value.push(key);
+    else list.value.splice(i, 1);
+};
+
+// Aucune section cochée produirait un document vide : le bouton se désactive.
+const projectSectionsValid = computed(() => projectSections.value.length > 0);
+const globalSectionsValid = computed(() => globalSections.value.length > 0);
+
+const withSections = (url, list, all) => {
+    // Sélection complète : on n'encombre pas l'URL d'un paramètre inutile.
+    if (list.length === all.length) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}sections=${list.join(',')}`;
+};
+
 const downloadProjectReport = () => {
     if (!selectedProjectId.value) return;
     generatingProject.value = true;
-    const url = route('rapports.projet', selectedProjectId.value);
+    const url = withSections(
+        route('rapports.projet', selectedProjectId.value),
+        projectSections.value,
+        props.sections.project,
+    );
     window.location.href = url;
     setTimeout(() => (generatingProject.value = false), 2500);
 };
 
 const downloadGlobalReport = () => {
     generatingGlobal.value = true;
-    window.location.href = route('rapports.global');
+    window.location.href = withSections(
+        route('rapports.global'),
+        globalSections.value,
+        props.sections.global,
+    );
     setTimeout(() => (generatingGlobal.value = false), 2500);
 };
 
@@ -90,10 +121,30 @@ const downloadGlobalReport = () => {
                         <p>Avancement : <span class="font-medium">{{ Number(selectedProject.progress_percentage).toFixed(1) }}%</span></p>
                     </div>
 
+                    <div class="mt-5 rounded-lg border border-gray-200 p-3">
+                        <div class="mb-2 flex items-center justify-between">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Sections à inclure</p>
+                            <button type="button" class="text-xs font-medium text-indigo-600 hover:underline" @click="projectSections = projectSections.length === sections.project.length ? [] : sections.project.map((s) => s.key)">
+                                {{ projectSections.length === sections.project.length ? 'Tout décocher' : 'Tout cocher' }}
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+                            <label v-for="s in sections.project" :key="s.key" class="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    :checked="projectSections.includes(s.key)"
+                                    @change="toggle(projectSections, s.key)"
+                                />
+                                {{ s.label }}
+                            </label>
+                        </div>
+                        <p v-if="!projectSectionsValid" class="mt-2 text-xs text-amber-600">Sélectionne au moins une section.</p>
+                    </div>
                     <button
                         type="button"
                         class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
-                        :disabled="!canGenerate || generatingProject || !selectedProjectId"
+                        :disabled="!canGenerate || generatingProject || !selectedProjectId || !projectSectionsValid"
                         @click="downloadProjectReport"
                     >
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>
@@ -121,10 +172,30 @@ const downloadGlobalReport = () => {
                         <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-600">✓</span> Compteur d'alertes critiques</li>
                     </ul>
 
+                    <div class="mt-5 rounded-lg border border-gray-200 p-3">
+                        <div class="mb-2 flex items-center justify-between">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-600">Sections à inclure</p>
+                            <button type="button" class="text-xs font-medium text-emerald-600 hover:underline" @click="globalSections = globalSections.length === sections.global.length ? [] : sections.global.map((s) => s.key)">
+                                {{ globalSections.length === sections.global.length ? 'Tout décocher' : 'Tout cocher' }}
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+                            <label v-for="s in sections.global" :key="s.key" class="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                    :checked="globalSections.includes(s.key)"
+                                    @change="toggle(globalSections, s.key)"
+                                />
+                                {{ s.label }}
+                            </label>
+                        </div>
+                        <p v-if="!globalSectionsValid" class="mt-2 text-xs text-amber-600">Sélectionne au moins une section.</p>
+                    </div>
                     <button
                         type="button"
                         class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
-                        :disabled="!canGenerate || generatingGlobal"
+                        :disabled="!canGenerate || generatingGlobal || !globalSectionsValid"
                         @click="downloadGlobalReport"
                     >
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" /></svg>

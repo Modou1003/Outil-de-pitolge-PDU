@@ -20,6 +20,7 @@
 @endphp
 
 @section('content')
+@if($show('identite'))
     <table style="margin-bottom: 10px;">
         <tr>
             <td style="width: 70%; border: 0; padding: 0;">
@@ -40,7 +41,9 @@
             </td>
         </tr>
     </table>
+@endif
 
+@if($show('indicateurs'))
     <h2>Indicateurs clés</h2>
     <table class="kpi-grid">
         <tr>
@@ -57,7 +60,9 @@
         </tr>
     </table>
 
-    @if($project->amendments->isNotEmpty())
+@endif
+
+@if($show('avenants') && $project->amendments->isNotEmpty())
         <h2>Avenants au marché</h2>
         <table>
             <thead>
@@ -96,8 +101,9 @@
                 </tr>
             </tbody>
         </table>
-    @endif
+@endif
 
+@if($show('courbes'))
     <h2>Courbes d'avancement</h2>
     @if($physicalChartSvg)
         <p style="margin: 6px 0 1px 0; font-weight: bold; font-size: 11px;">Courbe en S — Avancement physique (%)</p>
@@ -123,7 +129,9 @@
         <p style="margin: 10px 0 1px 0; font-weight: bold; font-size: 11px;">Courbe EVM — Avancement financier</p>
         <p class="muted" style="margin: 0;">Aucune donnée d'avancement financier (EVM).</p>
     @endif
+@endif
 
+@if($show('equipe'))
     <h2>Équipe projet</h2>
     <table>
         <tr>
@@ -133,7 +141,9 @@
         <tr><td>Chef de projet</td><td>{{ $project->projectManager?->name ?? '—' }}</td><td class="muted">{{ $project->projectManager?->email ?? '' }}</td></tr>
         <tr><td>Agent financier</td><td>{{ $project->financialAgent?->name ?? '—' }}</td><td class="muted">{{ $project->financialAgent?->email ?? '' }}</td></tr>
     </table>
+@endif
 
+@if($show('financier'))
     <h2>Situation financière (maître d'ouvrage)</h2>
     <table class="kpi-grid">
         <tr>
@@ -170,7 +180,9 @@
             </tbody>
         </table>
     @endif
+@endif
 
+@if($show('ouvrages'))
     <h2>Ouvrages ({{ $project->buildingWorks->count() }})</h2>
     @if($project->buildingWorks->count())
         <table>
@@ -192,7 +204,9 @@
     @else
         <p class="muted">Aucun ouvrage défini.</p>
     @endif
+@endif
 
+@if($show('planning'))
     <h2>Planning &middot; Lots ({{ $project->lots->count() }})</h2>
     @if($project->lots->count())
         <table>
@@ -213,7 +227,9 @@
     @else
         <p class="muted">Aucun lot défini.</p>
     @endif
+@endif
 
+@if($show('jalons'))
     <h2>Jalons clés ({{ $project->milestones->count() }})</h2>
     @if($project->milestones->count())
         <table>
@@ -235,8 +251,9 @@
     @else
         <p class="muted">Aucun jalon.</p>
     @endif
+@endif
 
-    @if($project->alerts->count())
+@if($show('alertes') && $project->alerts->count())
         <h2>Alertes ouvertes ({{ $project->alerts->count() }})</h2>
         <table>
             <thead><tr><th>Sévérité</th><th>Type</th><th>Titre</th><th>Détectée le</th></tr></thead>

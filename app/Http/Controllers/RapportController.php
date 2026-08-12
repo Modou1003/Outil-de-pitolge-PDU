@@ -13,6 +13,53 @@ use Inertia\Response as InertiaResponse;
 
 class RapportController extends Controller
 {
+    /**
+     * Sections composables de la fiche projet. La clé sert de paramètre
+     * d'URL, le libellé alimente les cases à cocher de l'écran Rapports.
+     */
+    public const PROJECT_SECTIONS = [
+        'identite' => 'Identification du projet',
+        'indicateurs' => 'Indicateurs clés',
+        'avenants' => 'Avenants au marché',
+        'courbes' => "Courbes d'avancement",
+        'financier' => 'Situation financière et décomptes',
+        'ouvrages' => 'Ouvrages',
+        'planning' => 'Planning et lots',
+        'jalons' => 'Jalons clés',
+        'equipe' => 'Équipe projet',
+        'alertes' => 'Alertes ouvertes',
+    ];
+
+    /** Sections composables du rapport de portefeuille. */
+    public const GLOBAL_SECTIONS = [
+        'synthese' => 'Synthèse du portefeuille',
+        'regions' => 'Répartition par région',
+        'projets' => 'Liste détaillée des projets',
+    ];
+
+    /**
+     * Sections retenues pour l'édition. En l'absence de paramètre — lien
+     * direct, favori, appel externe — le rapport reste complet.
+     *
+     * @return list<string>
+     */
+    private function resolveSections(Request $request, array $catalogue): array
+    {
+        $demande = $request->query('sections');
+
+        if ($demande === null || $demande === '') {
+            return array_keys($catalogue);
+        }
+
+        $retenues = array_values(array_intersect(
+            array_map('trim', explode(',', (string) $demande)),
+            array_keys($catalogue),
+        ));
+
+        // Une sélection vide produirait un document sans contenu.
+        return $retenues ?: array_keys($catalogue);
+    }
+
     public function index(): InertiaResponse
     {
         $projects = PduProject::orderBy('code')
@@ -20,6 +67,10 @@ class RapportController extends Controller
 
         return Inertia::render('Rapports/Index', [
             'projects' => $projects,
+            'sections' => [
+                'project' => collect(self::PROJECT_SECTIONS)->map(fn ($l, $k) => ['key' => $k, 'label' => $l])->values()->all(),
+                'global' => collect(self::GLOBAL_SECTIONS)->map(fn ($l, $k) => ['key' => $k, 'label' => $l])->values()->all(),
+            ],
             'stats' => [
                 'total_projects' => PduProject::count(),
                 'active_projects' => PduProject::whereIn('status', ['approved', 'in_progress'])->count(),
@@ -29,9 +80,11 @@ class RapportController extends Controller
         ]);
     }
 
-    public function projet(PduProject $project): Response
+    public function projet(Request $request, PduProject $project): Response
     {
         $this->authorizeGenerate();
+
+        $sections = $this->resolveSections($request, self::PROJECT_SECTIONS);
 
         $project->load([
             'university:id,name,acronym,location,region',
@@ -91,6 +144,7 @@ class RapportController extends Controller
             : null;
 
         $pdf = Pdf::loadView('pdf.rapport-projet', [
+            'show' => fn (string $key) => in_array($key, $sections, true),
             'project' => $project,
             'kpis' => $kpis,
             'moa' => $project->financialMoa(),
@@ -107,6 +161,8 @@ class RapportController extends Controller
     public function globalReport(Request $request): Response
     {
         $this->authorizeGenerate();
+
+        $sections = $this->resolveSections($request, self::GLOBAL_SECTIONS);
 
         $projects = PduProject::with(['university:id,name,acronym,region', 'amendments'])
             ->orderBy('code')
@@ -138,6 +194,7 @@ class RapportController extends Controller
             ])->values();
 
         $pdf = Pdf::loadView('pdf.rapport-global', [
+            'show' => fn (string $key) => in_array($key, $sections, true),
             'projects' => $projects,
             'universities' => $universities,
             'stats' => $stats,

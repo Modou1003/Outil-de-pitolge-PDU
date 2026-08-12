@@ -19,6 +19,7 @@
 @endphp
 
 @section('content')
+@if($show('synthese'))
     <h2 style="margin-top: 0;">Synthèse du portefeuille</h2>
     <table class="kpi-grid">
         <tr>
@@ -34,7 +35,9 @@
             <td><div class="label">Alertes ouvertes</div><div class="value {{ $stats['critical_alerts'] > 0 ? 'bad' : '' }}">{{ $stats['open_alerts'] }} <span style="font-size: 9px; font-weight: normal;">dont {{ $stats['critical_alerts'] }} critiques</span></div></td>
         </tr>
     </table>
+@endif
 
+@if($show('regions'))
     <h2>Répartition par région</h2>
     @if($byRegion->count())
         <table>
@@ -54,6 +57,9 @@
         </table>
     @endif
 
+@endif
+
+@if($show('projets'))
     <h2>Liste détaillée des projets ({{ $projects->count() }})</h2>
     <table>
         <thead>
@@ -96,4 +102,5 @@
             @endforeach
         </tbody>
     </table>
+@endif
 @endsection
