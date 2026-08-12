@@ -161,6 +161,7 @@ const extendedTeam = reactive({
         role_key: m.role_key ?? 'autre',
         role_label: m.role_label ?? 'Autre',
         user_id: m.user?.id ?? '',
+        member_type: m.user?.id ? 'interne' : 'externe',
         name: m.user?.name ?? (m.name ?? ''),
         organization: m.organization ?? '',
         phone: m.phone ?? '',
@@ -185,6 +186,7 @@ watch(
             role_key: m.role_key ?? 'autre',
             role_label: m.role_label ?? 'Autre',
             user_id: m.user?.id ?? '',
+            member_type: m.user?.id ? 'interne' : 'externe',
             name: m.user?.name ?? (m.name ?? ''),
             organization: m.organization ?? '',
             phone: m.phone ?? '',
@@ -212,6 +214,7 @@ const addExtendedMember = () => {
         role_key: 'autre',
         role_label: 'Autre',
         user_id: '',
+        member_type: 'externe',
         name: '',
         organization: '',
         phone: '',
@@ -240,6 +243,16 @@ const onRoleChange = (m) => {
     if (m.role_key !== 'autre') return;
     if (m.role_label && m.role_label !== 'Autre') return;
     m.role_label = 'Autre';
+};
+
+// Un membre est soit rattaché à un compte de l'application, soit saisi
+// librement : le passage d'un type à l'autre efface le champ devenu caduc.
+const onMemberKindChange = (m) => {
+    if (m.member_type === 'interne') {
+        m.name = '';
+    } else {
+        m.user_id = '';
+    }
 };
 
 const pickExtendedUser = (m) => {
@@ -461,19 +474,30 @@ const saveExtendedTeam = () => {
                                 <div>
                                     <label class="block text-xs font-medium uppercase text-gray-500">Personne</label>
                                     <select
-                                        v-model="m.user_id"
+                                        v-model="m.member_type"
                                         class="mt-1 w-full rounded-md border-gray-300 text-sm"
+                                        @change="onMemberKindChange(m)"
+                                        :disabled="!canManageTeam"
+                                    >
+                                        <option value="interne">Interne</option>
+                                        <option value="externe">Externe</option>
+                                    </select>
+                                    <select
+                                        v-if="m.member_type === 'interne'"
+                                        v-model="m.user_id"
+                                        class="mt-2 w-full rounded-md border-gray-300 text-sm"
                                         @change="pickExtendedUser(m)"
                                         :disabled="!canManageTeam"
                                     >
-                                        <option value="">— Externe / non enregistré —</option>
+                                        <option value="">— Choisir un compte —</option>
                                         <option v-for="u in teamCandidates" :key="`ext-${idx}-${u.id}`" :value="u.id">{{ u.name }}</option>
                                     </select>
                                     <input
+                                        v-else
                                         v-model="m.name"
                                         type="text"
                                         class="mt-2 w-full rounded-md border-gray-300 text-sm"
-                                        placeholder="Nom et prénom (si externe)"
+                                        placeholder="Nom et prénom"
                                         @input="typeExtendedName(m)"
                                         :disabled="!canManageTeam"
                                     />
