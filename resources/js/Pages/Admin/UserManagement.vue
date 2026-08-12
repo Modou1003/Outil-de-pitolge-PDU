@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import AdminTabs from '@/Components/Admin/AdminTabs.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
@@ -182,6 +183,8 @@ const breadcrumbs = [
                 </button>
             </div>
         </template>
+
+        <AdminTabs class="mb-4" />
 
         <div class="overflow-hidden bg-white shadow-sm ring-1 ring-gray-200 sm:rounded-lg">
             <table class="min-w-full divide-y divide-gray-200">

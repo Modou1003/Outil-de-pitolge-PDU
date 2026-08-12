@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import AdminTabs from '@/Components/Admin/AdminTabs.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { reactive, computed } from 'vue';
 
@@ -36,6 +37,12 @@ const goToPage = (page) => {
 
 const hasFilters = computed(() => Object.values(form).some((v) => v !== '' && v !== null));
 
+const breadcrumbs = [
+    { label: 'Accueil', href: route('dashboard') },
+    { label: 'Administration', href: route('admin.users.index') },
+    { label: "Journal d'activité" },
+];
+
 // Une couleur par nature d'action, pour repérer les suppressions d'un coup d'œil.
 const actionStyle = {
     created: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
@@ -53,14 +60,17 @@ const fmtDateTime = (d) => {
 <template>
     <Head title="Journal d'activité" />
 
-    <AuthenticatedLayout :breadcrumbs="[{ label: 'Accueil', href: route('dashboard') }, { label: 'Journal d\'activité' }]">
-        <div class="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
-            <div>
-                <h1 class="text-xl font-bold text-gray-900">Journal d'activité</h1>
-                <p class="mt-1 text-sm text-gray-500">
-                    Toutes les interventions sur les projets et les comptes, du plus récent au plus ancien.
-                </p>
-            </div>
+    <AuthenticatedLayout :breadcrumbs="breadcrumbs">
+        <template #header>
+            <h2 class="text-xl font-semibold text-gray-900">Journal d'activité</h2>
+        </template>
+
+        <div class="space-y-4">
+            <AdminTabs />
+
+            <p class="text-sm text-gray-500">
+                Toutes les interventions sur les projets et les comptes, du plus récent au plus ancien.
+            </p>
 
             <!-- Synthèse -->
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
