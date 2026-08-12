@@ -124,18 +124,7 @@ const initials = (name) => String(name || '?')
     .join('')
     .toUpperCase();
 
-const pickUser = (fieldId, fieldName) => {
-    teamForm[fieldName] = '';
-    if (fieldId === 'director_id') teamForm.director_email = '';
-    if (fieldId === 'project_manager_id') teamForm.project_manager_email = '';
-    if (fieldId === 'financial_agent_id') teamForm.financial_agent_email = '';
-    if (teamForm[fieldId] === '') return;
-};
 
-const typeExternalName = (fieldId, fieldName) => {
-    teamForm[fieldId] = '';
-    if (!teamForm[fieldName]) return;
-};
 
 const ROLE_CATALOG = [
     { key: 'maitre_ouvrage', label: "Maître d'ouvrage" },
@@ -423,70 +412,6 @@ const saveExtendedTeam = () => {
                         </button>
                     </li>
                 </ul>
-            </div>
-
-            <div v-if="canManageTeam" class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
-                <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700">Gérer l'équipe</h3>
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-medium uppercase text-gray-500">Directeur</label>
-                        <select v-model="teamForm.director_id" class="mt-1 w-full rounded-md border-gray-300 text-sm" @change="pickUser('director_id','director_name')">
-                            <option value="">Aucun</option>
-                            <option v-for="u in teamCandidates" :key="`director-${u.id}`" :value="u.id">{{ u.name }}</option>
-                        </select>
-                        <div class="mt-2 text-xs text-gray-500">Ou saisir un nom (membre externe)</div>
-                        <input v-model="teamForm.director_name" type="text" class="mt-1 w-full rounded-md border-gray-300 text-sm" placeholder="Nom du directeur" @input="typeExternalName('director_id','director_name')" />
-                        <input
-                            v-model="teamForm.director_email"
-                            type="email"
-                            class="mt-2 w-full rounded-md border-gray-300 text-sm"
-                            placeholder="Email du directeur (pour alertes)"
-                            :disabled="!!teamForm.director_id"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium uppercase text-gray-500">Chef de projet</label>
-                        <select v-model="teamForm.project_manager_id" class="mt-1 w-full rounded-md border-gray-300 text-sm" @change="pickUser('project_manager_id','project_manager_name')">
-                            <option value="">Aucun</option>
-                            <option v-for="u in teamCandidates" :key="`manager-${u.id}`" :value="u.id">{{ u.name }}</option>
-                        </select>
-                        <div class="mt-2 text-xs text-gray-500">Ou saisir un nom (membre externe)</div>
-                        <input v-model="teamForm.project_manager_name" type="text" class="mt-1 w-full rounded-md border-gray-300 text-sm" placeholder="Nom du chef de projet" @input="typeExternalName('project_manager_id','project_manager_name')" />
-                        <input
-                            v-model="teamForm.project_manager_email"
-                            type="email"
-                            class="mt-2 w-full rounded-md border-gray-300 text-sm"
-                            placeholder="Email du chef de projet (pour alertes)"
-                            :disabled="!!teamForm.project_manager_id"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium uppercase text-gray-500">Agent financier</label>
-                        <select v-model="teamForm.financial_agent_id" class="mt-1 w-full rounded-md border-gray-300 text-sm" @change="pickUser('financial_agent_id','financial_agent_name')">
-                            <option value="">Aucun</option>
-                            <option v-for="u in teamCandidates" :key="`finance-${u.id}`" :value="u.id">{{ u.name }}</option>
-                        </select>
-                        <div class="mt-2 text-xs text-gray-500">Ou saisir un nom (membre externe)</div>
-                        <input v-model="teamForm.financial_agent_name" type="text" class="mt-1 w-full rounded-md border-gray-300 text-sm" placeholder="Nom de l'agent financier" @input="typeExternalName('financial_agent_id','financial_agent_name')" />
-                        <input
-                            v-model="teamForm.financial_agent_email"
-                            type="email"
-                            class="mt-2 w-full rounded-md border-gray-300 text-sm"
-                            placeholder="Email de l'agent financier (pour alertes)"
-                            :disabled="!!teamForm.financial_agent_id"
-                        />
-                    </div>
-                </div>
-                <div class="mt-4 flex justify-end">
-                    <button
-                        type="button"
-                        class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-                        :disabled="teamForm.processing"
-                        @click="saveTeam"
-                    >
-                        {{ teamForm.processing ? 'Enregistrement...' : 'Enregistrer les membres' }}
-                    </button>
-                </div>
             </div>
 
             <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
