@@ -130,6 +130,7 @@ const ROLE_CATALOG = [
     { key: 'maitre_ouvrage', label: "Maître d'ouvrage" },
     { key: 'maitre_ouvrage_delegue', label: "Maître d'ouvrage délégué" },
     { key: 'amo', label: "AMO (Assistant maître d'ouvrage)" },
+    { key: 'responsable_technique', label: 'Responsable technique' },
     { key: 'maitre_oeuvre', label: "Maître d'œuvre" },
     { key: 'architecte', label: 'Architecte' },
     { key: 'bureau_etudes', label: "Bureau d'études (BET)" },
