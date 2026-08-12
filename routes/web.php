@@ -446,6 +446,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Journal d'activité : qui a fait quoi, quand et sur quel projet.
         Route::get('/admin/activites', [App\Http\Controllers\Admin\ActivityLogController::class, 'index'])->name('admin.activites.index');
+
+        // Seuils de déclenchement des alertes et bornes de coloration.
+        Route::get('/admin/seuils', [App\Http\Controllers\Admin\ThresholdController::class, 'index'])->name('admin.seuils.index');
+        Route::put('/admin/seuils', [App\Http\Controllers\Admin\ThresholdController::class, 'update'])->name('admin.seuils.update');
+        Route::delete('/admin/seuils', [App\Http\Controllers\Admin\ThresholdController::class, 'reset'])->name('admin.seuils.reset');
     });
 });
 

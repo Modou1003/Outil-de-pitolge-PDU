@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\AlerteService;
 use App\Services\EarnedScheduleService;
+use App\Services\ThresholdService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -30,6 +31,7 @@ class ProjectController extends Controller
         protected AlerteService $alerteService,
         protected EarnedScheduleService $earnedSchedule,
         protected ActivityLogger $journal,
+        protected ThresholdService $seuils,
     ) {}
 
     public function show(PduProject $project): Response
@@ -374,9 +376,9 @@ class ProjectController extends Controller
         $abs = abs($gap);
         if ($physical == 0.0 && $financial == 0.0) {
             $level = 'none';
-        } elseif ($abs <= 10) {
+        } elseif ($abs <= $this->seuils->get('physfin_aligned_points')) {
             $level = 'aligned';
-        } elseif ($abs <= 20) {
+        } elseif ($abs <= $this->seuils->get('phys_fin_gap_points')) {
             $level = 'watch';
         } else {
             $level = 'critical';
@@ -426,7 +428,9 @@ class ProjectController extends Controller
         // Niveau : vert < 30 j, orange 30-60 j, rouge > 60 j, gris si aucune donnée.
         $level = 'none';
         if ($daysSince !== null) {
-            $level = $daysSince <= 30 ? 'fresh' : ($daysSince <= 60 ? 'stale' : 'critical');
+            $level = $daysSince <= $this->seuils->days('freshness_fresh_days')
+                ? 'fresh'
+                : ($daysSince <= $this->seuils->days('freshness_stale_days') ? 'stale' : 'critical');
         }
 
         return [

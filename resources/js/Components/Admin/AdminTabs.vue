@@ -6,6 +6,7 @@ import { Link } from '@inertiajs/vue3';
 const tabs = [
     { label: 'Utilisateurs', route: 'admin.users.index', icon: 'M17 20h5v-2a3 3 0 00-5.36-1.9M17 20H7m10 0v-2c0-.66-.13-1.3-.36-1.9M7 20H2v-2a3 3 0 015.36-1.9M7 20v-2c0-.66.13-1.3.36-1.9m0 0a5 5 0 019.28 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
     { label: "Journal d'activité", route: 'admin.activites.index', icon: 'M12 8v4l3 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { label: 'Seuils', route: 'admin.seuils.index', icon: 'M4 6h16M4 12h16M4 18h16M7 4v4M15 10v4M10 16v4' },
 ];
 
 const isActive = (name) => {

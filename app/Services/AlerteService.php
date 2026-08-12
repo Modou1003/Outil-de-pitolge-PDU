@@ -12,34 +12,13 @@ use Illuminate\Support\Facades\Notification;
 
 class AlerteService
 {
-    public function __construct(protected EarnedScheduleService $earnedSchedule) {}
+    public function __construct(
+        protected EarnedScheduleService $earnedSchedule,
+        protected ThresholdService $seuils,
+    ) {}
 
-    /** Seuil de dépassement budgétaire (budget_spent / montant actualisé). */
-    public const BUDGET_THRESHOLD = 0.9;
-
-    /** Seuil d'écart d'avancement (réel - prévu). */
-    public const PROGRESS_GAP_THRESHOLD = -15.0;
-
-    /** Seuil (en points) de décaissement en avance sur l'avancement physique. */
-    public const PHYS_FIN_GAP_THRESHOLD = 20.0;
-
-    /** Seuil (en points) au-delà duquel le décalage physico-financier est critique. */
-    public const PHYS_FIN_GAP_CRITICAL = 35.0;
-
-    /** Seuil (en jours) de retard de livraison projeté au rythme réel. */
-    public const FORECAST_DELAY_THRESHOLD = 60;
-
-    /** Seuil (en jours) au-delà duquel le retard projeté est critique. */
-    public const FORECAST_DELAY_CRITICAL = 120;
-
-    /** Seuil de l'indice de performance des coûts (CPI) sous lequel le coût dérive. */
-    public const CPI_THRESHOLD = 0.95;
-
-    /** Part maximale des avenants rapportée au montant initial du marché. */
-    public const AMENDMENTS_RATIO_THRESHOLD = 0.15;
-
-    /** Ancienneté (en jours) au-delà de laquelle un décompte non réglé est signalé. */
-    public const PAYMENT_PENDING_DAYS = 30;
+    // Les seuils sont portés par ThresholdService : catalogue, valeurs par
+    // défaut et bornes admissibles y font autorité.
 
     public function generateForAll(): array
     {
@@ -143,9 +122,10 @@ class AlerteService
                 'severity' => 'warning',
                 'title' => 'Dépassement budgétaire imminent',
                 'message' => sprintf(
-                    'Montant décaissé %.2f > 90%% du marché actualisé (%.2f).',
+                    'Montant décaissé %.2f > %.0f%% du marché actualisé (%.2f).',
                     (float) $project->budget_spent,
-                    $project->budget_revised * self::BUDGET_THRESHOLD,
+                    $this->seuils->get('budget_overrun_rate'),
+                    $project->budget_revised * $this->seuils->ratio('budget_overrun_rate'),
                 ),
                 'context' => [
                     'rate' => (float) $project->budget_execution_rate,
@@ -153,7 +133,7 @@ class AlerteService
                     'allocated' => (float) $project->budget_allocated,
                     'revised' => $project->budget_revised,
                     'amendments_total' => $project->amendments_total,
-                    'threshold_rate' => self::BUDGET_THRESHOLD * 100,
+                    'threshold_rate' => $this->seuils->ratio('budget_overrun_rate') * 100,
                 ],
             ],
             'progress_gap' => [
@@ -162,7 +142,7 @@ class AlerteService
                 'message' => sprintf(
                     'Écart réel-prévu de %.1f pts (seuil %.1f pts).',
                     (float) $project->progress_percentage - (float) $project->planned_progress,
-                    self::PROGRESS_GAP_THRESHOLD,
+                    (-1 * $this->seuils->get('progress_gap_points')),
                 ),
                 'context' => [
                     'actual' => (float) $project->progress_percentage,
@@ -202,20 +182,14 @@ class AlerteService
     {
         $budget = $project->budget_revised;
         if ($budget <= 0) return false;
-        return ((float) $project->budget_spent / $budget) >= self::BUDGET_THRESHOLD;
+        return ((float) $project->budget_spent / $budget) >= $this->seuils->ratio('budget_overrun_rate');
     }
 
     protected function detectProgressGap(PduProject $project): bool
     {
         $gap = (float) $project->progress_percentage - (float) $project->planned_progress;
-        return $gap < self::PROGRESS_GAP_THRESHOLD;
+        return $gap < (-1 * $this->seuils->get('progress_gap_points'));
     }
-
-    /**
-     * Seuil (en jours) au-delà duquel la donnée de terrain est jugée périmée.
-     */
-    public const STALE_DATA_DAYS = 30;
-    public const CRITICAL_DATA_DAYS = 60;
 
     protected function detectNoUpdate(PduProject $project): bool
     {
@@ -227,7 +201,7 @@ class AlerteService
         $days = $this->daysSinceLastPhysical($project);
 
         // Alerte si aucune saisie OU dernière saisie plus ancienne que le seuil.
-        return $days === null || $days > self::STALE_DATA_DAYS;
+        return $days === null || $days > $this->seuils->days('stale_data_days');
     }
 
     /**
@@ -262,7 +236,7 @@ class AlerteService
             ];
         }
 
-        $critical = $days > self::CRITICAL_DATA_DAYS;
+        $critical = $days > $this->seuils->days('critical_data_days');
 
         return [
             'severity' => $critical ? 'critical' : 'warning',
@@ -270,9 +244,9 @@ class AlerteService
             'message' => sprintf(
                 'Dernière saisie d\'avancement physique il y a %d jours (seuil %d j) — les indicateurs risquent de ne plus refléter la réalité du terrain.',
                 $days,
-                self::STALE_DATA_DAYS,
+                $this->seuils->days('stale_data_days'),
             ),
-            'context' => ['days_since' => $days, 'threshold' => self::STALE_DATA_DAYS],
+            'context' => ['days_since' => $days, 'threshold' => $this->seuils->days('stale_data_days')],
         ];
     }
 
@@ -291,7 +265,7 @@ class AlerteService
 
         // Alerte uniquement quand le décaissement dépasse la réalisation physique
         // (risque de façade / surfacturation), au-delà du seuil.
-        return ($financial - $physical) > self::PHYS_FIN_GAP_THRESHOLD;
+        return ($financial - $physical) > $this->seuils->get('phys_fin_gap_points');
     }
 
     protected function physicalFinancialPayload(PduProject $project): array
@@ -299,7 +273,7 @@ class AlerteService
         $physical = round((float) $project->progress_percentage, 1);
         $financial = round((float) $project->budget_execution_rate, 1);
         $gap = round($financial - $physical, 1);
-        $critical = $gap > self::PHYS_FIN_GAP_CRITICAL;
+        $critical = $gap > $this->seuils->get('phys_fin_gap_critical');
 
         return [
             'severity' => $critical ? 'critical' : 'warning',
@@ -314,7 +288,7 @@ class AlerteService
                 'physical' => $physical,
                 'financial' => $financial,
                 'gap' => $gap,
-                'threshold' => self::PHYS_FIN_GAP_THRESHOLD,
+                'threshold' => $this->seuils->get('phys_fin_gap_points'),
             ],
         ];
     }
@@ -327,13 +301,13 @@ class AlerteService
 
         $delay = $this->projectedDelayDays($project);
 
-        return $delay !== null && $delay > self::FORECAST_DELAY_THRESHOLD;
+        return $delay !== null && $delay > $this->seuils->days('forecast_delay_days');
     }
 
     protected function forecastDelayPayload(PduProject $project): array
     {
         $delay = $this->projectedDelayDays($project) ?? 0;
-        $critical = $delay > self::FORECAST_DELAY_CRITICAL;
+        $critical = $delay > $this->seuils->days('forecast_delay_critical');
 
         return [
             'severity' => $critical ? 'critical' : 'warning',
@@ -342,7 +316,7 @@ class AlerteService
                 'Au rythme d\'exécution constaté par rapport à la courbe planifiée, la livraison accuserait un retard d\'environ %d jours sur l\'échéance contractuelle.',
                 $delay,
             ),
-            'context' => ['delay_days' => $delay, 'threshold' => self::FORECAST_DELAY_THRESHOLD],
+            'context' => ['delay_days' => $delay, 'threshold' => $this->seuils->days('forecast_delay_days')],
         ];
     }
 
@@ -376,7 +350,7 @@ class AlerteService
 
         $cpi = $this->costPerformanceIndex($project);
 
-        return $cpi !== null && $cpi < self::CPI_THRESHOLD;
+        return $cpi !== null && $cpi < $this->seuils->get('cpi_threshold');
     }
 
     protected function costDriftPayload(PduProject $project): array
@@ -389,9 +363,9 @@ class AlerteService
             'message' => sprintf(
                 'Indice de performance des coûts de %.2f (seuil %.2f) : le projet consomme plus de budget qu\'il ne produit de valeur.',
                 $cpi,
-                self::CPI_THRESHOLD,
+                $this->seuils->get('cpi_threshold'),
             ),
-            'context' => ['cpi' => $cpi, 'threshold' => self::CPI_THRESHOLD],
+            'context' => ['cpi' => $cpi, 'threshold' => $this->seuils->get('cpi_threshold')],
         ];
     }
 
@@ -414,7 +388,7 @@ class AlerteService
     {
         $ratio = $this->amendmentsRatio($project);
 
-        return $ratio !== null && $ratio > self::AMENDMENTS_RATIO_THRESHOLD;
+        return $ratio !== null && $ratio > $this->seuils->ratio('amendments_ratio');
     }
 
     protected function amendmentsExcessPayload(PduProject $project): array
@@ -427,11 +401,11 @@ class AlerteService
             'message' => sprintf(
                 'Les avenants représentent %.1f%% du montant initial du marché (seuil %.0f%%) : l\'économie du contrat est substantiellement modifiée.',
                 $ratio * 100,
-                self::AMENDMENTS_RATIO_THRESHOLD * 100,
+                $this->seuils->ratio('amendments_ratio') * 100,
             ),
             'context' => [
                 'ratio' => round($ratio * 100, 1),
-                'threshold' => self::AMENDMENTS_RATIO_THRESHOLD * 100,
+                'threshold' => $this->seuils->ratio('amendments_ratio') * 100,
                 'initial' => (float) $project->budget_allocated,
                 'amendments_total' => $project->amendments_total,
                 'revised' => $project->budget_revised,
@@ -445,7 +419,7 @@ class AlerteService
      */
     protected function pendingPayments(PduProject $project)
     {
-        $limit = now()->startOfDay()->subDays(self::PAYMENT_PENDING_DAYS);
+        $limit = now()->startOfDay()->subDays($this->seuils->days('payment_pending_days'));
 
         return $project->payments
             ->where('is_paid', false)
@@ -478,12 +452,12 @@ class AlerteService
                 '%d décompte(s) transmis et non réglé(s), le plus ancien depuis %d jours (seuil %d j).',
                 $pending->count(),
                 $days,
-                self::PAYMENT_PENDING_DAYS,
+                $this->seuils->days('payment_pending_days'),
             ),
             'context' => [
                 'count' => $pending->count(),
                 'oldest_days' => $days,
-                'threshold' => self::PAYMENT_PENDING_DAYS,
+                'threshold' => $this->seuils->days('payment_pending_days'),
             ],
         ];
     }

@@ -31,9 +31,7 @@ use Carbon\Carbon;
  */
 class EarnedScheduleService
 {
-    /** Retard (en jours) au-delà duquel la dérive est signalée puis critique. */
-    public const WATCH_DAYS = 15;
-    public const CRITICAL_DAYS = 60;
+    public function __construct(protected ThresholdService $seuils) {}
 
     public function forecast(PduProject $project): array
     {
@@ -109,9 +107,9 @@ class EarnedScheduleService
         $projectedEnd = $start->copy()->addDays($estimatedDuration);
         $delayDays = (int) $plannedEnd->diffInDays($projectedEnd, false);
 
-        if ($delayDays <= self::WATCH_DAYS) {
+        if ($delayDays <= $this->seuils->days('forecast_watch_days')) {
             $level = 'on_track';
-        } elseif ($delayDays <= self::CRITICAL_DAYS) {
+        } elseif ($delayDays <= $this->seuils->days('forecast_delay_days')) {
             $level = 'watch';
         } else {
             $level = 'critical';
