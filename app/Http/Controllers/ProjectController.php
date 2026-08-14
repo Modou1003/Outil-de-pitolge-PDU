@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\AlerteService;
 use App\Services\EarnedScheduleService;
+use App\Services\ProjectIndicatorService;
 use App\Services\ThresholdService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -32,6 +33,7 @@ class ProjectController extends Controller
         protected EarnedScheduleService $earnedSchedule,
         protected ActivityLogger $journal,
         protected ThresholdService $seuils,
+        protected ProjectIndicatorService $indicateurs,
     ) {}
 
     public function show(PduProject $project): Response
@@ -336,8 +338,8 @@ class ProjectController extends Controller
             'milestones_total' => $project->milestones->count(),
             'milestones_reached' => $project->milestones->where('status', 'reached')->count(),
             'milestones_missed' => $project->milestones->where('status', 'missed')->count(),
-            'data_freshness' => $this->computeDataFreshness($project),
-            'physical_financial' => $this->computePhysicalFinancial($project),
+            'data_freshness' => $this->indicateurs->dataFreshness($project),
+            'physical_financial' => $this->indicateurs->physicalFinancial($project),
             'forecast_completion' => $this->earnedSchedule->forecast($project),
             'financial_moa' => $this->computeFinancialMoa($project),
         ];
@@ -352,96 +354,7 @@ class ProjectController extends Controller
         return $project->financialMoa();
     }
 
-    /**
-     * Décalage physico-financier (« effet de façade »).
-     *
-     * Compare l'avancement physique réel au taux de décaissement du budget.
-     * Un décaissement nettement en avance sur la réalisation physique
-     * signale un risque de surfacturation ou d'avances non justifiées ;
-     * l'inverse signale des travaux réalisés mais non encore payés.
-     */
-    private function computePhysicalFinancial(PduProject $project): array
-    {
-        $physical = round((float) $project->progress_percentage, 1);
-        $financial = round((float) $project->budget_execution_rate, 1);
-        $gap = round($physical - $financial, 1);
-        $ratio = $financial > 0 ? round($physical / $financial, 2) : null;
 
-        // Sens de l'écart.
-        $direction = 'aligned';
-        if ($gap < 0) $direction = 'overspend';   // décaissement en avance → risque façade
-        elseif ($gap > 0) $direction = 'underspend'; // réalisation en avance → paiements en retard
-
-        // Niveau selon l'ampleur (vert ≤ 10 pts, orange ≤ 20 pts, rouge > 20 pts).
-        $abs = abs($gap);
-        if ($physical == 0.0 && $financial == 0.0) {
-            $level = 'none';
-        } elseif ($abs <= $this->seuils->get('physfin_aligned_points')) {
-            $level = 'aligned';
-        } elseif ($abs <= $this->seuils->get('phys_fin_gap_points')) {
-            $level = 'watch';
-        } else {
-            $level = 'critical';
-        }
-
-        return [
-            'physical' => $physical,
-            'financial' => $financial,
-            'gap' => $gap,
-            'ratio' => $ratio,
-            'direction' => $direction,
-            'level' => $level,
-        ];
-    }
-
-    /**
-     * Indice de fraîcheur / fiabilité de la donnée.
-     *
-     * Mesure à quel point les KPI reflètent la réalité actuelle du terrain :
-     * ancienneté de la dernière saisie d'avancement physique et couverture
-     * des lots récemment mis à jour. Un SPI/CPI calculé sur une donnée
-     * périmée n'a aucune valeur — cet indice permet de le savoir.
-     */
-    private function computeDataFreshness(PduProject $project): array
-    {
-        // La donnée « terrain » de référence est l'avancement physique.
-        $lastDate = $project->physicalProgresses
-            ->pluck('measurement_date')
-            ->filter()
-            ->max();
-
-        $daysSince = $lastDate
-            ? (int) $lastDate->copy()->startOfDay()->diffInDays(now()->startOfDay())
-            : null;
-
-        // Couverture : part des ouvrages ayant reçu une saisie sur les 30 derniers jours.
-        $lotsTotal = $project->buildingWorks->count();
-        $threshold = now()->copy()->subDays(30)->startOfDay();
-        $lotsRecent = $project->physicalProgresses
-            ->filter(fn (PhysicalProgress $p) => $p->measurement_date && $p->measurement_date->greaterThanOrEqualTo($threshold))
-            ->pluck('building_work_id')
-            ->filter()
-            ->unique()
-            ->count();
-        $coverageRate = $lotsTotal > 0 ? (int) round($lotsRecent / $lotsTotal * 100) : null;
-
-        // Niveau : vert < 30 j, orange 30-60 j, rouge > 60 j, gris si aucune donnée.
-        $level = 'none';
-        if ($daysSince !== null) {
-            $level = $daysSince <= $this->seuils->days('freshness_fresh_days')
-                ? 'fresh'
-                : ($daysSince <= $this->seuils->days('freshness_stale_days') ? 'stale' : 'critical');
-        }
-
-        return [
-            'last_update' => $lastDate?->toDateString(),
-            'days_since' => $daysSince,
-            'level' => $level,
-            'lots_total' => $lotsTotal,
-            'lots_recent' => $lotsRecent,
-            'coverage_rate' => $coverageRate,
-        ];
-    }
 
     public function store(Request $request): RedirectResponse
     {

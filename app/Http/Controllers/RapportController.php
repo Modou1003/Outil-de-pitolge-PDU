@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Alert;
 use App\Models\PduProject;
 use App\Models\University;
+use App\Services\EarnedScheduleService;
+use App\Services\ProjectIndicatorService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -13,6 +15,11 @@ use Inertia\Response as InertiaResponse;
 
 class RapportController extends Controller
 {
+    public function __construct(
+        protected EarnedScheduleService $earnedSchedule,
+        protected ProjectIndicatorService $indicateurs,
+    ) {}
+
     /**
      * Sections composables de la fiche projet. La clé sert de paramètre
      * d'URL, le libellé alimente les cases à cocher de l'écran Rapports.
@@ -116,6 +123,11 @@ class RapportController extends Controller
             'planned_progress' => $project->planned_progress,
             'milestones_reached' => $project->milestones->where('status', 'reached')->count(),
             'milestones_total' => $project->milestones->count(),
+            // Indicateurs de pilotage repris de la fiche projet, pour que le
+            // rapport dise la même chose que l'écran.
+            'forecast' => $this->earnedSchedule->forecast($project),
+            'physical_financial' => $this->indicateurs->physicalFinancial($project),
+            'data_freshness' => $this->indicateurs->dataFreshness($project),
         ];
 
         // Courbes (SVG rendu côté serveur pour DomPDF).

@@ -17,6 +17,44 @@
     $cpiClass = ($kpis['cpi'] ?? 0) >= 1 ? 'ok' : (($kpis['cpi'] ?? 0) >= 0.9 ? 'warn' : 'bad');
     $spiClass = ($kpis['spi'] ?? 0) >= 1 ? 'ok' : (($kpis['spi'] ?? 0) >= 0.9 ? 'warn' : 'bad');
     $fmt = fn ($n) => $n !== null ? number_format((float) $n, 0, ',', ' ') : '—';
+
+    // Indicateurs de pilotage repris de la fiche projet.
+    $prev = $kpis['forecast'] ?? ['level' => 'none', 'delay_days' => null, 'projected_end_date' => null, 'planned_end_date' => null];
+    $ecart = $kpis['physical_financial'] ?? ['level' => 'none', 'gap' => 0, 'direction' => 'aligned'];
+    $frais = $kpis['data_freshness'] ?? ['level' => 'none', 'days_since' => null, 'last_update' => null, 'coverage_rate' => null, 'lots_recent' => 0, 'lots_total' => 0];
+
+    $forecastValue = match ($prev['level']) {
+        'done' => 'Terminé',
+        'none' => '—',
+        default => \Illuminate\Support\Carbon::parse($prev['projected_end_date'])->translatedFormat('M Y'),
+    };
+    $forecastClass = match ($prev['level']) {
+        'on_track', 'done' => 'ok',
+        'watch' => 'warn',
+        'critical' => 'bad',
+        default => '',
+    };
+
+    // Un décaissement en avance sur la réalisation est le sens préoccupant ;
+    // l'inverse traduit des travaux faits mais pas encore payés.
+    $ecartClass = match ($ecart['level']) {
+        'aligned' => 'ok',
+        'watch' => 'warn',
+        'critical' => 'bad',
+        default => '',
+    };
+    $ecartSens = match ($ecart['direction']) {
+        'overspend' => 'décaissement en avance',
+        'underspend' => 'réalisation en avance',
+        default => 'physique et budget alignés',
+    };
+
+    $fraicheurClass = match ($frais['level']) {
+        'fresh' => 'ok',
+        'stale' => 'warn',
+        'critical' => 'bad',
+        default => '',
+    };
 @endphp
 
 @section('content')
@@ -57,6 +95,45 @@
             <td><div class="label">SPI (délai)</div><div class="value {{ $spiClass }}">{{ $kpis['spi'] ? number_format($kpis['spi'], 2) : '—' }}</div></td>
             <td><div class="label">Marché actualisé</div><div class="value">{{ $fmt($project->budget_revised) }} {{ $project->currency }}</div></td>
             <td><div class="label">Budget consommé</div><div class="value">{{ $fmt($project->budget_spent) }} ({{ $kpis['budget_rate'] !== null ? number_format($kpis['budget_rate'], 1, ',', ' ') . ' %' : '—' }})</div></td>
+        </tr>
+        <tr>
+            <td>
+                <div class="label">Fin projetée</div>
+                <div class="value {{ $forecastClass }}">{{ $forecastValue }}</div>
+                @if($prev['level'] !== 'none' && $prev['level'] !== 'done')
+                    <div class="muted" style="font-size: 8px;">
+                        échéance {{ \Illuminate\Support\Carbon::parse($prev['planned_end_date'])->format('d/m/Y') }}
+                    </div>
+                @endif
+            </td>
+            <td>
+                <div class="label">Retard projeté</div>
+                <div class="value {{ $forecastClass }}">
+                    {{ $prev['delay_days'] !== null ? ($prev['delay_days'] > 0 ? '+' : '') . $prev['delay_days'] . ' j' : '—' }}
+                </div>
+            </td>
+            <td>
+                <div class="label">Écart physique / budget</div>
+                <div class="value {{ $ecartClass }}">
+                    {{ $ecart['level'] !== 'none' ? ($ecart['gap'] > 0 ? '+' : '') . number_format($ecart['gap'], 1, ',', ' ') . ' pts' : '—' }}
+                </div>
+                @if($ecart['level'] !== 'none')
+                    <div class="muted" style="font-size: 8px;">{{ $ecartSens }}</div>
+                @endif
+            </td>
+            <td>
+                <div class="label">Fraîcheur de la donnée</div>
+                <div class="value {{ $fraicheurClass }}">
+                    {{ $frais['days_since'] !== null ? $frais['days_since'] . ' j' : '—' }}
+                </div>
+                <div class="muted" style="font-size: 8px;">
+                    @if($frais['days_since'] === null)
+                        aucune saisie d'avancement
+                    @else
+                        dernière saisie le {{ \Illuminate\Support\Carbon::parse($frais['last_update'])->format('d/m/Y') }}{{ $frais['coverage_rate'] !== null ? ' · ' . $frais['lots_recent'] . '/' . $frais['lots_total'] . ' ouvrages à jour' : '' }}
+                    @endif
+                </div>
+            </td>
         </tr>
     </table>
 

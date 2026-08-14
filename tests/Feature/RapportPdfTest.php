@@ -102,17 +102,58 @@ class RapportPdfTest extends TestCase
     /** Rend le gabarit de la fiche projet avec la sélection de sections voulue. */
     private function renderProjet(PduProject $project, array $sections): string
     {
+        $project->load(['university', 'buildingWorks', 'lots', 'milestones',
+            'physicalProgresses', 'financialProgresses', 'payments', 'amendments', 'alerts', 'teamMembers']);
+
+        $indicateurs = app(\App\Services\ProjectIndicatorService::class);
+
         return view('pdf.rapport-projet', [
             'show' => fn (string $key) => in_array($key, $sections, true),
-            'project' => $project->load(['university', 'buildingWorks', 'lots', 'milestones',
-                'physicalProgresses', 'financialProgresses', 'payments', 'amendments', 'alerts', 'teamMembers']),
+            'project' => $project,
             'kpis' => ['cpi' => null, 'spi' => null, 'cv' => 0, 'sv' => 0, 'eac' => null,
-                'budget_rate' => 0, 'planned_progress' => 0, 'milestones_reached' => 0, 'milestones_total' => 0],
+                'budget_rate' => 0, 'planned_progress' => 0, 'milestones_reached' => 0, 'milestones_total' => 0,
+                'forecast' => app(\App\Services\EarnedScheduleService::class)->forecast($project),
+                'physical_financial' => $indicateurs->physicalFinancial($project),
+                'data_freshness' => $indicateurs->dataFreshness($project)],
             'moa' => $project->financialMoa(),
             'physicalChartSvg' => null,
             'financialChartSvg' => null,
             'generatedAt' => now(),
         ])->render();
+    }
+
+    public function test_le_gabarit_porte_les_indicateurs_de_pilotage(): void
+    {
+        $project = $this->project();
+        $work = BuildingWork::create([
+            'pdu_project_id' => $project->id, 'code' => 'OUV-01',
+            'name' => 'Bâtiment', 'weight_percentage' => 100,
+        ]);
+        PhysicalProgress::create([
+            'pdu_project_id' => $project->id, 'building_work_id' => $work->id,
+            'period' => now()->subMonth()->format('Y-m'),
+            'measurement_date' => now()->subMonth()->endOfMonth()->toDateString(),
+            'planned_percentage' => 30, 'actual_percentage' => 25,
+        ]);
+
+        $html = $this->renderProjet(
+            $project->fresh(),
+            array_keys(\App\Http\Controllers\RapportController::PROJECT_SECTIONS),
+        );
+
+        $this->assertStringContainsString('Fin projetée', $html);
+        $this->assertStringContainsString('Retard projeté', $html);
+        $this->assertStringContainsString('Écart physique / budget', $html);
+        $this->assertStringContainsString('Fraîcheur de la donnée', $html);
+        $this->assertStringContainsString('dernière saisie le', $html);
+    }
+
+    public function test_les_indicateurs_de_pilotage_suivent_la_section_choisie(): void
+    {
+        $html = $this->renderProjet($this->project(), ['identite']);
+
+        $this->assertStringNotContainsString('Fin projetée', $html);
+        $this->assertStringNotContainsString('Fraîcheur de la donnée', $html);
     }
 
     public function test_le_gabarit_nemet_que_les_sections_demandees(): void
