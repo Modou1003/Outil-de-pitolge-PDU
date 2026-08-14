@@ -130,7 +130,15 @@ class ThresholdService
     public function all(): array
     {
         return Cache::rememberForever(self::CACHE_KEY, function () {
-            $enregistres = Setting::pluck('value', 'key');
+            // La table peut être absente — première installation, migration non
+            // encore jouée, base restaurée. Les seuils ne sont pas une donnée
+            // vitale : mieux vaut repartir des valeurs par défaut que d'empêcher
+            // l'affichage d'une fiche projet ou l'édition d'un rapport.
+            try {
+                $enregistres = Setting::pluck('value', 'key');
+            } catch (\Throwable) {
+                $enregistres = collect();
+            }
 
             $valeurs = [];
             foreach (self::CATALOG as $cle => $meta) {
