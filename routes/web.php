@@ -391,6 +391,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/projects/{project}/physical/{progress}', [PhysicalProgressController::class, 'update'])->middleware('permission:manage_physical')->name('projects.physical.update');
     Route::delete('/projects/{project}/physical/{progress}', [PhysicalProgressController::class, 'destroy'])->middleware('permission:manage_physical')->name('projects.physical.destroy');
 
+    // Import de la base de calcul d'avancement de la mission de contrôle
+    Route::middleware('permission:manage_physical')->group(function () {
+        Route::post('/projects/{project}/import/apercu', [App\Http\Controllers\ImportController::class, 'preview'])->name('projects.import.preview');
+        Route::post('/projects/{project}/import', [App\Http\Controllers\ImportController::class, 'store'])->name('projects.import.store');
+    });
+
     // Saisie avancement financier
     Route::post('/projects/{project}/financial', [FinancialProgressController::class, 'store'])->middleware('permission:manage_finances')->name('projects.financial.store');
     Route::put('/projects/{project}/financial/{progress}', [FinancialProgressController::class, 'update'])->middleware('permission:manage_finances')->name('projects.financial.update');

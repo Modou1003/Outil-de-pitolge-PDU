@@ -9,6 +9,7 @@ import { router } from '@inertiajs/vue3';
 import { useAuth } from '@/Composables/useAuth';
 import PhysicalProgressModal from '@/Components/Projects/Forms/PhysicalProgressModal.vue';
 import BuildingWorkModal from '@/Components/Projects/Forms/BuildingWorkModal.vue';
+import ImportBaseCalculModal from '@/Components/Projects/Forms/ImportBaseCalculModal.vue';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -187,6 +188,7 @@ const updateWeight = (w, value) => {
 // L'ouvrage se crée avec son calendrier contractuel : c'est de là que se
 // déduit le retard au démarrage visible dans sa fiche d'avancement.
 const showWorkModal = ref(false);
+const showImportModal = ref(false);
 const editingWork = ref(null);
 const addWork = () => {
     if (!canWrite.value) return;
@@ -225,19 +227,31 @@ const removeWork = (w) => {
             <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
                     <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Ouvrages physiques ({{ ouvrages.length }})</h3>
-                    <button
-                        v-if="canWrite"
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700"
-                        @click="addWork"
-                    >
-                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                        Ajouter un ouvrage physique
-                    </button>
+                    <div v-if="canWrite" class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 shadow-sm transition hover:bg-indigo-50"
+                            title="Importer la base de calcul d'avancement de la mission de contrôle"
+                            @click="showImportModal = true"
+                        >
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 8l-3-3m3 3l3-3" /></svg>
+                            Importer un fichier Excel
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700"
+                            @click="addWork"
+                        >
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            Ajouter un ouvrage physique
+                        </button>
+                    </div>
                 </div>
 
                 <div class="px-5 py-3 text-xs text-gray-500">
-                    Ajoute un ouvrage, puis clique sur son nom pour saisir son avancement physique. Les ouvrages sont partagés avec le planning.
+                    Ajoute un ouvrage, puis clique sur son nom pour saisir son avancement physique. Les ouvrages sont
+                    partagés avec le planning. La base de calcul mensuelle de la mission de contrôle peut aussi être
+                    importée : seuls les mois absents sont alors ajoutés.
                 </div>
             </div>
 
@@ -496,6 +510,12 @@ const removeWork = (w) => {
             :project="project"
             :work="editingWork"
             @close="showWorkModal = false"
+        />
+
+        <ImportBaseCalculModal
+            :show="showImportModal"
+            :project="project"
+            @close="showImportModal = false"
         />
     </div>
 </template>
