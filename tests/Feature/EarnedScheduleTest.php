@@ -178,4 +178,30 @@ class EarnedScheduleTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page->missing('projects.0.health_score'));
     }
+
+    /**
+     * Le temps écoulé se compte jusqu'à la date d'arrêté des données, non
+     * jusqu'à aujourd'hui : sans cela, un relevé vieux de trois mois ferait
+     * apparaître trois mois de retard qui n'ont pas été mesurés.
+     */
+    public function test_le_temps_ecoule_sarrete_au_dernier_releve(): void
+    {
+        $start = now()->subMonthsNoOverflow(15)->startOfDay();
+        $project = $this->makeProject($start->toDateString(), $start->copy()->addMonthsNoOverflow(24)->toDateString());
+
+        // Les relevés s'arrêtent au douzième mois : les trois derniers mois
+        // n'ont fait l'objet d'aucune mesure.
+        $this->seedCurve($project, $start->toDateString(), [
+            0 => 0, 3 => 8, 6 => 18, 9 => 30, 12 => 45,
+        ], 30);
+
+        $project->load(['physicalProgresses', 'buildingWorks', 'amendments']);
+        $forecast = app(EarnedScheduleService::class)->forecast($project);
+
+        $this->assertEqualsWithDelta(
+            365, $forecast['actual_time_days'], 5,
+            'Le temps écoulé doit s’arrêter au dernier relevé, soit douze mois.',
+        );
+        $this->assertEqualsWithDelta(0.75, $forecast['spi_t'], 0.03);
+    }
 }

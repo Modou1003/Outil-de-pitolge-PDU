@@ -82,8 +82,12 @@ class EarnedScheduleService
             return $none('no_dates');
         }
 
-        // AT : temps écoulé.
-        $actualTime = (int) $start->diffInDays($today, false);
+        // AT : temps écoulé à la date d'arrêté des données. Compter jusqu'à
+        // aujourd'hui alors que l'avancement date du dernier relevé
+        // reviendrait à comparer deux instants différents et gonflerait le
+        // retard de toute l'ancienneté de la saisie — laquelle est déjà
+        // signalée par l'indicateur de fraîcheur.
+        $actualTime = (int) $start->diffInDays($this->statusDate($project, $today), false);
         if ($actualTime <= 0 || $physical <= 0) {
             return $none('not_enough_data');
         }
@@ -127,6 +131,25 @@ class EarnedScheduleService
             'earned_schedule_days' => (int) round($earnedSchedule),
             'actual_time_days' => $actualTime,
         ];
+    }
+
+    /**
+     * Date à laquelle la situation est arrêtée : celle du dernier relevé
+     * d'avancement physique, faute de quoi la date du jour. Un relevé postérieur
+     * à aujourd'hui, s'il en existait, ne ferait pas avancer l'horloge.
+     */
+    protected function statusDate(PduProject $project, Carbon $today): Carbon
+    {
+        $dernier = $project->physicalProgresses
+            ->max(fn ($releve) => $releve->measurement_date?->toDateString());
+
+        if (! $dernier) {
+            return $today;
+        }
+
+        $date = Carbon::parse($dernier)->startOfDay();
+
+        return $date->greaterThan($today) ? $today : $date;
     }
 
     /** Retard projeté en jours, ou null si la projection n'est pas calculable. */
