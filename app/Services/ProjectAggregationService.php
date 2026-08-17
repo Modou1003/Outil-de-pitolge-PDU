@@ -58,19 +58,26 @@ class ProjectAggregationService
      */
     public function recomputeFinancialCumulatives(PduProject $project): void
     {
-        $rows = FinancialProgress::where('pdu_project_id', $project->id)
+        // Le cumul se fait ouvrage par ouvrage : mélanger les ouvrages dans un
+        // même total donnerait des indices de performance dépourvus de sens à
+        // l'échelle où ils sont affichés. Les indicateurs du projet, eux, se
+        // calculent en sommant les valeurs de période et non ces cumuls.
+        $groupes = FinancialProgress::where('pdu_project_id', $project->id)
             ->orderBy('period')
-            ->get();
+            ->get()
+            ->groupBy('building_work_id');
 
-        $cumPv = 0.0; $cumEv = 0.0; $cumAc = 0.0;
-        foreach ($rows as $row) {
-            $cumPv += (float) $row->planned_value;
-            $cumEv += (float) $row->earned_value;
-            $cumAc += (float) $row->actual_cost;
-            $row->cumulative_planned_value = $cumPv;
-            $row->cumulative_earned_value = $cumEv;
-            $row->cumulative_actual_cost = $cumAc;
-            $row->saveQuietly();
+        foreach ($groupes as $rows) {
+            $cumPv = 0.0; $cumEv = 0.0; $cumAc = 0.0;
+            foreach ($rows as $row) {
+                $cumPv += (float) $row->planned_value;
+                $cumEv += (float) $row->earned_value;
+                $cumAc += (float) $row->actual_cost;
+                $row->cumulative_planned_value = $cumPv;
+                $row->cumulative_earned_value = $cumEv;
+                $row->cumulative_actual_cost = $cumAc;
+                $row->saveQuietly();
+            }
         }
     }
 

@@ -63,6 +63,26 @@ class BaseDeCalculReader
         'VOIRIESAIRESDESTATIONNEMENTETPARKING' => ['VOIRIESAIRESDESTATIONNEMENTET'],
     ];
 
+    /**
+     * La feuille de facturation par tâche nomme les ouvrages autrement encore.
+     * Ces rapprochements sont établis par lecture comparée des deux feuilles.
+     */
+    protected const CORRESPONDANCES_FINANCIERES = [
+        'EAUXUSEES' => 'ASSAINISSEMENENTEAUXUSEESSTEP',
+        'ADDUCTIONENEAUXPOTABLEAEP' => 'AEPHORSCHATEAUDEAU',
+        'EAUXPLUVIALE' => 'EAUPLUVIALE',
+        'RESEAUFIBRE' => 'RESEAUTELECOMFIBREOPTIQUE',
+        'SIGNALISATIONINTERIEURE' => 'SIGNALETIQUEINTERIEURE',
+        'ENVIRONNEMENTAIREDEJEUX' => 'AIREDEJEUX',
+        'ENVIRONNEMENTAMENAGEMENTPAYSAGER' => 'AMENAGEMENTPAYSAGER',
+        // Postes suivis d'un bloc : c'est leur total qui fait l'enveloppe.
+        'MOBILIERSETEQUIPEMENTS' => 'TOTALMOBILIEREQUIPEMENT',
+        'EFFICACITEENERGETIQUE' => 'SOUSTOTALEFFICACITEENERGETIQUE',
+    ];
+
+    /** Lignes de synthèse de la feuille de facturation, à ne pas prendre pour des ouvrages. */
+    protected const TOTAUX = ['SOUSTOTAL', 'TOTALGENERAL', 'TOTALVRD'];
+
     protected const MOIS = [
         'jan' => 1, 'fev' => 2, 'mar' => 3, 'avr' => 4, 'mai' => 5, 'jui' => 6,
         'jul' => 7, 'aou' => 8, 'sep' => 9, 'oct' => 10, 'nov' => 11, 'dec' => 12,
@@ -75,7 +95,7 @@ class BaseDeCalculReader
     {
         $classeur = IOFactory::createReader(IOFactory::identify($chemin));
         $classeur->setReadDataOnly(true);
-        $classeur->setLoadSheetsOnly(['progress', 'récap mois', 'facturation PFO']);
+        $classeur->setLoadSheetsOnly(['progress', 'récap mois', 'facturation PFO', 'détail facturation PFO tache']);
         $document = $classeur->load($chemin);
 
         $anomalies = [];
@@ -96,6 +116,13 @@ class BaseDeCalculReader
             $anomalies[] = 'Le planning contractuel n’a pas pu être lu : les dates des ouvrages ne seront pas mises à jour.';
         }
 
+        $enveloppes = $feuille('détail facturation PFO tache')
+            ? $this->lireEnveloppes($feuille('détail facturation PFO tache'))
+            : [];
+        if ($enveloppes === []) {
+            $anomalies[] = 'La facturation par tâche n’a pas pu être lue : les enveloppes des ouvrages seront réparties au prorata de leur pondération.';
+        }
+
         foreach ($ouvrages as &$ouvrage) {
             $trouves = $this->rapprocher($ouvrage['cle'], $calendriers);
             if ($trouves !== []) {
@@ -103,6 +130,15 @@ class BaseDeCalculReader
             } elseif ($calendriers !== []) {
                 $anomalies[] = sprintf('Aucune tâche de planning pour « %s » : ses dates restent inchangées.', $ouvrage['nom']);
             }
+
+            $enveloppe = $this->enveloppe($ouvrage['cle'], $enveloppes);
+            if ($enveloppe !== null) {
+                $ouvrage['enveloppe'] = $enveloppe['montant'];
+                $ouvrage['facture_cumulee'] = $enveloppe['facture'];
+            } elseif ($enveloppes !== []) {
+                $anomalies[] = sprintf('Aucun montant contractuel pour « %s » : son enveloppe est déduite de sa pondération.', $ouvrage['nom']);
+            }
+
             unset($ouvrage['cle']);
         }
         unset($ouvrage);
@@ -199,6 +235,8 @@ class BaseDeCalculReader
                 'debut_reel' => null,
                 'retard_mois_source' => null,
                 'observations' => null,
+                'enveloppe' => null,
+                'facture_cumulee' => null,
             ], $this->series($lignes, $i, $colonne0, $periodes));
         }
 
@@ -331,6 +369,80 @@ class BaseDeCalculReader
             'retard_mois_source' => $retards === [] ? null : max($retards),
             'observations' => $calendriers[0]['observations'] ?? null,
         ];
+    }
+
+    // ────────────────────────── feuille « détail facturation PFO tache »
+
+    /**
+     * Montant contractuel et facturation cumulée de chaque ouvrage.
+     *
+     * Cette feuille est la seule à ventiler la dépense par ouvrage. Elle donne
+     * ainsi à chacun son enveloppe — bien plus juste qu'une répartition du
+     * marché au prorata de la pondération physique, les deux poids ne se
+     * confondant pas — et son coût réel.
+     *
+     * @return array<string, array{montant: float, facture: float}>
+     */
+    protected function lireEnveloppes(Worksheet $ws): array
+    {
+        $enveloppes = [];
+
+        foreach ($this->grille($ws) as $ligne) {
+            $nom = $ligne[2] ?? null;
+            $montant = is_numeric($ligne[3] ?? null) ? (float) $ligne[3] : 0.0;
+            $facture = is_numeric($ligne[5] ?? null) ? (float) $ligne[5] : 0.0;
+            // Un poste peut être facturé sans porter de montant contractuel
+            // propre : sa dépense compte tout autant.
+            if (! is_string($nom) || trim($nom) === '' || ($montant <= 0 && $facture <= 0)) {
+                continue;
+            }
+
+            $cle = $this->cle($nom);
+            // Les totaux intermédiaires ne sont pas des ouvrages — sauf ceux qui
+            // servent d'enveloppe à un poste suivi globalement.
+            $estTotal = false;
+            foreach (self::TOTAUX as $prefixe) {
+                $estTotal = $estTotal || str_starts_with($cle, $prefixe);
+            }
+            if ($estTotal && ! in_array($cle, self::CORRESPONDANCES_FINANCIERES, true)) {
+                continue;
+            }
+            if (isset($enveloppes[$cle])) {
+                continue;
+            }
+
+            $enveloppes[$cle] = [
+                'montant' => round($montant, 2),
+                'facture' => round($facture, 2),
+            ];
+        }
+
+        return $enveloppes;
+    }
+
+    /** @return array{montant: float, facture: float}|null */
+    protected function enveloppe(string $cle, array $enveloppes): ?array
+    {
+        if (isset(self::CORRESPONDANCES_FINANCIERES[$cle])) {
+            return $enveloppes[self::CORRESPONDANCES_FINANCIERES[$cle]] ?? null;
+        }
+        if (isset($enveloppes[$cle])) {
+            return $enveloppes[$cle];
+        }
+
+        // Rapprochement par préfixe : « Restaurant » et « Restaurant
+        // universitaire » désignent le même ouvrage.
+        if (mb_strlen($cle) < 7) {
+            return null;
+        }
+        foreach ($enveloppes as $autre => $enveloppe) {
+            if (mb_strlen($autre) >= 7
+                && (str_starts_with($autre, mb_substr($cle, 0, 7)) || str_starts_with($cle, mb_substr($autre, 0, 7)))) {
+                return $enveloppe;
+            }
+        }
+
+        return null;
     }
 
     // ────────────────────────────────────────── feuille « facturation PFO »

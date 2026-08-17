@@ -162,8 +162,8 @@ const rienANouveau = computed(() => apercu.value
                     <ul class="mt-1 space-y-0.5 text-xs text-indigo-900/90">
                         <li>
                             <span class="font-medium">Avancement financier</span> —
-                            {{ apercu.financier.periodes_nouvelles }} période(s) de valeur acquise à créer.
-                            Valeur planifiée {{ franc(apercu.financier.valeur_planifiee) }},
+                            {{ apercu.financier.lignes_nouvelles }} relevé(s) de valeur acquise à créer, un par
+                            ouvrage et par mois. Valeur planifiée {{ franc(apercu.financier.valeur_planifiee) }},
                             valeur acquise {{ franc(apercu.financier.valeur_acquise) }},
                             coût réel {{ franc(apercu.financier.cout_reel) }}.
                         </li>

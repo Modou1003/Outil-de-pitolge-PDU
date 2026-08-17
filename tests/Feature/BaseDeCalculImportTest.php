@@ -240,19 +240,51 @@ class BaseDeCalculImportTest extends TestCase
         $projet->refresh();
 
         $marche = (float) $projet->budget_allocated;
-        $dernier = FinancialProgress::orderBy('period', 'desc')->first();
 
-        $this->assertSame(20, FinancialProgress::count(), 'Une période de valeur acquise par mois relevé.');
-        $this->assertEqualsWithDelta($marche * 0.9321, (float) $dernier->cumulative_planned_value, $marche * 0.005,
-            'La valeur planifiée cumulée doit refléter les 93,21 % du planning contractuel.');
-        $this->assertEqualsWithDelta($marche * 0.3213, (float) $dernier->cumulative_earned_value, $marche * 0.005,
-            'La valeur acquise cumulée doit refléter l’avancement physique constaté.');
-        $this->assertEqualsWithDelta(20_708_959_965, (float) $dernier->cumulative_actual_cost, 1_000,
-            'Le coût réel cumulé doit correspondre à la facturation de l’entreprise.');
+        // Chaque ouvrage porte sa propre valeur acquise, mois par mois : c'est à
+        // cette maille que l'écran financier lit les données.
+        $this->assertSame(600, FinancialProgress::count(), 'Trente ouvrages sur vingt mois.');
+        $this->assertSame(0, FinancialProgress::whereNull('building_work_id')->count(),
+            'Aucun relevé financier ne doit être rattaché au projet sans ouvrage.');
 
-        // L'indice de performance des délais découle des deux premières.
-        $spi = (float) $dernier->cumulative_earned_value / (float) $dernier->cumulative_planned_value;
-        $this->assertEqualsWithDelta(0.345, $spi, 0.01);
+        $pv = (float) FinancialProgress::sum('planned_value');
+        $ev = (float) FinancialProgress::sum('earned_value');
+        $ac = (float) FinancialProgress::sum('actual_cost');
+
+        // Les trois grandeurs sont exprimées en monnaie, chaque ouvrage étant
+        // valorisé à son montant contractuel. Elles ne se déduisent donc pas du
+        // pourcentage physique consolidé, qui pondère les ouvrages autrement.
+        $this->assertEqualsWithDelta(58_410_762_839, $pv, $marche * 0.01,
+            'La valeur planifiée est la somme, sur les ouvrages, de leur enveloppe engagée par le planning.');
+        $this->assertEqualsWithDelta(19_231_000_000, $ev, $marche * 0.01,
+            'La valeur acquise est la somme des enveloppes réellement acquises.');
+        $this->assertEqualsWithDelta(19_010_276_117, $ac, 1_000,
+            'Le coût réel doit correspondre aux travaux facturés par l’entreprise.');
+
+        // Les indices de performance en découlent.
+        $this->assertEqualsWithDelta(0.329, $ev / $pv, 0.01);
+        // L'entreprise facture la valeur des travaux exécutés : le coût réel
+        // suit la valeur acquise, d'où un indice de coût voisin de l'unité.
+        $this->assertEqualsWithDelta(1.012, $ev / $ac, 0.02);
+    }
+
+    public function test_chaque_ouvrage_recoit_son_enveloppe_contractuelle(): void
+    {
+        $projet = $this->projet();
+        $lecture = app(BaseDeCalculReader::class)->read($this->classeur());
+
+        app(BaseDeCalculImporter::class)->import($projet, $lecture, $this->utilisateur(), true);
+
+        $presidence = $projet->buildingWorks()
+            ->where('name', 'like', 'Presidence%')
+            ->firstOrFail();
+        $dernier = $presidence->financialProgresses()->orderBy('period', 'desc')->firstOrFail();
+
+        // Montant contractuel de cet ouvrage lu à la feuille de facturation.
+        $this->assertEqualsWithDelta(3_444_577_698, (float) $dernier->cumulative_planned_value, 1_000,
+            'L’enveloppe de l’ouvrage est son montant contractuel, non sa part du marché au prorata du poids.');
+        $this->assertEqualsWithDelta(1_158_027_741, (float) $dernier->cumulative_actual_cost, 1_000,
+            'Le coût réel de l’ouvrage est le montant qu’il a fait facturer.');
     }
 
     public function test_le_cout_reel_nentre_pas_sans_la_competence_financiere(): void
@@ -264,7 +296,7 @@ class BaseDeCalculImportTest extends TestCase
         // Un chargé du suivi physique alimente la courbe, non la dépense.
         $importeur->import($projet, $lecture, $this->utilisateur(), false);
 
-        $this->assertSame(20, FinancialProgress::count());
+        $this->assertSame(600, FinancialProgress::count());
         $this->assertSame(0.0, (float) FinancialProgress::sum('actual_cost'),
             'La facturation ne doit pas entrer en base par la porte de l’import physique.');
         $this->assertGreaterThan(0, (float) FinancialProgress::sum('earned_value'));
@@ -274,7 +306,7 @@ class BaseDeCalculImportTest extends TestCase
 
         $this->assertSame(0, $compte['periodes_financieres'], 'Aucune période nouvelle à créer.');
         $this->assertGreaterThan(0, $compte['couts_completes'] ?? 0);
-        $this->assertEqualsWithDelta(20_708_959_965, (float) FinancialProgress::sum('actual_cost'), 1_000);
+        $this->assertEqualsWithDelta(19_010_276_117, (float) FinancialProgress::sum('actual_cost'), 1_000);
     }
 
     // ────────────────────────────────────────────────────────────── accès

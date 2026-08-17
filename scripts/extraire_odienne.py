@@ -204,6 +204,54 @@ def lire_calendrier(ws):
     return cal
 
 
+# ──────────────────────── feuille « détail facturation PFO tache »
+
+CORRESPONDANCES_FIN = {
+    'EAUXUSEES': 'ASSAINISSEMENENTEAUXUSEESSTEP',
+    'ADDUCTIONENEAUXPOTABLEAEP': 'AEPHORSCHATEAUDEAU',
+    'EAUXPLUVIALE': 'EAUPLUVIALE',
+    'RESEAUFIBRE': 'RESEAUTELECOMFIBREOPTIQUE',
+    'SIGNALISATIONINTERIEURE': 'SIGNALETIQUEINTERIEURE',
+    'ENVIRONNEMENTAIREDEJEUX': 'AIREDEJEUX',
+    'ENVIRONNEMENTAMENAGEMENTPAYSAGER': 'AMENAGEMENTPAYSAGER',
+    'MOBILIERSETEQUIPEMENTS': 'TOTALMOBILIEREQUIPEMENT',
+    'EFFICACITEENERGETIQUE': 'SOUSTOTALEFFICACITEENERGETIQUE',
+}
+TOTAUX = ('SOUSTOTAL', 'TOTALGENERAL', 'TOTALVRD')
+
+
+def lire_enveloppes(ws):
+    """Montant contractuel et facturation cumulée de chaque ouvrage."""
+    env = {}
+    for r in ws.iter_rows(min_row=14, max_row=70, max_col=7, values_only=True):
+        nom = r[2]
+        montant = float(r[3]) if isinstance(r[3], (int, float)) else 0.0
+        facture = float(r[5]) if isinstance(r[5], (int, float)) else 0.0
+        # Un poste peut etre facture sans montant contractuel propre.
+        if not isinstance(nom, str) or not nom.strip() or (montant <= 0 and facture <= 0):
+            continue
+        k = cle(nom)
+        if any(k.startswith(t) for t in TOTAUX) and k not in CORRESPONDANCES_FIN.values():
+            continue
+        if k in env:
+            continue
+        env[k] = {'montant': round(montant, 2), 'facture': round(facture, 2)}
+    return env
+
+
+def enveloppe(k, env):
+    if k in CORRESPONDANCES_FIN:
+        return env.get(CORRESPONDANCES_FIN[k])
+    if k in env:
+        return env[k]
+    if len(k) < 7:
+        return None
+    for autre, v in env.items():
+        if len(autre) >= 7 and (autre.startswith(k[:7]) or k.startswith(autre[:7])):
+            return v
+    return None
+
+
 # ─────────────────────────────────────────────── feuille « facturation PFO »
 
 def lire_decomptes(ws):
@@ -233,9 +281,11 @@ def main():
 
     periodes, projet, ouvrages = lire_progress(w['progress'], arrete)
     calendrier = lire_calendrier(w['récap mois'])
+    enveloppes = lire_enveloppes(w['détail facturation PFO tache'])
     decomptes = lire_decomptes(w['facturation PFO'])
 
     manquants = []
+    sans_enveloppe = []
     for o in ouvrages:
         k = o.pop('cle')
         trouves = [calendrier[c] for c in CORRESPONDANCES.get(k, [k]) if c in calendrier]
@@ -247,6 +297,12 @@ def main():
         else:
             manquants.append(o['nom'])
 
+        env = enveloppe(k, enveloppes)
+        o['enveloppe'] = env['montant'] if env else None
+        o['facture_cumulee'] = env['facture'] if env else None
+        if env is None:
+            sans_enveloppe.append(o['nom'])
+
     total = round(sum(o['poids'] for o in ouvrages), 2)
     data = {
         'source': 'Base de calcul d’avancement physique — juin 2026, groupement TAEP/IETF',
@@ -255,6 +311,8 @@ def main():
         'projet': projet,
         'ouvrages': ouvrages,
         'decomptes': decomptes,
+        'ponderation_totale': total,
+        'anomalies': [],
     }
     with open(sortie, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=1)
@@ -263,8 +321,12 @@ def main():
     print(f'{len(periodes)} périodes de {periodes[0]} à {periodes[-1]}')
     print(f'{len(decomptes)} décomptes')
     print(f'Projet : prévu {projet["prevu"].get(periodes[-1])} % / réel {projet["reel"].get(periodes[-1])} %')
+    print(f'Enveloppes : {sum(1 for o in ouvrages if o["enveloppe"])} / {len(ouvrages)} ouvrages')
+    print(f'Facturé cumulé : {sum(o["facture_cumulee"] or 0 for o in ouvrages):,.0f}')
     if manquants:
         print('Sans calendrier : ' + ', '.join(manquants))
+    if sans_enveloppe:
+        print('Sans enveloppe : ' + ', '.join(sans_enveloppe))
 
 
 if __name__ == '__main__':

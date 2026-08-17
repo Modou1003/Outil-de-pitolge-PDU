@@ -110,7 +110,9 @@
    "fin_prevue": "2025-04-16",
    "debut_reel": "2024-12-11",
    "retard_mois_source": null,
-   "observations": "Achevée"
+   "observations": "Achevée",
+   "enveloppe": 2640941241.0,
+   "facture_cumulee": 2582924335.03
   },
   {
    "nom": "PRESIDENCE/ADMINISTRATION CENTRALE / CELO / DAT CENTER / PC SECURITE",
@@ -160,7 +162,9 @@
    "fin_prevue": "2026-05-04",
    "debut_reel": "2025-03-01",
    "retard_mois_source": null,
-   "observations": "Achèvement retardé par 06 mois"
+   "observations": "Achèvement retardé par 06 mois",
+   "enveloppe": 3444577698.0,
+   "facture_cumulee": 1158027741.3
   },
   {
    "nom": "ADMINISTRATION CROU",
@@ -200,7 +204,9 @@
    "fin_prevue": "2026-10-05",
    "debut_reel": "2025-11-01",
    "retard_mois_source": 6,
-   "observations": "Achèvement retardé par 08 mois"
+   "observations": "Achèvement retardé par 08 mois",
+   "enveloppe": 2153294798.0,
+   "facture_cumulee": 546865308.83
   },
   {
    "nom": "CENTRE MEDICAL",
@@ -240,7 +246,9 @@
    "fin_prevue": "2026-08-13",
    "debut_reel": "2025-08-01",
    "retard_mois_source": 1,
-   "observations": "Achèvement retardé par 08 mois"
+   "observations": "Achèvement retardé par 08 mois",
+   "enveloppe": 1359143530.0,
+   "facture_cumulee": 369573461.39
   },
   {
    "nom": "UFR / SCOLARITE CENTRALE",
@@ -286,7 +294,9 @@
    "fin_prevue": "2026-11-03",
    "debut_reel": "2025-03-01",
    "retard_mois_source": null,
-   "observations": "Pas de retard"
+   "observations": "Pas de retard",
+   "enveloppe": 8532868137.0,
+   "facture_cumulee": 2614882564.61
   },
   {
    "nom": "HERBERGEMENT ETUDIANTS",
@@ -337,7 +347,9 @@
    "fin_prevue": "2026-06-22",
    "debut_reel": "2025-02-01",
    "retard_mois_source": null,
-   "observations": "Achèvement retardé par 04 mois"
+   "observations": "Achèvement retardé par 04 mois",
+   "enveloppe": 7573236314.0,
+   "facture_cumulee": 2632331203.67
   },
   {
    "nom": "LOGEMENTS DE FONCTION (VILLA DU PRESIDENT, VILLAS DES DR ET VICE PRESIDENT, LOGEMENT D'ASTREINTE)",
@@ -375,7 +387,9 @@
    "fin_prevue": "2026-07-04",
    "debut_reel": "2025-11-01",
    "retard_mois_source": 5,
-   "observations": "Achèvement retardé par 08 mois"
+   "observations": "Achèvement retardé par 08 mois",
+   "enveloppe": 1398417570.0,
+   "facture_cumulee": 325965914.93
   },
   {
    "nom": "HOTEL DES ENSEIGNANTS",
@@ -414,7 +428,9 @@
    "fin_prevue": "2026-06-15",
    "debut_reel": "2025-12-01",
    "retard_mois_source": 7,
-   "observations": "Achèvement retardé par 05 mois"
+   "observations": "Achèvement retardé par 05 mois",
+   "enveloppe": 2606239706.0,
+   "facture_cumulee": 662802200.87
   },
   {
    "nom": "RESTAURANT",
@@ -453,7 +469,9 @@
    "fin_prevue": "2026-09-16",
    "debut_reel": "2025-11-01",
    "retard_mois_source": 4,
-   "observations": "Achèvement retardé par 02 mois"
+   "observations": "Achèvement retardé par 02 mois",
+   "enveloppe": 2348688590.0,
+   "facture_cumulee": 700238550.9
   },
   {
    "nom": "CENTRE DE CONFERENCE",
@@ -494,7 +512,9 @@
    "fin_prevue": "2026-05-30",
    "debut_reel": "2025-09-01",
    "retard_mois_source": 7,
-   "observations": "Achèvement retardé par 05 mois"
+   "observations": "Achèvement retardé par 05 mois",
+   "enveloppe": 1658133801.0,
+   "facture_cumulee": 284403172.91
   },
   {
    "nom": "COEUR DE SITE",
@@ -530,7 +550,9 @@
    "fin_prevue": "2026-10-29",
    "debut_reel": "2025-12-01",
    "retard_mois_source": 4,
-   "observations": "Pas de retard"
+   "observations": "Pas de retard",
+   "enveloppe": 1595736059.0,
+   "facture_cumulee": 250950482.45
   },
   {
    "nom": "AMPHITHEATRE",
@@ -568,7 +590,9 @@
    "fin_prevue": "2026-09-19",
    "debut_reel": "2025-12-01",
    "retard_mois_source": 6,
-   "observations": "Achèvement retardé par 01 mois"
+   "observations": "Achèvement retardé par 01 mois",
+   "enveloppe": 2663826611.0,
+   "facture_cumulee": 457671705.34
   },
   {
    "nom": "BIBLIOTHEQUE ET LEARNING CENTER",
@@ -615,7 +639,9 @@
    "fin_prevue": "2026-10-29",
    "debut_reel": "2025-03-01",
    "retard_mois_source": 1,
-   "observations": "Pas de retard"
+   "observations": "Pas de retard",
+   "enveloppe": 5822656578.0,
+   "facture_cumulee": 1750727343.04
   },
   {
    "nom": "LOGISTIQUE CROU",
@@ -647,7 +673,9 @@
    "fin_prevue": "2026-10-23",
    "debut_reel": "2026-01-01",
    "retard_mois_source": 4,
-   "observations": "Pas de retard"
+   "observations": "Pas de retard",
+   "enveloppe": 421848825.0,
+   "facture_cumulee": 81459662.51
   },
   {
    "nom": "GALERIE CENTRALE - PASSERELLES & PROMENADE",
@@ -671,7 +699,9 @@
    "fin_prevue": "2026-03-14",
    "debut_reel": "2026-03-01",
    "retard_mois_source": 2,
-   "observations": "Pas de retard"
+   "observations": "Pas de retard",
+   "enveloppe": 829252748.0,
+   "facture_cumulee": 73007536.95
   },
   {
    "nom": "MOBILIERS ET EQUIPEMENTS",
@@ -687,7 +717,9 @@
     "2026-05": 94.67,
     "2026-06": 100.0
    },
-   "reel": {}
+   "reel": {},
+   "enveloppe": 3693802666.0,
+   "facture_cumulee": 0.0
   },
   {
    "nom": "GUERITE",
@@ -718,7 +750,9 @@
    "fin_prevue": "2026-10-06",
    "debut_reel": null,
    "retard_mois_source": 3,
-   "observations": "Pas de retard"
+   "observations": "Pas de retard",
+   "enveloppe": 281666709.0,
+   "facture_cumulee": 0.0
   },
   {
    "nom": "CLOTURE",
@@ -755,7 +789,9 @@
    "fin_prevue": "2025-12-12",
    "debut_reel": "2025-09-01",
    "retard_mois_source": 5,
-   "observations": "Taches manquantes dans planning actualisée"
+   "observations": "Taches manquantes dans planning actualisée",
+   "enveloppe": 1328604631.0,
+   "facture_cumulee": 561369411.88
   },
   {
    "nom": "TERRASSEMENTS",
@@ -790,7 +826,9 @@
    "fin_prevue": "2025-06-24",
    "debut_reel": null,
    "retard_mois_source": null,
-   "observations": "Achevée"
+   "observations": "Achevée",
+   "enveloppe": 1701422035.0,
+   "facture_cumulee": 2380802326.1
   },
   {
    "nom": "VOIRIES / AIRES DE STATIONNEMENT / ET PARKING",
@@ -838,7 +876,9 @@
    "fin_prevue": "2026-09-12",
    "debut_reel": "2025-12-01",
    "retard_mois_source": 7,
-   "observations": "Achèvement retardé par 01 mois"
+   "observations": "Achèvement retardé par 01 mois",
+   "enveloppe": 3103291526.0,
+   "facture_cumulee": 876756392.43
   },
   {
    "nom": "ADDUCTION EN EAUX POTABLE (AEP)",
@@ -861,7 +901,9 @@
    "fin_prevue": "2026-01-05",
    "debut_reel": null,
    "retard_mois_source": 9,
-   "observations": "Achèvement retardé par 09 mois"
+   "observations": "Achèvement retardé par 09 mois",
+   "enveloppe": 386821520.0,
+   "facture_cumulee": 0.0
   },
   {
    "nom": "EAUX USEES",
@@ -884,7 +926,9 @@
    "fin_prevue": "2026-09-09",
    "debut_reel": null,
    "retard_mois_source": 4,
-   "observations": "Achèvement retardé par 01 mois"
+   "observations": "Achèvement retardé par 01 mois",
+   "enveloppe": 1379516596.0,
+   "facture_cumulee": 0.0
   },
   {
    "nom": "EAUX PLUVIALE",
@@ -908,7 +952,9 @@
    "fin_prevue": "2025-09-30",
    "debut_reel": "2026-03-01",
    "retard_mois_source": 10,
-   "observations": "préfabrication des caniveaux en cours (8%)"
+   "observations": "préfabrication des caniveaux en cours (8%)",
+   "enveloppe": 980321183.0,
+   "facture_cumulee": 128026495.02
   },
   {
    "nom": "ENVIRONNEMENTAMENAGEMENT PAYSAGER",
@@ -923,7 +969,9 @@
    "fin_prevue": "2026-10-14",
    "debut_reel": null,
    "retard_mois_source": 9,
-   "observations": "Pas de retard"
+   "observations": "Pas de retard",
+   "enveloppe": 390042442.0,
+   "facture_cumulee": 0.0
   },
   {
    "nom": "ENVIRONNEMENT AIRE DE JEUX",
@@ -938,7 +986,9 @@
    "fin_prevue": "2026-09-19",
    "debut_reel": null,
    "retard_mois_source": 9,
-   "observations": "Pas de retard"
+   "observations": "Pas de retard",
+   "enveloppe": 589089490.0,
+   "facture_cumulee": 0.0
   },
   {
    "nom": "SIGNALISATION INTERIEURE",
@@ -949,7 +999,9 @@
    "prevu": {
     "2026-06": 50.0
    },
-   "reel": {}
+   "reel": {},
+   "enveloppe": 39644810.0,
+   "facture_cumulee": 0.0
   },
   {
    "nom": "ELECTRICITE / RESEAU HT - MT - BT / ECLAIRAGE PUBLIQUE",
@@ -979,7 +1031,9 @@
    "fin_prevue": "2026-09-01",
    "debut_reel": "2026-03-01",
    "retard_mois_source": null,
-   "observations": "Achèvement retardé par 01 mois"
+   "observations": "Achèvement retardé par 01 mois",
+   "enveloppe": 2358568367.0,
+   "facture_cumulee": 237898854.19
   },
   {
    "nom": "RESEAU FIBRE",
@@ -1000,7 +1054,9 @@
    "fin_prevue": "2026-07-17",
    "debut_reel": null,
    "retard_mois_source": 1,
-   "observations": "Achèvement retardé par 02 mois"
+   "observations": "Achèvement retardé par 02 mois",
+   "enveloppe": 330146821.0,
+   "facture_cumulee": 0.0
   },
   {
    "nom": "MURS DE SOUTENEMENT",
@@ -1030,7 +1086,9 @@
    "fin_prevue": "2026-03-23",
    "debut_reel": null,
    "retard_mois_source": null,
-   "observations": "Achèvement retardé par 02 mois"
+   "observations": "Achèvement retardé par 02 mois",
+   "enveloppe": 0.0,
+   "facture_cumulee": 333591452.87
   },
   {
    "nom": "EFFICACITE ENERGETIQUE",
@@ -1043,7 +1101,9 @@
     "2026-05": 14.3,
     "2026-06": 37.1
    },
-   "reel": {}
+   "reel": {},
+   "enveloppe": 747832721.0,
+   "facture_cumulee": 0.0
   }
  ],
  "decomptes": [
@@ -1173,5 +1233,7 @@
    "net_paye": 1607160969.0,
    "regle": false
   }
- ]
+ ],
+ "ponderation_totale": 100.0,
+ "anomalies": []
 }

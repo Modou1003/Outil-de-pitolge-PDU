@@ -2,17 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\BuildingWork;
-use App\Models\FinancialProgress;
 use App\Models\PduProject;
-use App\Models\PhysicalProgress;
-use App\Models\ProjectPayment;
 use App\Models\University;
 use App\Models\User;
-use App\Services\AlerteService;
-use App\Services\ProjectAggregationService;
+use App\Services\Import\BaseDeCalculImporter;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Carbon;
 
 /**
  * Chantier de l'Université d'Odienné — données réelles.
@@ -58,22 +52,12 @@ class OdienneProjectSeeder extends Seeder
 
         PduProject::withTrashed()->where('code', self::CODE)->forceDelete();
 
+        // L'écriture passe par l'importateur du classeur : le chargement initial
+        // et l'import mensuel suivent ainsi exactement les mêmes règles.
         $projet = $this->projet($auteur);
-        $ouvrages = $this->ouvrages($projet, $donnees['ouvrages']);
-        $this->avancementPhysique($projet, $ouvrages, $donnees['ouvrages']);
-        $this->avancementFinancier($projet, $donnees);
-        $this->decomptes($projet, $auteur, $donnees['decomptes']);
+        $compte = app(BaseDeCalculImporter::class)->import($projet, $donnees, $auteur, true);
 
-        $agg = app(ProjectAggregationService::class);
-        $agg->recomputeProjectProgress($projet);
-        $agg->recomputeFinancialCumulatives($projet);
-        $agg->recomputeProjectBudgetSpent($projet);
-
-        app(AlerteService::class)->generateForProject(
-            $projet->fresh(['physicalProgresses', 'financialProgresses', 'buildingWorks', 'lots', 'milestones', 'amendments', 'payments'])
-        );
-
-        $this->rapport($projet->refresh(), $donnees);
+        $this->rapport($projet->refresh(), $donnees, $compte);
     }
 
     /** @return array<string, mixed>|null */
@@ -127,132 +111,6 @@ class OdienneProjectSeeder extends Seeder
         ]);
     }
 
-    /**
-     * Un ouvrage par poste suivi, avec sa pondération et son calendrier
-     * contractuel. Le statut se déduit de l'avancement constaté.
-     *
-     * @return array<int, BuildingWork>
-     */
-    private function ouvrages(PduProject $projet, array $definitions): array
-    {
-        $ouvrages = [];
-
-        foreach ($definitions as $i => $d) {
-            $dernier = $this->dernier($d['reel']);
-
-            $ouvrages[] = BuildingWork::create([
-                'pdu_project_id' => $projet->id,
-                // Le code d'ouvrage est unique sur toute la base : il porte
-                // donc le trigramme du projet.
-                'code' => 'ODN-' . str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT),
-                'name' => $this->nomPropre($d['nom']),
-                'description' => $d['observations'] ?? null,
-                'status' => match (true) {
-                    $dernier === null || $dernier <= 0 => 'not_started',
-                    $dernier >= 100 => 'completed',
-                    default => 'in_progress',
-                },
-                'weight_percentage' => $d['poids'],
-                'duration_days' => $d['duree_jours'] ?? null,
-                'planned_start_date' => $d['debut_prevu'] ?? $d['debut_planning'] ?? null,
-                'planned_end_date' => $d['fin_prevue'] ?? $d['fin_planning'] ?? null,
-                'actual_start_date' => $d['debut_reel'] ?? null,
-                'sort_order' => $i + 1,
-            ]);
-        }
-
-        return $ouvrages;
-    }
-
-    /** Vingt relevés mensuels par ouvrage, prévu et réalisé cumulés. */
-    private function avancementPhysique(PduProject $projet, array $ouvrages, array $definitions): void
-    {
-        foreach ($ouvrages as $i => $ouvrage) {
-            $d = $definitions[$i];
-            $periodes = array_keys($d['reel'] + $d['prevu']);
-            sort($periodes);
-
-            // Un mois sans mesure ne signifie pas un retour à zéro : le cumul
-            // reste à sa dernière valeur connue.
-            $prevu = 0.0;
-            $reel = 0.0;
-
-            foreach ($periodes as $periode) {
-                $prevu = (float) ($d['prevu'][$periode] ?? $prevu);
-                $reel = (float) ($d['reel'][$periode] ?? $reel);
-
-                PhysicalProgress::create([
-                    'pdu_project_id' => $projet->id,
-                    'building_work_id' => $ouvrage->id,
-                    'period' => $periode,
-                    'measurement_date' => Carbon::createFromFormat('Y-m', $periode)->endOfMonth()->toDateString(),
-                    'planned_percentage' => min(100, $prevu),
-                    'actual_percentage' => min(100, $reel),
-                    'status' => 'validated',
-                    'recorded_by' => $projet->created_by,
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Valeur planifiée et valeur acquise déduites de la courbe physique du
-     * marché ; coût réel pris sur la facturation de l'entreprise, seule
-     * dépense réellement engagée dont l'unité de gestion ait connaissance.
-     */
-    private function avancementFinancier(PduProject $projet, array $donnees): void
-    {
-        $prevu = $donnees['projet']['prevu'];
-        $reel = $donnees['projet']['reel'];
-        $decomptes = collect($donnees['decomptes'])
-            ->groupBy(fn ($d) => substr($d['date'], 0, 7))
-            ->map(fn ($groupe) => $groupe->sum('brut'));
-
-        $prevuPrec = 0.0;
-        $reelPrec = 0.0;
-
-        foreach ($donnees['periodes'] as $periode) {
-            $p = (float) ($prevu[$periode] ?? $prevuPrec);
-            $r = (float) ($reel[$periode] ?? $reelPrec);
-
-            FinancialProgress::create([
-                'pdu_project_id' => $projet->id,
-                'period' => $periode,
-                'measurement_date' => Carbon::createFromFormat('Y-m', $periode)->endOfMonth()->toDateString(),
-                'planned_value' => round(($p - $prevuPrec) / 100 * self::MARCHE, 2),
-                'earned_value' => round(($r - $reelPrec) / 100 * self::MARCHE, 2),
-                'actual_cost' => round((float) $decomptes->get($periode, 0), 2),
-                'status' => 'validated',
-                'recorded_by' => $projet->created_by,
-            ]);
-
-            $prevuPrec = $p;
-            $reelPrec = $r;
-        }
-    }
-
-    /** Décomptes de l'entreprise, avance de démarrage comprise. */
-    private function decomptes(PduProject $projet, User $auteur, array $lignes): void
-    {
-        foreach ($lignes as $ligne) {
-            $date = Carbon::parse($ligne['date']);
-
-            ProjectPayment::create([
-                'pdu_project_id' => $projet->id,
-                'number' => str_pad($ligne['numero'], 3, '0', STR_PAD_LEFT),
-                'period' => $date->format('Y-m'),
-                'payment_date' => $date->toDateString(),
-                'gross_amount' => $ligne['brut'],
-                'startup_advance_recovery' => $ligne['recuperation_avance'],
-                'supply_advance_recovery' => 0,
-                'net_paid' => $ligne['net_paye'] ?? ($ligne['brut'] - $ligne['recuperation_avance']),
-                'is_paid' => $ligne['regle'],
-                'observations' => $ligne['nature'] !== 'Travaux' ? $ligne['nature'] : null,
-                'recorded_by' => $auteur->id,
-            ]);
-        }
-    }
-
     /** Les intitulés du classeur sont en capitales et parfois accolés. */
     private function nomPropre(string $nom): string
     {
@@ -261,17 +119,7 @@ class OdienneProjectSeeder extends Seeder
         return mb_convert_case(trim($nom), MB_CASE_TITLE, 'UTF-8');
     }
 
-    private function dernier(array $serie): ?float
-    {
-        if ($serie === []) {
-            return null;
-        }
-        ksort($serie);
-
-        return (float) end($serie);
-    }
-
-    private function rapport(PduProject $projet, array $donnees): void
+    private function rapport(PduProject $projet, array $donnees, array $compte): void
     {
         $retards = $projet->buildingWorks
             ->filter(fn ($o) => $o->start_delay_days > 15)
@@ -281,6 +129,7 @@ class OdienneProjectSeeder extends Seeder
         $this->command?->table(['Indicateur', 'Valeur'], [
             ['Avancement physique consolidé', number_format((float) $projet->progress_percentage, 2) . ' %'],
             ['Attendu au rapport n° 14', '32,13 %'],
+            ['Ouvrages créés par l’import', $compte['ouvrages_crees']],
             ['Marché', number_format(self::MARCHE, 0, ',', ' ') . ' XOF'],
             ['Décaissé', number_format((float) $projet->budget_spent, 0, ',', ' ') . ' XOF'],
             ['Ouvrages', $projet->buildingWorks()->count()],

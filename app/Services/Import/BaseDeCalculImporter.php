@@ -67,9 +67,9 @@ class BaseDeCalculImporter
                 'avancement_actuel' => $existant
                     ? (float) ($existant->physicalProgresses()->orderByDesc('period')->value('actual_percentage') ?? 0)
                     : null,
-                'debut_prevu' => $o['debut_prevu'],
-                'debut_reel' => $o['debut_reel'],
-                'retard_source' => $o['retard_mois_source'],
+                'debut_prevu' => $o['debut_prevu'] ?? null,
+                'debut_reel' => $o['debut_reel'] ?? null,
+                'retard_source' => $o['retard_mois_source'] ?? null,
             ];
         }
 
@@ -87,19 +87,30 @@ class BaseDeCalculImporter
         // déduit de l'avancement physique et du montant du marché, le coût réel
         // de la facturation du mois.
         $marche = (float) ($projet->budget_allocated ?? 0);
-        $financieres = $projet->financialProgresses()->pluck('period');
         $avancementLu = $this->dernier($lecture['projet']['reel'] ?? []);
         $prevuLu = $this->dernier($lecture['projet']['prevu'] ?? []);
+
+        // Chaque ouvrage porte sa propre valeur acquise : c'est à cette maille
+        // que l'écran financier lit les données.
+        $enveloppes = round(array_sum(array_map(
+            fn ($o) => (float) ($o['enveloppe'] ?? 0) ?: $marche * (float) $o['poids'] / 100,
+            $lecture['ouvrages'],
+        )), 2);
+        $facture = round(array_sum(array_map(
+            fn ($o) => (float) ($o['facture_cumulee'] ?? 0),
+            $lecture['ouvrages'],
+        )), 2);
 
         return [
             'arrete_au' => $lecture['arrete_au'],
             'ponderation_totale' => $lecture['ponderation_totale'],
             'anomalies' => $lecture['anomalies'],
             'financier' => [
-                'periodes_nouvelles' => $periodesNouvelles->reject(fn ($p) => $financieres->contains($p))->count(),
-                'valeur_planifiee' => $marche > 0 && $prevuLu !== null ? round($marche * $prevuLu / 100, 2) : null,
-                'valeur_acquise' => $marche > 0 && $avancementLu !== null ? round($marche * $avancementLu / 100, 2) : null,
-                'cout_reel' => round(array_sum(array_column($lecture['decomptes'], 'brut')), 2),
+                'lignes_nouvelles' => $periodesNouvelles->count() * count($lecture['ouvrages']),
+                'enveloppes' => $enveloppes,
+                'valeur_planifiee' => $prevuLu !== null ? round($enveloppes * $prevuLu / 100, 2) : null,
+                'valeur_acquise' => $avancementLu !== null ? round($enveloppes * $avancementLu / 100, 2) : null,
+                'cout_reel' => $facture ?: round(array_sum(array_column($lecture['decomptes'], 'brut')), 2),
             ],
             'periodes_nouvelles' => $periodesNouvelles->all(),
             'periodes_connues' => $existantes->sort()->values()->all(),
@@ -125,7 +136,7 @@ class BaseDeCalculImporter
             $ouvrages = $this->synchroniserOuvrages($projet, $lecture['ouvrages'], $compte);
             $compte['releves'] = $this->ajouterReleves($projet, $ouvrages, $lecture, $apercu['periodes_nouvelles']);
             $compte['periodes_financieres'] = $this->ajouterAvancementFinancier(
-                $projet, $lecture, $apercu['periodes_nouvelles'], $avecDecomptes, $compte,
+                $projet, $ouvrages, $lecture, $apercu['periodes_nouvelles'], $avecDecomptes, $compte,
             );
 
             if ($avecDecomptes) {
@@ -184,10 +195,10 @@ class BaseDeCalculImporter
 
             $attributs = [
                 'weight_percentage' => $d['poids'],
-                'duration_days' => $d['duree_jours'],
-                'planned_start_date' => $d['debut_prevu'],
-                'planned_end_date' => $d['fin_prevue'],
-                'actual_start_date' => $d['debut_reel'],
+                'duration_days' => $d['duree_jours'] ?? null,
+                'planned_start_date' => $d['debut_prevu'] ?? null,
+                'planned_end_date' => $d['fin_prevue'] ?? null,
+                'actual_start_date' => $d['debut_reel'] ?? null,
                 'status' => match (true) {
                     $dernier === null || $dernier <= 0 => 'not_started',
                     $dernier >= 100 => 'completed',
@@ -209,7 +220,7 @@ class BaseDeCalculImporter
                     'pdu_project_id' => $projet->id,
                     'code' => $this->codeLibre($projet, ++$rang),
                     'name' => $d['nom'],
-                    'description' => $d['observations'],
+                    'description' => $d['observations'] ?? null,
                     'sort_order' => $rang,
                 ]));
                 $compte['ouvrages_crees']++;
@@ -276,6 +287,7 @@ class BaseDeCalculImporter
      */
     protected function ajouterAvancementFinancier(
         PduProject $projet,
+        array $ouvrages,
         array $lecture,
         array $periodes,
         bool $avecCouts,
@@ -286,45 +298,92 @@ class BaseDeCalculImporter
         }
 
         $marche = (float) $projet->budget_allocated;
-        $facture = collect($lecture['decomptes'])
-            ->groupBy(fn ($d) => substr($d['date'], 0, 7))
-            ->map(fn ($groupe) => $groupe->sum('brut'));
-
-        $connues = $projet->financialProgresses()->get()->keyBy('period');
         $creees = 0;
-        $prevuPrec = 0.0;
-        $reelPrec = 0.0;
 
-        foreach ($lecture['periodes'] as $periode) {
-            $p = (float) ($lecture['projet']['prevu'][$periode] ?? $prevuPrec);
-            $r = (float) ($lecture['projet']['reel'][$periode] ?? $reelPrec);
-            $cout = round((float) $facture->get($periode, 0), 2);
-
-            if ($existante = $connues->get($periode)) {
-                // Période déjà connue : on ne complète que le coût manquant.
-                if ($avecCouts && $cout > 0 && (float) $existante->actual_cost <= 0) {
-                    $existante->update(['actual_cost' => $cout]);
-                    $compte['couts_completes'] = ($compte['couts_completes'] ?? 0) + 1;
-                }
-            } elseif (in_array($periode, $periodes, true)) {
-                FinancialProgress::create([
-                    'pdu_project_id' => $projet->id,
-                    'period' => $periode,
-                    'measurement_date' => Carbon::createFromFormat('Y-m', $periode)->endOfMonth()->toDateString(),
-                    'planned_value' => round(($p - $prevuPrec) / 100 * $marche, 2),
-                    'earned_value' => round(($r - $reelPrec) / 100 * $marche, 2),
-                    'actual_cost' => $avecCouts ? $cout : 0,
-                    'status' => 'validated',
-                    'recorded_by' => $projet->created_by,
-                ]);
-                $creees++;
+        foreach ($lecture['ouvrages'] as $d) {
+            $ouvrage = $ouvrages[$this->normaliser($d['nom'])] ?? null;
+            if (! $ouvrage) {
+                continue;
             }
 
-            $prevuPrec = $p;
-            $reelPrec = $r;
+            // Enveloppe de l'ouvrage : son montant contractuel s'il est connu,
+            // à défaut sa part du marché au prorata de sa pondération.
+            $enveloppe = (float) ($d['enveloppe'] ?? 0) ?: $marche * (float) $d['poids'] / 100;
+            $connues = $ouvrage->financialProgresses()->get()->keyBy('period');
+            $couts = $this->repartirCout($d, $lecture['periodes']);
+
+            $prevuPrec = 0.0;
+            $reelPrec = 0.0;
+
+            foreach ($lecture['periodes'] as $periode) {
+                $p = (float) ($d['prevu'][$periode] ?? $prevuPrec);
+                $r = (float) ($d['reel'][$periode] ?? $reelPrec);
+                $cout = round($couts[$periode] ?? 0, 2);
+
+                if ($existante = $connues->get($periode)) {
+                    // Période déjà connue : on ne complète que le coût manquant.
+                    if ($avecCouts && $cout > 0 && (float) $existante->actual_cost <= 0) {
+                        $existante->update(['actual_cost' => $cout]);
+                        $compte['couts_completes'] = ($compte['couts_completes'] ?? 0) + 1;
+                    }
+                } elseif (in_array($periode, $periodes, true)) {
+                    FinancialProgress::create([
+                        'pdu_project_id' => $projet->id,
+                        'building_work_id' => $ouvrage->id,
+                        'period' => $periode,
+                        'measurement_date' => Carbon::createFromFormat('Y-m', $periode)->endOfMonth()->toDateString(),
+                        'planned_value' => round(($p - $prevuPrec) / 100 * $enveloppe, 2),
+                        'earned_value' => round(($r - $reelPrec) / 100 * $enveloppe, 2),
+                        'actual_cost' => $avecCouts ? $cout : 0,
+                        'status' => 'validated',
+                        'recorded_by' => $projet->created_by,
+                    ]);
+                    $creees++;
+                }
+
+                $prevuPrec = $p;
+                $reelPrec = $r;
+            }
         }
 
         return $creees;
+    }
+
+    /**
+     * Ventilation mensuelle du coût réel d'un ouvrage.
+     *
+     * La facturation n'est connue que cumulée par ouvrage, et mensuelle
+     * seulement à l'échelle du marché. Le cumul de l'ouvrage est donc réparti
+     * dans le temps au rythme de sa valeur acquise : le total de chaque ouvrage
+     * et celui du marché restent exacts, seule la répartition entre les mois
+     * est reconstituée. L'indice de performance des coûts en fin de période,
+     * lui, est juste.
+     *
+     * @return array<string, float>
+     */
+    protected function repartirCout(array $ouvrage, array $periodes): array
+    {
+        $total = (float) ($ouvrage['facture_cumulee'] ?? 0);
+        if ($total <= 0) {
+            return [];
+        }
+
+        $increments = [];
+        $precedent = 0.0;
+        $somme = 0.0;
+        foreach ($periodes as $periode) {
+            $reel = (float) ($ouvrage['reel'][$periode] ?? $precedent);
+            $increments[$periode] = max(0.0, $reel - $precedent);
+            $somme += $increments[$periode];
+            $precedent = $reel;
+        }
+
+        // Ouvrage facturé sans avancement constaté : tout est porté au dernier mois.
+        if ($somme <= 0) {
+            return [end($periodes) => $total];
+        }
+
+        return array_map(fn ($part) => $total * $part / $somme, $increments);
     }
 
     protected function ajouterDecomptes(PduProject $projet, array $decomptes, User $auteur): int
