@@ -134,9 +134,9 @@ class BaseDeCalculImporter
 
         DB::transaction(function () use ($projet, $lecture, $auteur, $avecDecomptes, $apercu, &$compte) {
             $ouvrages = $this->synchroniserOuvrages($projet, $lecture['ouvrages'], $compte);
-            $compte['releves'] = $this->ajouterReleves($projet, $ouvrages, $lecture, $apercu['periodes_nouvelles']);
+            $compte['releves'] = $this->ajouterReleves($projet, $ouvrages, $lecture, $apercu['periodes_nouvelles'], $auteur);
             $compte['periodes_financieres'] = $this->ajouterAvancementFinancier(
-                $projet, $ouvrages, $lecture, $apercu['periodes_nouvelles'], $avecDecomptes, $compte,
+                $projet, $ouvrages, $lecture, $apercu['periodes_nouvelles'], $avecDecomptes, $auteur, $compte,
             );
 
             if ($avecDecomptes) {
@@ -233,7 +233,7 @@ class BaseDeCalculImporter
     }
 
     /** Seuls les mois inconnus du projet donnent lieu à un relevé. */
-    protected function ajouterReleves(PduProject $projet, array $ouvrages, array $lecture, array $periodes): int
+    protected function ajouterReleves(PduProject $projet, array $ouvrages, array $lecture, array $periodes, User $auteur): int
     {
         if ($periodes === []) {
             return 0;
@@ -265,7 +265,7 @@ class BaseDeCalculImporter
                     'planned_percentage' => min(100, $prevu),
                     'actual_percentage' => min(100, $reel),
                     'status' => 'validated',
-                    'recorded_by' => $projet->created_by,
+                    'recorded_by' => $auteur->id,
                 ]);
                 $ecrits++;
             }
@@ -291,6 +291,7 @@ class BaseDeCalculImporter
         array $lecture,
         array $periodes,
         bool $avecCouts,
+        User $auteur,
         array &$compte,
     ): int {
         if (! $projet->budget_allocated) {
@@ -336,7 +337,7 @@ class BaseDeCalculImporter
                         'earned_value' => round(($r - $reelPrec) / 100 * $enveloppe, 2),
                         'actual_cost' => $avecCouts ? $cout : 0,
                         'status' => 'validated',
-                        'recorded_by' => $projet->created_by,
+                        'recorded_by' => $auteur->id,
                     ]);
                     $creees++;
                 }
