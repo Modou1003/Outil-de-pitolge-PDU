@@ -59,7 +59,9 @@ const formatMois = (p) => {
     return new Date(Number(a), Number(m) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 };
 
-const franc = (v) => Number(v).toLocaleString('fr-FR') + ' F';
+const franc = (v) => v === null || v === undefined
+    ? '—'
+    : Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' F';
 
 const rienANouveau = computed(() => apercu.value
     && apercu.value.periodes_nouvelles.length === 0
@@ -152,6 +154,32 @@ const rienANouveau = computed(() => apercu.value
                     <strong>{{ nombre(apercu.avancement_lu) }} %</strong>,
                     actuellement dans l'application :
                     <strong>{{ nombre(apercu.avancement_actuel) }} %</strong>.
+                </div>
+
+                <!-- Ce même classeur alimente la section financière et les indicateurs -->
+                <div class="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+                    <p class="text-xs font-semibold text-indigo-900">Sections également alimentées</p>
+                    <ul class="mt-1 space-y-0.5 text-xs text-indigo-900/90">
+                        <li>
+                            <span class="font-medium">Avancement financier</span> —
+                            {{ apercu.financier.periodes_nouvelles }} période(s) de valeur acquise à créer.
+                            Valeur planifiée {{ franc(apercu.financier.valeur_planifiee) }},
+                            valeur acquise {{ franc(apercu.financier.valeur_acquise) }},
+                            coût réel {{ franc(apercu.financier.cout_reel) }}.
+                        </li>
+                        <li>
+                            <span class="font-medium">Indicateurs</span> — avancement pondéré, indices de performance
+                            des délais et des coûts, valeur acquise temporelle, fin projetée, écart physico-financier
+                            et fraîcheur sont recalculés après l'import.
+                        </li>
+                        <li>
+                            <span class="font-medium">Alertes</span> — les onze règles de détection sont réexaminées,
+                            dont les retards au démarrage lus au planning.
+                        </li>
+                    </ul>
+                    <p v-if="!apercu.financier.cout_reel" class="mt-1 text-[11px] text-amber-800">
+                        Aucun décompte lu : l'indice de performance des coûts restera incalculable.
+                    </p>
                 </div>
 
                 <p v-if="rienANouveau" class="rounded-lg bg-gray-50 px-3 py-3 text-xs text-gray-600">

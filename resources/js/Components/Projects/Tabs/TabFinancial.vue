@@ -8,6 +8,7 @@ import {
 import { router } from '@inertiajs/vue3';
 import { useAuth } from '@/Composables/useAuth';
 import FinancialProgressModal from '@/Components/Projects/Forms/FinancialProgressModal.vue';
+import ImportBaseCalculModal from '@/Components/Projects/Forms/ImportBaseCalculModal.vue';
 import PaymentsSection from '@/Components/Projects/PaymentsSection.vue';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
@@ -25,6 +26,7 @@ const canWrite = computed(() => hasPermission('manage_finances'));
 const canManageWorks = computed(() => hasPermission('manage_physical'));
 
 const showModal = ref(false);
+const showImportModal = ref(false);
 const editing = ref(null);
 const selectedWorkId = ref(null);
 
@@ -208,6 +210,16 @@ const addWork = () => {
                     <button
                         v-if="canManageWorks"
                         type="button"
+                        class="ml-auto mr-2 inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 shadow-sm transition hover:bg-indigo-50"
+                        title="La base de calcul mensuelle alimente aussi la valeur acquise et les décomptes"
+                        @click="showImportModal = true"
+                    >
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12V4m0 8l-3-3m3 3l3-3" /></svg>
+                        Importer un fichier Excel
+                    </button>
+                    <button
+                        v-if="canManageWorks"
+                        type="button"
                         class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-700"
                         @click="addWork"
                     >
@@ -381,5 +393,11 @@ const addWork = () => {
                 @close="showModal = false"
             />
         </div>
+
+        <ImportBaseCalculModal
+            :show="showImportModal"
+            :project="project"
+            @close="showImportModal = false"
+        />
     </div>
 </template>

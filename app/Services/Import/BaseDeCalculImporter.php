@@ -83,10 +83,24 @@ class BaseDeCalculImporter
             return $existant && $d['regle'] && ! $existant->is_paid;
         })->values();
 
+        // Effet sur la section financière : la courbe de la valeur acquise se
+        // déduit de l'avancement physique et du montant du marché, le coût réel
+        // de la facturation du mois.
+        $marche = (float) ($projet->budget_allocated ?? 0);
+        $financieres = $projet->financialProgresses()->pluck('period');
+        $avancementLu = $this->dernier($lecture['projet']['reel'] ?? []);
+        $prevuLu = $this->dernier($lecture['projet']['prevu'] ?? []);
+
         return [
             'arrete_au' => $lecture['arrete_au'],
             'ponderation_totale' => $lecture['ponderation_totale'],
             'anomalies' => $lecture['anomalies'],
+            'financier' => [
+                'periodes_nouvelles' => $periodesNouvelles->reject(fn ($p) => $financieres->contains($p))->count(),
+                'valeur_planifiee' => $marche > 0 && $prevuLu !== null ? round($marche * $prevuLu / 100, 2) : null,
+                'valeur_acquise' => $marche > 0 && $avancementLu !== null ? round($marche * $avancementLu / 100, 2) : null,
+                'cout_reel' => round(array_sum(array_column($lecture['decomptes'], 'brut')), 2),
+            ],
             'periodes_nouvelles' => $periodesNouvelles->all(),
             'periodes_connues' => $existantes->sort()->values()->all(),
             'ouvrages' => $lignes,
@@ -110,7 +124,9 @@ class BaseDeCalculImporter
         DB::transaction(function () use ($projet, $lecture, $auteur, $avecDecomptes, $apercu, &$compte) {
             $ouvrages = $this->synchroniserOuvrages($projet, $lecture['ouvrages'], $compte);
             $compte['releves'] = $this->ajouterReleves($projet, $ouvrages, $lecture, $apercu['periodes_nouvelles']);
-            $this->ajouterAvancementFinancier($projet, $lecture, $apercu['periodes_nouvelles']);
+            $compte['periodes_financieres'] = $this->ajouterAvancementFinancier(
+                $projet, $lecture, $apercu['periodes_nouvelles'], $avecDecomptes, $compte,
+            );
 
             if ($avecDecomptes) {
                 $compte['decomptes'] = $this->ajouterDecomptes($projet, $lecture['decomptes'], $auteur);
@@ -249,12 +265,24 @@ class BaseDeCalculImporter
 
     /**
      * Valeur planifiée et valeur acquise déduites de la courbe du marché ; le
-     * coût réel est pris sur la facturation du mois.
+     * coût réel pris sur la facturation de l'entreprise.
+     *
+     * Les deux premières se déduisent de l'avancement physique et du montant du
+     * marché : elles relèvent de qui suit le chantier. Le coût réel, lui, est
+     * une donnée de la section financière et n'est inscrit que par qui en a la
+     * charge — sans quoi la facturation entrerait en base par la porte de
+     * derrière. Un import ultérieur mené par un agent financier complète les
+     * périodes restées sans coût.
      */
-    protected function ajouterAvancementFinancier(PduProject $projet, array $lecture, array $periodes): void
-    {
-        if ($periodes === [] || ! $projet->budget_allocated) {
-            return;
+    protected function ajouterAvancementFinancier(
+        PduProject $projet,
+        array $lecture,
+        array $periodes,
+        bool $avecCouts,
+        array &$compte,
+    ): int {
+        if (! $projet->budget_allocated) {
+            return 0;
         }
 
         $marche = (float) $projet->budget_allocated;
@@ -262,30 +290,41 @@ class BaseDeCalculImporter
             ->groupBy(fn ($d) => substr($d['date'], 0, 7))
             ->map(fn ($groupe) => $groupe->sum('brut'));
 
-        $connues = $projet->financialProgresses()->pluck('period')->all();
+        $connues = $projet->financialProgresses()->get()->keyBy('period');
+        $creees = 0;
         $prevuPrec = 0.0;
         $reelPrec = 0.0;
 
         foreach ($lecture['periodes'] as $periode) {
             $p = (float) ($lecture['projet']['prevu'][$periode] ?? $prevuPrec);
             $r = (float) ($lecture['projet']['reel'][$periode] ?? $reelPrec);
+            $cout = round((float) $facture->get($periode, 0), 2);
 
-            if (in_array($periode, $periodes, true) && ! in_array($periode, $connues, true)) {
+            if ($existante = $connues->get($periode)) {
+                // Période déjà connue : on ne complète que le coût manquant.
+                if ($avecCouts && $cout > 0 && (float) $existante->actual_cost <= 0) {
+                    $existante->update(['actual_cost' => $cout]);
+                    $compte['couts_completes'] = ($compte['couts_completes'] ?? 0) + 1;
+                }
+            } elseif (in_array($periode, $periodes, true)) {
                 FinancialProgress::create([
                     'pdu_project_id' => $projet->id,
                     'period' => $periode,
                     'measurement_date' => Carbon::createFromFormat('Y-m', $periode)->endOfMonth()->toDateString(),
                     'planned_value' => round(($p - $prevuPrec) / 100 * $marche, 2),
                     'earned_value' => round(($r - $reelPrec) / 100 * $marche, 2),
-                    'actual_cost' => round((float) $facture->get($periode, 0), 2),
+                    'actual_cost' => $avecCouts ? $cout : 0,
                     'status' => 'validated',
                     'recorded_by' => $projet->created_by,
                 ]);
+                $creees++;
             }
 
             $prevuPrec = $p;
             $reelPrec = $r;
         }
+
+        return $creees;
     }
 
     protected function ajouterDecomptes(PduProject $projet, array $decomptes, User $auteur): int
