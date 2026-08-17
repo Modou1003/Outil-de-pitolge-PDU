@@ -8,6 +8,7 @@ import {
 import { router } from '@inertiajs/vue3';
 import { useAuth } from '@/Composables/useAuth';
 import PhysicalProgressModal from '@/Components/Projects/Forms/PhysicalProgressModal.vue';
+import BuildingWorkModal from '@/Components/Projects/Forms/BuildingWorkModal.vue';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -183,17 +184,31 @@ const updateWeight = (w, value) => {
     );
 };
 
+// L'ouvrage se crée avec son calendrier contractuel : c'est de là que se
+// déduit le retard au démarrage visible dans sa fiche d'avancement.
+const showWorkModal = ref(false);
+const editingWork = ref(null);
 const addWork = () => {
     if (!canWrite.value) return;
-    const name = prompt("Nom de l'ouvrage :");
-    if (!name) return;
-
-    router.post(
-        route('projects.building-works.store', props.project.id),
-        { name },
-        { preserveScroll: true },
-    );
+    editingWork.value = null;
+    showWorkModal.value = true;
 };
+const editWork = (w) => {
+    if (!canWrite.value) return;
+    editingWork.value = w;
+    showWorkModal.value = true;
+};
+
+const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
+
+// Un léger décalage se tolère, un trimestre perdu ne se tolère plus.
+const retardClasse = computed(() => {
+    const jours = currentWork.value?.start_delay_days ?? 0;
+    if (jours > 90) return { fond: 'bg-red-50 ring-red-200', texte: 'text-red-700' };
+    if (jours > 15) return { fond: 'bg-amber-50 ring-amber-200', texte: 'text-amber-700' };
+
+    return { fond: 'bg-emerald-50 ring-emerald-200', texte: 'text-emerald-700' };
+});
 
 const removeWork = (w) => {
     if (!canWrite.value) return;
@@ -328,12 +343,69 @@ const removeWork = (w) => {
                     <p class="font-mono text-xs text-gray-500">{{ currentWork?.code ?? '' }}</p>
                     <p class="truncate text-sm font-semibold text-gray-900">{{ currentWork?.name ?? '' }}</p>
                 </div>
-                <button
-                    type="button"
-                    class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    @click="selectedWorkId = null"
-                >
-                    ← Retour
+                <div class="flex shrink-0 items-center gap-2">
+                    <button
+                        v-if="canWrite && currentWork"
+                        type="button"
+                        class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        @click="editWork(currentWork)"
+                    >
+                        Modifier les dates
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        @click="selectedWorkId = null"
+                    >
+                        ← Retour
+                    </button>
+                </div>
+            </div>
+
+            <!-- Retard accumulé par l'ouvrage -->
+            <div v-if="currentWork?.start_delay_days !== null && currentWork?.start_delay_days !== undefined"
+                 class="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl p-4 shadow-sm ring-1"
+                 :class="retardClasse.fond"
+            >
+                <div>
+                    <p class="text-[11px] uppercase tracking-wide" :class="retardClasse.texte">Retard au démarrage</p>
+                    <p class="mt-0.5 text-2xl font-bold leading-none" :class="retardClasse.texte">
+                        {{ currentWork.start_delay_days > 0 ? '+' + currentWork.start_delay_days + ' j' : '0 j' }}
+                    </p>
+                </div>
+                <div class="text-xs" :class="retardClasse.texte">
+                    <template v-if="currentWork.start_delay_days === 0">
+                        L'ouvrage a démarré à la date prévue, ou en avance.
+                    </template>
+                    <template v-else-if="currentWork.is_start_overdue">
+                        Prévu le {{ formatDate(currentWork.planned_start_date) }}, l'ouvrage n'a pas encore démarré :
+                        le retard s'aggrave chaque jour.
+                    </template>
+                    <template v-else>
+                        Prévu le {{ formatDate(currentWork.planned_start_date) }},
+                        démarré le {{ formatDate(currentWork.actual_start_date) }}.
+                    </template>
+                </div>
+                <dl class="ml-auto flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-600">
+                    <div>
+                        <dt class="text-[10px] uppercase tracking-wide text-gray-500">Fin prévue</dt>
+                        <dd class="font-semibold text-gray-900">{{ formatDate(currentWork.planned_end_date) }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] uppercase tracking-wide text-gray-500">Fin réelle</dt>
+                        <dd class="font-semibold text-gray-900">{{ formatDate(currentWork.actual_end_date) }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-[10px] uppercase tracking-wide text-gray-500">Durée</dt>
+                        <dd class="font-semibold text-gray-900">{{ currentWork.duration_days ? currentWork.duration_days + ' j' : '—' }}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div v-else-if="canWrite" class="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-3 text-xs text-gray-500">
+                Aucune date de début prévue pour cet ouvrage : le retard au démarrage ne peut pas être calculé.
+                <button type="button" class="font-medium text-indigo-600 hover:text-indigo-800" @click="editWork(currentWork)">
+                    Renseigner les dates
                 </button>
             </div>
 
@@ -418,5 +490,12 @@ const removeWork = (w) => {
                 @close="showModal = false"
             />
         </div>
+
+        <BuildingWorkModal
+            :show="showWorkModal"
+            :project="project"
+            :work="editingWork"
+            @close="showWorkModal = false"
+        />
     </div>
 </template>

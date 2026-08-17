@@ -110,14 +110,6 @@ const milestoneStyle = {
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
 
-// Un léger décalage se tolère, un trimestre perdu ne se tolère plus.
-const retardClasse = (w) => {
-    if (w.start_delay_days > 90) return { fond: 'bg-red-50', texte: 'text-red-700' };
-    if (w.start_delay_days > 15) return { fond: 'bg-amber-50', texte: 'text-amber-700' };
-
-    return { fond: 'bg-emerald-50', texte: 'text-emerald-700' };
-};
-
 // ── Gantt (limité à l'ouvrage sélectionné) ─────────────────────────────────
 const timeRange = computed(() => {
     const dates = [];
@@ -203,17 +195,7 @@ const monthsAxis = computed(() => {
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3m4-14h2m-2 4h2m6-4h2m-2 4h2" /></svg>
                         </div>
                         <div class="min-w-0">
-                            <p class="truncate font-semibold text-gray-900">
-                                {{ w.name }}
-                                <span
-                                    v-if="w.start_delay_days > 15"
-                                    class="ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                                    :class="w.start_delay_days > 90 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'"
-                                    :title="w.is_start_overdue ? 'Ouvrage non démarré à ce jour' : 'Écart entre le début prévu et le début réel'"
-                                >
-                                    +{{ w.start_delay_days }} j au démarrage
-                                </span>
-                            </p>
+                            <p class="truncate font-semibold text-gray-900">{{ w.name }}</p>
                             <p class="truncate text-xs text-gray-500">
                                 <span class="font-mono">{{ w.code }}</span>
                                 · {{ lotsCount(w) }} lot{{ lotsCount(w) > 1 ? 's' : '' }}
@@ -267,80 +249,6 @@ const monthsAxis = computed(() => {
                     </div>
                 </div>
                 <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium" :class="statusBadge[selectedWork.status]">{{ selectedWork.status_label }}</span>
-            </div>
-
-            <!-- Calendrier contractuel de l'ouvrage et retard au démarrage -->
-            <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
-                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">Calendrier contractuel</h3>
-                    <button
-                        v-if="canManage"
-                        type="button"
-                        class="text-xs font-medium text-indigo-600 hover:text-indigo-800"
-                        @click="openEditBuildingWork(selectedWork)"
-                    >
-                        Modifier
-                    </button>
-                </div>
-
-                <div v-if="!selectedWork.planned_start_date && !selectedWork.duration_days" class="px-5 py-10 text-center text-sm text-gray-500">
-                    Aucune date contractuelle renseignée pour cet ouvrage.
-                </div>
-
-                <template v-else>
-                    <dl class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-5">
-                        <div class="bg-white px-4 py-3">
-                            <dt class="text-[11px] uppercase tracking-wide text-gray-500">Durée contractuelle</dt>
-                            <dd class="mt-1 text-sm font-semibold text-gray-900">
-                                {{ selectedWork.duration_days ? selectedWork.duration_days + ' jours' : '—' }}
-                            </dd>
-                        </div>
-                        <div class="bg-white px-4 py-3">
-                            <dt class="text-[11px] uppercase tracking-wide text-gray-500">Début prévu</dt>
-                            <dd class="mt-1 text-sm font-semibold text-gray-900">{{ formatDate(selectedWork.planned_start_date) }}</dd>
-                        </div>
-                        <div class="bg-white px-4 py-3">
-                            <dt class="text-[11px] uppercase tracking-wide text-gray-500">Début réel</dt>
-                            <dd class="mt-1 text-sm font-semibold" :class="selectedWork.is_start_overdue ? 'text-red-600' : 'text-gray-900'">
-                                {{ selectedWork.actual_start_date ? formatDate(selectedWork.actual_start_date) : (selectedWork.is_start_overdue ? 'non démarré' : '—') }}
-                            </dd>
-                        </div>
-                        <div class="bg-white px-4 py-3">
-                            <dt class="text-[11px] uppercase tracking-wide text-gray-500">Fin prévue</dt>
-                            <dd class="mt-1 text-sm font-semibold text-gray-900">{{ formatDate(selectedWork.planned_end_date) }}</dd>
-                        </div>
-                        <div class="bg-white px-4 py-3">
-                            <dt class="text-[11px] uppercase tracking-wide text-gray-500">Fin réelle</dt>
-                            <dd class="mt-1 text-sm font-semibold text-gray-900">{{ formatDate(selectedWork.actual_end_date) }}</dd>
-                        </div>
-                    </dl>
-
-                    <div
-                        v-if="selectedWork.start_delay_days !== null"
-                        class="flex items-start gap-3 px-5 py-4"
-                        :class="retardClasse(selectedWork).fond"
-                    >
-                        <div class="text-2xl font-bold leading-none" :class="retardClasse(selectedWork).texte">
-                            {{ selectedWork.start_delay_days > 0 ? '+' + selectedWork.start_delay_days + ' j' : '0 j' }}
-                        </div>
-                        <div class="text-xs" :class="retardClasse(selectedWork).texte">
-                            <p class="font-semibold">Retard au démarrage</p>
-                            <p class="mt-0.5 opacity-90">
-                                <template v-if="selectedWork.start_delay_days === 0">
-                                    L'ouvrage a démarré à la date prévue, ou en avance.
-                                </template>
-                                <template v-else-if="selectedWork.is_start_overdue">
-                                    L'ouvrage n'a pas encore démarré ; le retard court depuis le
-                                    {{ formatDate(selectedWork.planned_start_date) }} et s'aggrave chaque jour.
-                                </template>
-                                <template v-else>
-                                    Écart entre le début prévu ({{ formatDate(selectedWork.planned_start_date) }})
-                                    et le début réel ({{ formatDate(selectedWork.actual_start_date) }}).
-                                </template>
-                            </p>
-                        </div>
-                    </div>
-                </template>
             </div>
 
             <!-- Gantt de l'ouvrage -->
