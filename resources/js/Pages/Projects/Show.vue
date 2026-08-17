@@ -218,6 +218,7 @@ const breadcrumbs = computed(() => ([
                 :alerts="alerts"
                 :team-candidates="team_candidates"
                 :can-manage-team="can_manage_team"
+                :building_works="building_works"
             />
             <TabPhysical v-else-if="activeTab === 'physical'" :project="project" :progresses="physical_progresses" :building_works="building_works" />
             <TabFinancial v-else-if="activeTab === 'financial'" :project="project" :progresses="financial_progresses" :kpis="kpis" :building_works="building_works" :payments="payments" />

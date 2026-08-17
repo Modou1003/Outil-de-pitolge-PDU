@@ -55,6 +55,7 @@ class AlerteService
         if ($this->detectCostDrift($project)) $active[] = 'cost_drift';
         if ($this->detectAmendmentsExcess($project)) $active[] = 'amendments_excess';
         if ($this->detectPaymentPending($project)) $active[] = 'payment_pending';
+        if ($this->detectWorkStartDelay($project)) $active[] = 'work_start_delay';
 
         foreach ($active as $type) {
             if ($this->upsertOpen($project, $type)) {
@@ -154,6 +155,7 @@ class AlerteService
             'cost_drift' => $this->costDriftPayload($project),
             'amendments_excess' => $this->amendmentsExcessPayload($project),
             'payment_pending' => $this->paymentPendingPayload($project),
+            'work_start_delay' => $this->workStartDelayPayload($project),
             'physical_financial_gap' => $this->physicalFinancialPayload($project),
             'forecast_delay' => $this->forecastDelayPayload($project),
             'milestone_missed' => [
@@ -458,6 +460,57 @@ class AlerteService
                 'count' => $pending->count(),
                 'oldest_days' => $days,
                 'threshold' => $this->seuils->days('payment_pending_days'),
+            ],
+        ];
+    }
+
+    /**
+     * Ouvrages dont la date de démarrage contractuelle est dépassée sans qu'un
+     * début de travaux ait été constaté, au-delà de la tolérance admise.
+     */
+    protected function lateStartingWorks(PduProject $project)
+    {
+        $tolerance = $this->seuils->days('work_start_delay_days');
+
+        return $project->buildingWorks->filter(
+            fn ($work) => $work->is_start_overdue && $work->start_delay_days > $tolerance,
+        );
+    }
+
+    protected function detectWorkStartDelay(PduProject $project): bool
+    {
+        if (in_array($project->status, ['draft', 'completed', 'cancelled', 'archived'], true)) {
+            return false;
+        }
+
+        return $this->lateStartingWorks($project)->isNotEmpty();
+    }
+
+    protected function workStartDelayPayload(PduProject $project): array
+    {
+        $works = $this->lateStartingWorks($project);
+        $pire = $works->max(fn ($w) => $w->start_delay_days) ?? 0;
+
+        // Un démarrage différé de plus d'un trimestre n'est plus un aléa.
+        $critical = $pire > 90;
+
+        return [
+            'severity' => $critical ? 'critical' : 'warning',
+            'title' => $critical ? 'Démarrage d’ouvrage fortement différé' : 'Démarrage d’ouvrage en retard',
+            'message' => sprintf(
+                "%d ouvrage(s) n'ont pas démarré à la date prévue au planning, le plus ancien depuis %d jours.",
+                $works->count(),
+                $pire,
+            ),
+            'context' => [
+                'count' => $works->count(),
+                'worst_delay_days' => $pire,
+                'works' => $works->map(fn ($w) => [
+                    'code' => $w->code,
+                    'name' => $w->name,
+                    'planned_start' => $w->planned_start_date?->toDateString(),
+                    'delay_days' => $w->start_delay_days,
+                ])->values()->all(),
             ],
         ];
     }

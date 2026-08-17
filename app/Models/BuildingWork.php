@@ -15,12 +15,54 @@ class BuildingWork extends Model
         'description',
         'status',
         'weight_percentage',
+        'duration_days',
+        'planned_start_date',
+        'planned_end_date',
+        'actual_start_date',
+        'actual_end_date',
         'sort_order',
     ];
 
     protected $casts = [
         'weight_percentage' => 'decimal:2',
+        'duration_days' => 'integer',
+        'planned_start_date' => 'date',
+        'planned_end_date' => 'date',
+        'actual_start_date' => 'date',
+        'actual_end_date' => 'date',
     ];
+
+    /**
+     * Retard au démarrage, en jours : écart entre le début réellement constaté
+     * et le début prévu au planning contractuel.
+     *
+     * Tant que l'ouvrage n'a pas démarré, le retard se mesure par rapport à
+     * aujourd'hui : un ouvrage qui devait commencer il y a six mois accuse
+     * six mois de retard, et non zéro faute de date de début.
+     * Null si le planning ne prévoit pas de date de début.
+     */
+    public function getStartDelayDaysAttribute(): ?int
+    {
+        if (! $this->planned_start_date) {
+            return null;
+        }
+
+        $reference = $this->actual_start_date ?: now();
+        $delay = (int) $this->planned_start_date->copy()->startOfDay()
+            ->diffInDays($reference->copy()->startOfDay(), false);
+
+        // Un démarrage anticipé n'est pas un retard.
+        return max(0, $delay);
+    }
+
+    /** L'ouvrage a-t-il dépassé sa date de démarrage sans avoir commencé ? */
+    public function getIsStartOverdueAttribute(): bool
+    {
+        return $this->planned_start_date
+            && ! $this->actual_start_date
+            && $this->planned_start_date->isPast()
+            && ! in_array($this->status, ['completed', 'cancelled'], true);
+    }
 
     public const STATUSES = [
         'not_started' => 'Non commencé',

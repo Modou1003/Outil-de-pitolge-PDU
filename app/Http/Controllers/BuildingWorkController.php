@@ -96,6 +96,14 @@ class BuildingWorkController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
             'status' => ['nullable', 'in:not_started,in_progress,on_hold,completed,cancelled'],
+            // Calendrier contractuel de l'ouvrage. Le début réel est souvent
+            // connu au mois près dans les rapports de chantier : on accepte
+            // une date quelconque, la saisie retenant le premier du mois.
+            'duration_days' => ['nullable', 'integer', 'min:1', 'max:5000'],
+            'planned_start_date' => ['nullable', 'date'],
+            'planned_end_date' => ['nullable', 'date', 'after_or_equal:planned_start_date'],
+            'actual_start_date' => ['nullable', 'date'],
+            'actual_end_date' => ['nullable', 'date', 'after_or_equal:actual_start_date'],
             'weight_percentage' => [
                 'nullable', 'numeric', 'min:0', 'max:100',
                 // La somme des pondérations des ouvrages ne peut dépasser 100 %.

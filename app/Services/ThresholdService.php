@@ -92,6 +92,12 @@ class ThresholdService
             'group' => 'Alertes — fiabilité',
             'default' => 60, 'min' => 14, 'max' => 365, 'step' => 1, 'unit' => 'jours',
         ],
+        'work_start_delay_days' => [
+            'label' => 'Démarrage d’ouvrage en retard',
+            'help' => "Tolérance au-delà de la date de démarrage prévue d'un ouvrage avant signalement.",
+            'group' => 'Alertes — délai',
+            'default' => 15, 'min' => 0, 'max' => 180, 'step' => 1, 'unit' => 'jours',
+        ],
         'payment_pending_days' => [
             'label' => 'Décompte en attente',
             'help' => "Délai au-delà duquel un décompte non réglé est signalé.",

@@ -224,6 +224,14 @@ class ProjectController extends Controller
             'status' => $w->status,
             'status_label' => BuildingWork::STATUSES[$w->status] ?? $w->status,
             'weight_percentage' => (float) $w->weight_percentage,
+            // Calendrier contractuel de l'ouvrage et retard au démarrage.
+            'duration_days' => $w->duration_days,
+            'planned_start_date' => $w->planned_start_date?->toDateString(),
+            'planned_end_date' => $w->planned_end_date?->toDateString(),
+            'actual_start_date' => $w->actual_start_date?->toDateString(),
+            'actual_end_date' => $w->actual_end_date?->toDateString(),
+            'start_delay_days' => $w->start_delay_days,
+            'is_start_overdue' => $w->is_start_overdue,
             'sort_order' => (int) $w->sort_order,
         ];
     }

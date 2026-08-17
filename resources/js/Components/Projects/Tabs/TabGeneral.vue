@@ -8,6 +8,7 @@ const props = defineProps({
     alerts: { type: Array, default: () => [] },
     teamCandidates: { type: Array, default: () => [] },
     canManageTeam: { type: Boolean, default: false },
+    building_works: { type: Array, default: () => [] },
 });
 
 const formatMoney = (v) => new Intl.NumberFormat('fr-FR').format(v ?? 0);
@@ -302,6 +303,13 @@ const saveExtendedTeam = () => {
         onFinish: () => { extendedTeam.processing = false; },
     });
 };
+
+// Synthèse des retards de démarrage (consolidée au niveau projet)
+const buildingWorks = computed(() => Array.isArray(props.building_works) ? props.building_works : []);
+const delayedWorks = computed(() => buildingWorks.value.filter((w) => Number(w.start_delay_days) > 0));
+const delayedCount = computed(() => delayedWorks.value.length);
+const maxStartDelay = computed(() => delayedWorks.value.length ? Math.max(...delayedWorks.value.map((w) => Number(w.start_delay_days || 0))) : 0);
+const totalStartDelay = computed(() => delayedWorks.value.reduce((s, w) => s + Number(w.start_delay_days || 0), 0));
 </script>
 
 <template>
@@ -361,6 +369,22 @@ const saveExtendedTeam = () => {
                 </div>
                 <div class="mt-3 h-2 overflow-hidden rounded-full bg-gray-200">
                     <div class="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all" :style="{ width: `${Math.min(100, project.budget_execution_rate || 0)}%` }" />
+                </div>
+                <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="rounded-lg bg-white p-3 shadow-sm ring-1 ring-gray-200">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500">Retards de démarrage (ouvrages)</p>
+                        <p class="mt-1 text-2xl font-bold text-gray-900">{{ delayedCount }} en retard</p>
+                        <p class="text-xs text-gray-500 mt-1">Jours total : {{ totalStartDelay }} · Max : {{ maxStartDelay }} j</p>
+                    </div>
+                    <div class="rounded-lg bg-amber-50 p-3 shadow-sm ring-1 ring-amber-200">
+                        <p class="text-[11px] uppercase tracking-wide text-amber-700">Retard moyen</p>
+                        <p class="mt-1 text-2xl font-bold text-amber-900">{{ delayedCount ? Math.round(totalStartDelay / delayedCount) : 0 }} j</p>
+                        <p class="text-xs text-amber-700 mt-1">Sur {{ buildingWorks.length }} ouvrage(s) total</p>
+                    </div>
+                    <div class="rounded-lg bg-white p-3 shadow-sm ring-1 ring-gray-200">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500">Détail</p>
+                        <p class="mt-1 text-sm text-gray-700">Consultez l'onglet « Planning » pour le tableau contractuel complet.</p>
+                    </div>
                 </div>
             </div>
 

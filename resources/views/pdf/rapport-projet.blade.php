@@ -259,6 +259,45 @@
     @endif
 @endif
 
+@if($show('planning_contractuel') && $project->buildingWorks->whereNotNull('planned_start_date')->count())
+    <h2>Planning contractuel par ouvrage</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Ouvrage</th>
+                <th class="right" style="width: 10%;">Durée</th>
+                <th class="center" style="width: 14%;">Début prévu</th>
+                <th class="center" style="width: 14%;">Fin prévue</th>
+                <th class="center" style="width: 14%;">Début réel</th>
+                <th class="right" style="width: 14%;">Retard démarrage</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($project->buildingWorks as $w)
+                @php
+                    $retard = $w->start_delay_days;
+                    $classeRetard = $retard === null ? 'muted' : ($retard > 90 ? 'bad' : ($retard > 15 ? 'warn' : 'ok'));
+                @endphp
+                <tr>
+                    <td><strong>{{ $w->code }}</strong> — {{ $w->name }}</td>
+                    <td class="right">{{ $w->duration_days ? $w->duration_days . ' j' : '—' }}</td>
+                    <td class="center">{{ $w->planned_start_date?->format('d/m/Y') ?? '—' }}</td>
+                    <td class="center">{{ $w->planned_end_date?->format('d/m/Y') ?? '—' }}</td>
+                    <td class="center">
+                        {{ $w->actual_start_date?->format('d/m/Y') ?? ($w->is_start_overdue ? 'non démarré' : '—') }}
+                    </td>
+                    <td class="right {{ $classeRetard }}">
+                        {{ $retard === null ? '—' : ($retard > 0 ? '+' . $retard . ' j' : 'à l’heure') }}
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+    <p class="muted" style="margin-top: 4px; font-size: 8px;">
+        Un ouvrage non démarré voit son retard mesuré par rapport à la date du jour.
+    </p>
+@endif
+
 @if($show('ouvrages'))
     <h2>Ouvrages ({{ $project->buildingWorks->count() }})</h2>
     @if($project->buildingWorks->count())

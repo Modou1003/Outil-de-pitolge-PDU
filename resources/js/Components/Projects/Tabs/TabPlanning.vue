@@ -179,6 +179,42 @@ const monthsAxis = computed(() => {
                 </button>
             </div>
 
+            <!-- Tableau contractuel par ouvrage -->
+            <div v-if="building_works.length" class="border-b border-gray-100 p-4">
+                <h4 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700">Tableau contractuel</h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-100 text-sm">
+                        <thead class="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
+                            <tr>
+                                <th class="px-3 py-2">Ouvrage</th>
+                                <th class="px-3 py-2">Durée (j)</th>
+                                <th class="px-3 py-2">Début prévu</th>
+                                <th class="px-3 py-2">Fin prévue</th>
+                                <th class="px-3 py-2">Début réel</th>
+                                <th class="px-3 py-2">Fin réelle</th>
+                                <th class="px-3 py-2">Retard (j)</th>
+                                <th class="px-3 py-2">Alerte</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                            <tr v-for="w in building_works" :key="w.id" class="hover:bg-gray-50">
+                                <td class="px-3 py-2 font-medium text-gray-900">{{ w.name }}</td>
+                                <td class="px-3 py-2">{{ w.duration_days ?? '—' }}</td>
+                                <td class="px-3 py-2">{{ formatDate(w.planned_start_date) }}</td>
+                                <td class="px-3 py-2">{{ formatDate(w.planned_end_date) }}</td>
+                                <td class="px-3 py-2">{{ formatDate(w.actual_start_date) }}</td>
+                                <td class="px-3 py-2">{{ formatDate(w.actual_end_date) }}</td>
+                                <td class="px-3 py-2">{{ w.start_delay_days ?? 0 }}</td>
+                                <td class="px-3 py-2">
+                                    <span v-if="w.is_start_overdue" class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">Démarrage en retard</span>
+                                    <span v-else class="text-xs text-gray-500">—</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div v-if="!building_works.length" class="px-5 py-16 text-center text-sm text-gray-500">
                 Aucun ouvrage pour ce projet. Cliquez sur « Ajouter un ouvrage » pour commencer.
             </div>
@@ -195,7 +231,17 @@ const monthsAxis = computed(() => {
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3m4-14h2m-2 4h2m6-4h2m-2 4h2" /></svg>
                         </div>
                         <div class="min-w-0">
-                            <p class="truncate font-semibold text-gray-900">{{ w.name }}</p>
+                            <p class="truncate font-semibold text-gray-900">
+                                {{ w.name }}
+                                <span
+                                    v-if="w.start_delay_days > 15"
+                                    class="ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                                    :class="w.start_delay_days > 90 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'"
+                                    :title="w.is_start_overdue ? 'Ouvrage non démarré à ce jour' : 'Écart entre le début prévu et le début réel'"
+                                >
+                                    +{{ w.start_delay_days }} j au démarrage
+                                </span>
+                            </p>
                             <p class="truncate text-xs text-gray-500">
                                 <span class="font-mono">{{ w.code }}</span>
                                 · {{ lotsCount(w) }} lot{{ lotsCount(w) > 1 ? 's' : '' }}

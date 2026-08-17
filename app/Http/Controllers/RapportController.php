@@ -29,6 +29,7 @@ class RapportController extends Controller
         'indicateurs' => 'Indicateurs clés',
         'avenants' => 'Avenants au marché',
         'courbes' => "Courbes d'avancement",
+        'planning_contractuel' => 'Planning contractuel par ouvrage',
         'financier' => 'Situation financière et décomptes',
         'ouvrages' => 'Ouvrages',
         'planning' => 'Planning et lots',

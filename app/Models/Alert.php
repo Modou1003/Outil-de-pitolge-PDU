@@ -43,6 +43,7 @@ class Alert extends Model
         'cost_drift' => 'Dérive de coût',
         'amendments_excess' => 'Avenants cumulés excessifs',
         'payment_pending' => 'Décompte en attente',
+        'work_start_delay' => 'Démarrage d’ouvrage en retard',
     ];
 
     public const SEVERITIES = [

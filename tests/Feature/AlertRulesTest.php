@@ -203,9 +203,9 @@ class AlertRulesTest extends TestCase
 
     public function test_les_trois_types_sont_au_catalogue(): void
     {
-        foreach (['cost_drift', 'amendments_excess', 'payment_pending'] as $type) {
+        foreach (['cost_drift', 'amendments_excess', 'payment_pending', 'work_start_delay'] as $type) {
             $this->assertArrayHasKey($type, Alert::TYPES);
         }
-        $this->assertCount(10, Alert::TYPES, 'Le module compte désormais dix règles de détection.');
+        $this->assertCount(11, Alert::TYPES, 'Le module compte désormais onze règles de détection.');
     }
 }
