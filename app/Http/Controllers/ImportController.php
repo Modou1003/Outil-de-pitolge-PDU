@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PduProject;
 use App\Services\Import\BaseDeCalculImporter;
 use App\Services\Import\BaseDeCalculReader;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -27,8 +28,14 @@ class ImportController extends Controller
         protected BaseDeCalculImporter $importeur,
     ) {}
 
-    /** Première étape : lecture du classeur et restitution de son contenu. */
-    public function preview(Request $request, PduProject $project)
+    /**
+     * Première étape : lecture du classeur et restitution de son contenu.
+     *
+     * La réponse est rendue directement plutôt que par une redirection : cette
+     * lecture n'écrit rien, et faire transiter son compte rendu par la session
+     * l'exposerait à se perdre entre deux requêtes.
+     */
+    public function preview(Request $request, PduProject $project): JsonResponse
     {
         $this->autoriser($request);
 
@@ -52,13 +59,13 @@ class ImportController extends Controller
             Storage::delete($chemin);
             Log::error('Lecture de la base de calcul impossible', ['exception' => $e]);
 
-            return back()->withErrors(['fichier' => $this->message($e)]);
+            return response()->json(['message' => $this->message($e)], 422);
         }
 
-        return back()->with([
-            'import_apercu' => array_merge($this->importeur->preview($project, $lecture), [
+        return response()->json([
+            'apercu' => array_merge($this->importeur->preview($project, $lecture), [
                 'fichier' => $chemin,
-                'nom_fichier' => $request->file('fichier')->getClientOriginalName(),
+                'nom_fichier' => $depose->getClientOriginalName(),
             ]),
         ]);
     }

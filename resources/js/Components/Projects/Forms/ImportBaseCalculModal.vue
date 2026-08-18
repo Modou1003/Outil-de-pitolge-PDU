@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { router, useForm, usePage } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
 
 const props = defineProps({
@@ -9,46 +9,52 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close']);
-const page = usePage();
 
-const depot = useForm({ fichier: null });
+// La lecture est une simple interrogation du serveur : elle ne passe pas par
+// une visite Inertia, dont la redirection ferait transiter le compte rendu par
+// la session.
+const fichier = ref(null);
+const lecture = ref(false);
 const validation = useForm({ fichier: '' });
 
 // Compte rendu de lecture renvoyé par le serveur : rien n'est encore écrit.
 const apercu = ref(null);
 const incident = ref(null);
-const erreur = computed(() => depot.errors.fichier || validation.errors.fichier || incident.value);
+const erreur = computed(() => incident.value || validation.errors.fichier);
 
 watch(() => props.show, (v) => {
     if (v) {
         apercu.value = null;
         incident.value = null;
-        depot.reset();
-        depot.clearErrors();
+        fichier.value = null;
+        lecture.value = false;
         validation.clearErrors();
     }
 });
 
-const lire = () => {
-    if (!depot.fichier) return;
+const lire = async () => {
+    if (!fichier.value || lecture.value) return;
     incident.value = null;
-    depot.post(route('projects.import.preview', props.project.id), {
-        preserveScroll: true,
-        preserveState: true,
-        onSuccess: () => {
-            apercu.value = page.props.flash?.import_apercu ?? null;
-            // Une lecture réussie qui ne rapporte rien laisserait l'écran
-            // inchangé : mieux vaut le dire que de laisser l'utilisateur cliquer.
-            if (!apercu.value) {
-                incident.value = "Le fichier a été transmis mais son contenu n'est pas revenu jusqu'à l'écran. Signalez l'incident : la cause est consignée dans le journal du serveur.";
-            }
-        },
-        onError: (errors) => {
-            if (!errors.fichier) {
-                incident.value = "La lecture du fichier a échoué. La cause est consignée dans le journal du serveur.";
-            }
-        },
-    });
+    lecture.value = true;
+
+    const donnees = new FormData();
+    donnees.append('fichier', fichier.value);
+
+    try {
+        const reponse = await window.axios.post(
+            route('projects.import.preview', props.project.id),
+            donnees,
+            { headers: { 'Content-Type': 'multipart/form-data' } },
+        );
+        apercu.value = reponse.data.apercu;
+    } catch (e) {
+        const corps = e.response?.data ?? {};
+        incident.value = corps.errors?.fichier?.[0]
+            ?? corps.message
+            ?? 'La lecture du fichier a échoué. La cause est consignée dans le journal du serveur.';
+    } finally {
+        lecture.value = false;
+    }
 };
 
 const confirmer = () => {
@@ -104,7 +110,7 @@ const rienANouveau = computed(() => apercu.value
                     type="file"
                     accept=".xlsx,.xlsm,.xls"
                     class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-indigo-700"
-                    @change="depot.fichier = $event.target.files[0]"
+                    @change="fichier = $event.target.files[0]"
                 />
                 <p v-if="erreur" class="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{{ erreur }}</p>
                 <p class="mt-2 text-xs text-gray-500">
@@ -118,11 +124,11 @@ const rienANouveau = computed(() => apercu.value
                     </button>
                     <button
                         type="button"
-                        :disabled="!depot.fichier || depot.processing"
+                        :disabled="!fichier || lecture"
                         class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                         @click="lire"
                     >
-                        {{ depot.processing ? 'Lecture…' : 'Lire le fichier' }}
+                        {{ lecture ? 'Lecture…' : 'Lire le fichier' }}
                     </button>
                 </div>
             </div>

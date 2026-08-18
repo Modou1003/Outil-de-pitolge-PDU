@@ -311,6 +311,41 @@ class BaseDeCalculImportTest extends TestCase
 
     // ────────────────────────────────────────────────────────────── accès
 
+    /**
+     * Le compte rendu de lecture est rendu directement, sans transiter par la
+     * session : c'est ce qui garantit qu'il parvient à l'écran.
+     */
+    public function test_la_lecture_repond_directement_avec_son_compte_rendu(): void
+    {
+        $user = $this->utilisateur();
+        $projet = $this->projet();
+
+        $reponse = $this->actingAs($user)->post(route('projects.import.preview', $projet), [
+            'fichier' => new \Illuminate\Http\UploadedFile($this->classeur(), 'base.xlsx', null, null, true),
+        ]);
+
+        $reponse->assertOk()
+            ->assertJsonPath('apercu.arrete_au', '2026-06')
+            ->assertJsonPath('apercu.ouvrages_nouveaux', 30)
+            ->assertJsonCount(20, 'apercu.periodes_nouvelles');
+
+        $this->assertNotEmpty($reponse->json('apercu.fichier'), 'Le fichier déposé doit être conservé pour la confirmation.');
+        $this->assertSame(0, PhysicalProgress::count(), 'La lecture ne doit rien écrire.');
+    }
+
+    public function test_un_fichier_illisible_est_signale_a_lutilisateur(): void
+    {
+        $user = $this->utilisateur();
+        $projet = $this->projet();
+
+        $reponse = $this->actingAs($user)->post(route('projects.import.preview', $projet), [
+            'fichier' => \Illuminate\Http\UploadedFile::fake()->create('facture.xlsx', 12),
+        ]);
+
+        $reponse->assertStatus(422);
+        $this->assertNotEmpty($reponse->json('message') ?? $reponse->json('errors.fichier'));
+    }
+
     public function test_limport_est_refuse_sans_la_permission_de_saisie(): void
     {
         $user = $this->utilisateur('comite_pilotage');

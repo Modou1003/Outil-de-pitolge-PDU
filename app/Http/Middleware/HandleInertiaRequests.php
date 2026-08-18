@@ -55,8 +55,6 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
                 'info' => fn () => $request->session()->get('info'),
-                // Compte rendu de lecture d'une base de calcul, avant écriture.
-                'import_apercu' => fn () => $request->session()->get('import_apercu'),
             ],
         ];
     }
