@@ -1,10 +1,12 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
+import KpiCards from '@/Components/Dashboard/KpiCards.vue';
 import ProjectsTable from '@/Components/Dashboard/ProjectsTable.vue';
 
 defineProps({
     projects: { type: Array, required: true },
+    kpis: { type: Object, default: null },
     filters: { type: Object, required: true },
 });
 </script>
@@ -26,6 +28,7 @@ defineProps({
 
         <div class="py-8">
             <div class="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
+                <KpiCards v-if="kpis" :kpis="kpis" />
                 <ProjectsTable :projects="projects" :filters="filters" />
             </div>
         </div>

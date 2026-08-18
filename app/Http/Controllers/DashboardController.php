@@ -25,9 +25,38 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'projects' => $this->projectsList($projects),
+            'kpis' => $this->kpis($projects),
             'filters' => $this->filters(),
             'permissions' => auth()->user()->getAllPermissions()->pluck('name')->toArray(),
         ]);
+    }
+
+    /**
+     * Synthèse du portefeuille présentée en tête du tableau de bord.
+     *
+     * L'avancement moyen est pondéré par le montant des marchés : un projet de
+     * soixante-huit milliards ne saurait peser autant qu'une opération de
+     * quelques centaines de millions dans l'appréciation d'ensemble.
+     */
+    private function kpis($projects): array
+    {
+        $enveloppes = $projects->sum(fn (PduProject $p) => (float) $p->budget_revised);
+        $avancement = $enveloppes > 0
+            ? $projects->sum(fn (PduProject $p) => (float) $p->progress_percentage * (float) $p->budget_revised) / $enveloppes
+            : (float) $projects->avg('progress_percentage');
+
+        $engage = (float) $projects->sum(fn (PduProject $p) => (float) $p->budget_revised);
+        $decaisse = (float) $projects->sum('budget_spent');
+
+        return [
+            'total_projects' => $projects->count(),
+            'average_progress' => round($avancement, 1),
+            'budget_allocated_total' => $engage,
+            'budget_spent_total' => $decaisse,
+            'budget_execution_rate' => $engage > 0 ? round($decaisse / $engage * 100, 1) : null,
+            'active_alerts' => $projects->sum(fn (PduProject $p) => $p->alerts->count()),
+            'status_breakdown' => $projects->countBy('status')->all(),
+        ];
     }
 
     private function projectsList($projects): array
