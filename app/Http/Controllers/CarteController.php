@@ -9,6 +9,9 @@ use Inertia\Response;
 
 class CarteController extends Controller
 {
+    /** Projets dont l'état renseigne réellement sur la vie d'un site. */
+    private const STATUTS_SUIVIS = ['approved', 'in_progress', 'on_hold', 'completed'];
+
     public function index(): Response
     {
         $universities = University::active()
@@ -21,7 +24,10 @@ class CarteController extends Controller
             ->get(['id', 'name', 'acronym', 'location', 'region', 'latitude', 'longitude']);
 
         $sites = $universities->map(function (University $u) {
-            $projects = $u->pduProjects;
+            // Un projet resté au brouillon ou abandonné ne décrit pas l'état du
+            // site : il fausserait l'avancement affiché au marqueur. Seules les
+            // opérations engagées ou achevées sont retenues.
+            $projects = $u->pduProjects->whereIn('status', self::STATUTS_SUIVIS)->values();
             $activeCount = $projects->whereIn('status', ['approved', 'in_progress'])->count();
             $completedCount = $projects->where('status', 'completed')->count();
             $avgProgress = $projects->count()
@@ -56,7 +62,7 @@ class CarteController extends Controller
             'sites' => $sites,
             'stats' => [
                 'total_sites' => count($sites),
-                'total_projects' => PduProject::count(),
+                'total_projects' => PduProject::whereIn('status', self::STATUTS_SUIVIS)->count(),
                 'active_projects' => PduProject::whereIn('status', ['approved', 'in_progress'])->count(),
                 'completed_projects' => PduProject::where('status', 'completed')->count(),
             ],
