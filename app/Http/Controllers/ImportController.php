@@ -7,8 +7,10 @@ use App\Services\Import\BaseDeCalculImporter;
 use App\Services\Import\BaseDeCalculReader;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Throwable;
 
 /**
  * Import de la base de calcul d'avancement établie par la mission de contrôle.
@@ -41,10 +43,13 @@ class ImportController extends Controller
 
         try {
             $lecture = $this->lecteur->read(Storage::path($chemin));
-        } catch (RuntimeException $e) {
+        } catch (Throwable $e) {
+            // Toute défaillance est rendue lisible : une lecture qui échoue en
+            // silence laisserait l'utilisateur devant un écran inchangé.
             Storage::delete($chemin);
+            Log::error('Lecture de la base de calcul impossible', ['exception' => $e]);
 
-            return back()->withErrors(['fichier' => $e->getMessage()]);
+            return back()->withErrors(['fichier' => $this->message($e)]);
         }
 
         return back()->with([
@@ -70,8 +75,10 @@ class ImportController extends Controller
 
         try {
             $lecture = $this->lecteur->read(Storage::path($data['fichier']));
-        } catch (RuntimeException $e) {
-            return back()->withErrors(['fichier' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            Log::error('Import de la base de calcul impossible', ['exception' => $e]);
+
+            return back()->withErrors(['fichier' => $this->message($e)]);
         } finally {
             Storage::delete($data['fichier']);
         }
@@ -93,6 +100,24 @@ class ImportController extends Controller
             $compte['decomptes'],
             number_format($compte['avancement'], 2, ',', ' '),
         ));
+    }
+
+    /**
+     * Message destiné à l'utilisateur. Les défaillances techniques sont
+     * traduites plutôt que renvoyées telles quelles, sauf celles que le lecteur
+     * a lui-même formulées à son intention.
+     */
+    protected function message(Throwable $e): string
+    {
+        if ($e instanceof RuntimeException) {
+            return $e->getMessage();
+        }
+
+        if (! class_exists(\ZipArchive::class)) {
+            return "La lecture de classeurs Excel est indisponible sur ce serveur : l'extension PHP « zip » n'y est pas activée.";
+        }
+
+        return 'Le fichier n’a pas pu être lu. Vérifiez qu’il s’agit bien de la base de calcul d’avancement, au format Excel, et qu’il n’est pas protégé par un mot de passe.';
     }
 
     protected function autoriser(Request $request): void
