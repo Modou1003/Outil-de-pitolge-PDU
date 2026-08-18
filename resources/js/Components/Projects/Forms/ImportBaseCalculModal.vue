@@ -16,11 +16,13 @@ const validation = useForm({ fichier: '' });
 
 // Compte rendu de lecture renvoyé par le serveur : rien n'est encore écrit.
 const apercu = ref(null);
-const erreur = computed(() => depot.errors.fichier || validation.errors.fichier);
+const incident = ref(null);
+const erreur = computed(() => depot.errors.fichier || validation.errors.fichier || incident.value);
 
 watch(() => props.show, (v) => {
     if (v) {
         apercu.value = null;
+        incident.value = null;
         depot.reset();
         depot.clearErrors();
         validation.clearErrors();
@@ -29,11 +31,22 @@ watch(() => props.show, (v) => {
 
 const lire = () => {
     if (!depot.fichier) return;
+    incident.value = null;
     depot.post(route('projects.import.preview', props.project.id), {
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => {
             apercu.value = page.props.flash?.import_apercu ?? null;
+            // Une lecture réussie qui ne rapporte rien laisserait l'écran
+            // inchangé : mieux vaut le dire que de laisser l'utilisateur cliquer.
+            if (!apercu.value) {
+                incident.value = "Le fichier a été transmis mais son contenu n'est pas revenu jusqu'à l'écran. Signalez l'incident : la cause est consignée dans le journal du serveur.";
+            }
+        },
+        onError: (errors) => {
+            if (!errors.fichier) {
+                incident.value = "La lecture du fichier a échoué. La cause est consignée dans le journal du serveur.";
+            }
         },
     });
 };

@@ -39,10 +39,13 @@ class ImportController extends Controller
             'fichier.max' => 'Le fichier ne doit pas dépasser 20 Mo.',
         ]);
 
-        $chemin = $request->file('fichier')->store('imports');
+        // Le fichier fraîchement déposé est lu à son emplacement temporaire,
+        // toujours local ; il n'est conservé que pour l'étape de confirmation.
+        $depose = $request->file('fichier');
+        $chemin = $depose->store('imports');
 
         try {
-            $lecture = $this->lecteur->read(Storage::path($chemin));
+            $lecture = $this->lecteur->read($depose->getRealPath());
         } catch (Throwable $e) {
             // Toute défaillance est rendue lisible : une lecture qui échoue en
             // silence laisserait l'utilisateur devant un écran inchangé.
@@ -73,13 +76,23 @@ class ImportController extends Controller
             return back()->withErrors(['fichier' => 'Le fichier déposé n’est plus disponible : reprenez l’import.']);
         }
 
+        $local = null;
+
         try {
-            $lecture = $this->lecteur->read(Storage::path($data['fichier']));
+            // Le disque configuré n'est pas nécessairement local : le classeur
+            // est rapatrié dans un fichier temporaire avant d'être lu.
+            $local = tempnam(sys_get_temp_dir(), 'bdc') . '.xlsx';
+            file_put_contents($local, Storage::get($data['fichier']));
+
+            $lecture = $this->lecteur->read($local);
         } catch (Throwable $e) {
             Log::error('Import de la base de calcul impossible', ['exception' => $e]);
 
             return back()->withErrors(['fichier' => $this->message($e)]);
         } finally {
+            if ($local && is_file($local)) {
+                @unlink($local);
+            }
             Storage::delete($data['fichier']);
         }
 
