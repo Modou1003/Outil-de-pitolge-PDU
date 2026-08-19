@@ -13,6 +13,7 @@ class ProjectPayment extends Model
         'period',
         'payment_date',
         'gross_amount',
+        'is_advance',
         'startup_advance_recovery',
         'supply_advance_recovery',
         'net_paid',
@@ -28,6 +29,7 @@ class ProjectPayment extends Model
         'supply_advance_recovery' => 'decimal:2',
         'net_paid' => 'decimal:2',
         'is_paid' => 'boolean',
+        'is_advance' => 'boolean',
     ];
 
     public function project(): BelongsTo

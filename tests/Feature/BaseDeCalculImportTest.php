@@ -258,14 +258,110 @@ class BaseDeCalculImportTest extends TestCase
             'La valeur planifiée est la somme, sur les ouvrages, de leur enveloppe engagée par le planning.');
         $this->assertEqualsWithDelta(19_231_000_000, $ev, $marche * 0.01,
             'La valeur acquise est la somme des enveloppes réellement acquises.');
-        $this->assertEqualsWithDelta(19_010_276_117, $ac, 1_000,
-            'Le coût réel doit correspondre aux travaux facturés par l’entreprise.');
+        $this->assertEqualsWithDelta(19_101_798_996, $ac, 1_000,
+            'Le coût réel comprend les travaux facturés et la provision pour révision de prix.');
 
         // Les indices de performance en découlent.
         $this->assertEqualsWithDelta(0.329, $ev / $pv, 0.01);
         // L'entreprise facture la valeur des travaux exécutés : le coût réel
         // suit la valeur acquise, d'où un indice de coût voisin de l'unité.
-        $this->assertEqualsWithDelta(1.012, $ev / $ac, 0.02);
+        $this->assertEqualsWithDelta(1.007, $ev / $ac, 0.02);
+    }
+
+    /**
+     * Valeurs de référence du chantier d'Odienné au 30 juin 2026, établies à la
+     * main sur la base de calcul de la mission de contrôle et confrontées au
+     * rapport mensuel n° 14.
+     *
+     * Convention de périmètre retenue : la valeur acquise procède de
+     * l'avancement physique appliqué au montant contractuel de chaque ouvrage
+     * (colonne « MONTANTS HD CONTRAT »), à l'exclusion des postes hors suivi
+     * physique. Le coût réel comprend en revanche la provision pour révision de
+     * prix, facturée au marché et répartie sur les ouvrages au prorata de leur
+     * facturation.
+     */
+    public function test_les_valeurs_de_reference_dodienne_sont_retrouvees(): void
+    {
+        $projet = $this->projet();
+        $lecture = app(BaseDeCalculReader::class)->read($this->classeur());
+        app(BaseDeCalculImporter::class)->import($projet, $lecture, $this->utilisateur(), true);
+        $projet->refresh()->load(['buildingWorks', 'financialProgresses', 'payments']);
+
+        $pv = (float) FinancialProgress::sum('planned_value');
+        $ev = (float) FinancialProgress::sum('earned_value');
+        $ac = (float) FinancialProgress::sum('actual_cost');
+
+        $this->assertEqualsWithDelta(62_779_799_503, $projet->evmBase(), 1_000,
+            'Le budget à l’achèvement du périmètre suivi est la somme des enveloppes d’ouvrages.');
+        $this->assertEqualsWithDelta(58_410_762_839, $pv, 1_000);
+        $this->assertEqualsWithDelta(19_231_299_229, $ev, 1_000);
+        $this->assertEqualsWithDelta(19_101_798_996, $ac, 1_000,
+            'Le coût réel comprend la provision pour révision de prix.');
+
+        $this->assertEqualsWithDelta(1.007, $ev / $ac, 0.002);
+        $this->assertEqualsWithDelta(0.329, $ev / $pv, 0.002);
+    }
+
+    public function test_la_provision_de_revision_de_prix_entre_dans_le_cout_reel(): void
+    {
+        $projet = $this->projet();
+        $lecture = app(BaseDeCalculReader::class)->read($this->classeur());
+
+        $this->assertEqualsWithDelta(91_522_879, $lecture['revision_facturee'], 1,
+            'La provision facturée est lue à part, faute de se rattacher à un ouvrage.');
+
+        app(BaseDeCalculImporter::class)->import($projet, $lecture, $this->utilisateur(), true);
+
+        // Facturation des ouvrages, plus la provision répartie entre eux.
+        $this->assertEqualsWithDelta(
+            19_010_276_117 + 91_522_879,
+            (float) FinancialProgress::sum('actual_cost'),
+            1_000,
+        );
+    }
+
+    /**
+     * L'avance de démarrage est enregistrée comme décompte n° 0 : la compter
+     * une seconde fois au titre des avances accordées gonflerait l'encaissement.
+     */
+    public function test_une_avance_enregistree_comme_decompte_nest_pas_comptee_deux_fois(): void
+    {
+        $projet = $this->projet();
+        $projet->update([
+            'startup_advance_amount' => 13_775_927_213,
+            'supply_advance_amount' => 1_607_160_969,
+        ]);
+
+        $lecture = app(BaseDeCalculReader::class)->read($this->classeur());
+        app(BaseDeCalculImporter::class)->import($projet, $lecture, $this->utilisateur(), true);
+
+        $moa = $projet->fresh()->load(['payments', 'amendments'])->financialMoa();
+
+        $this->assertSame(2, ProjectPayment::where('is_advance', true)->count(),
+            'L’avance de démarrage et l’acompte sur approvisionnement sont reconnus comme avances.');
+        $this->assertEqualsWithDelta(32_727_349_489, $moa['encashed'], 1_000);
+        $this->assertEqualsWithDelta(47.51, $moa['encashment_rate'], 0.02);
+        $this->assertEqualsWithDelta(13_625_550_493, $moa['advance_remaining'], 1_000,
+            'L’exposition porte sur les deux avances, déduction faite des récupérations.');
+    }
+
+    public function test_le_cout_final_estime_se_rapporte_au_perimetre_suivi(): void
+    {
+        $projet = $this->projet();
+        $lecture = app(BaseDeCalculReader::class)->read($this->classeur());
+        app(BaseDeCalculImporter::class)->import($projet, $lecture, $this->utilisateur(), true);
+        $projet->refresh()->load('buildingWorks');
+
+        $base = $projet->evmBase();
+        $this->assertLessThan((float) $projet->budget_revised, $base,
+            'Le périmètre suivi est plus étroit que le marché : il en exclut les postes sans ouvrage.');
+
+        $ev = (float) FinancialProgress::sum('earned_value');
+        $ac = (float) FinancialProgress::sum('actual_cost');
+        $eac = $base / round($ev / $ac, 3);
+
+        $this->assertEqualsWithDelta(62_343_395_733, $eac, 5_000_000);
+        $this->assertEqualsWithDelta($base - $eac, 436_403_770, 5_000_000, 'Écart à l’achèvement (VAC).');
     }
 
     public function test_chaque_ouvrage_recoit_son_enveloppe_contractuelle(): void
@@ -283,8 +379,8 @@ class BaseDeCalculImportTest extends TestCase
         // Montant contractuel de cet ouvrage lu à la feuille de facturation.
         $this->assertEqualsWithDelta(3_444_577_698, (float) $dernier->cumulative_planned_value, 1_000,
             'L’enveloppe de l’ouvrage est son montant contractuel, non sa part du marché au prorata du poids.');
-        $this->assertEqualsWithDelta(1_158_027_741, (float) $dernier->cumulative_actual_cost, 1_000,
-            'Le coût réel de l’ouvrage est le montant qu’il a fait facturer.');
+        $this->assertEqualsWithDelta(1_163_602_938, (float) $dernier->cumulative_actual_cost, 1_000,
+            'Le coût réel de l’ouvrage est ce qu’il a fait facturer, augmenté de sa quote-part de révision.');
     }
 
     public function test_le_cout_reel_nentre_pas_sans_la_competence_financiere(): void
@@ -306,7 +402,7 @@ class BaseDeCalculImportTest extends TestCase
 
         $this->assertSame(0, $compte['periodes_financieres'], 'Aucune période nouvelle à créer.');
         $this->assertGreaterThan(0, $compte['couts_completes'] ?? 0);
-        $this->assertEqualsWithDelta(19_010_276_117, (float) FinancialProgress::sum('actual_cost'), 1_000);
+        $this->assertEqualsWithDelta(19_101_798_996, (float) FinancialProgress::sum('actual_cost'), 1_000);
     }
 
     // ────────────────────────────────────────────────────────────── accès

@@ -193,6 +193,27 @@ class PduProject extends Model
      * Synthèse financière « maître d'ouvrage » : facturation, reste à facturer,
      * décaissement et exposition sur les avances (démarrage + approvisionnement).
      */
+    /**
+     * Budget à l'achèvement du périmètre effectivement suivi.
+     *
+     * Les indices de performance portent sur les seuls ouvrages ; le coût final
+     * estimé doit donc diviser leur enveloppe cumulée, et non le marché entier,
+     * qui comprend des postes hors suivi physique. À défaut de montant
+     * contractuel connu, l'ouvrage est valorisé au prorata de sa pondération.
+     */
+    public function evmBase(): float
+    {
+        $ouvrages = $this->relationLoaded('buildingWorks') ? $this->buildingWorks : $this->buildingWorks()->get();
+        if ($ouvrages->isEmpty()) {
+            return (float) $this->budget_revised;
+        }
+
+        $marche = (float) $this->budget_revised;
+        $base = $ouvrages->sum(fn ($o) => (float) ($o->contract_amount ?: $marche * (float) $o->weight_percentage / 100));
+
+        return $base > 0 ? round($base, 2) : $marche;
+    }
+
     public function financialMoa(): array
     {
         // Le marché de référence est le montant actualisé (initial + avenants).
@@ -207,7 +228,13 @@ class PduProject extends Model
         $advanceRemaining = max(0.0, $advanceGranted - $advanceRecovered);
 
         $rate = fn (float $part) => $budget > 0 ? round($part / $budget * 100, 2) : null;
-        $encashed = $invoiced + $advanceGranted;
+
+        // Une avance versée peut être enregistrée comme décompte — c'est l'usage
+        // du tableau de facturation de la mission de contrôle. Elle figure alors
+        // déjà dans les sommes versées : ne sont ajoutées que les avances qui
+        // n'ont pas donné lieu à un décompte.
+        $advanceInvoiced = (float) $payments->where('is_advance', true)->sum('net_paid');
+        $encashed = $netPaid + max(0.0, $advanceGranted - $advanceInvoiced);
 
         return [
             'budget' => $budget,

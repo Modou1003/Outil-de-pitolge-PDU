@@ -34,6 +34,9 @@ class OdienneProjectSeeder extends Seeder
     /** Avance de démarrage effectivement versée (décompte n° 0). */
     private const AVANCE_DEMARRAGE = 13_775_927_213;
 
+    /** Acompte sur approvisionnement, versé au titre de juin 2026. */
+    private const AVANCE_APPRO = 1_607_160_969;
+
     public function run(): void
     {
         $donnees = $this->donnees();
@@ -102,6 +105,7 @@ class OdienneProjectSeeder extends Seeder
             'type' => 'construction',
             'budget_allocated' => self::MARCHE,
             'startup_advance_amount' => self::AVANCE_DEMARRAGE,
+            'supply_advance_amount' => self::AVANCE_APPRO,
             'currency' => 'XOF',
             'objectives' => [
                 'Ouvrir quatre composantes universitaires pour trois mille étudiants',

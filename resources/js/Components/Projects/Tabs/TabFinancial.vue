@@ -270,6 +270,12 @@ const addWork = () => {
             <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
                     <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-700">EVM cumulée du projet (somme des ouvrages)</h3>
+                    <p v-if="kpis?.evm_base" class="mt-1 text-xs text-gray-500">
+                        Base retenue : {{ Number(kpis.evm_base).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) }} F,
+                        soit l'enveloppe contractuelle des ouvrages suivis. Le marché s'élève à
+                        {{ Number(project.budget_revised ?? project.budget_allocated).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) }} F ;
+                        la différence porte sur des postes hors suivi physique.
+                    </p>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-100 text-sm">

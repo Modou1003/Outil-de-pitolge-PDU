@@ -220,6 +220,14 @@ CORRESPONDANCES_FIN = {
 TOTAUX = ('SOUSTOTAL', 'TOTALGENERAL', 'TOTALVRD')
 
 
+def lire_revision(ws):
+    """Provision pour revision de prix : facturee, rattachee a aucun ouvrage."""
+    for r in ws.iter_rows(min_row=14, max_row=70, max_col=7, values_only=True):
+        if cle(r[2]) == 'PROVISIONPOURREVISIONDEPRIX' and isinstance(r[5], (int, float)):
+            return round(float(r[5]), 2)
+    return 0.0
+
+
 def lire_enveloppes(ws):
     """Montant contractuel et facturation cumulée de chaque ouvrage."""
     env = {}
@@ -312,6 +320,7 @@ def main():
         'ouvrages': ouvrages,
         'decomptes': decomptes,
         'ponderation_totale': total,
+        'revision_facturee': lire_revision(w['détail facturation PFO tache']),
         'anomalies': [],
     }
     with open(sortie, 'w', encoding='utf-8') as f:

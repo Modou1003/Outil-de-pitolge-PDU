@@ -83,6 +83,9 @@ class BaseDeCalculReader
     /** Lignes de synthèse de la feuille de facturation, à ne pas prendre pour des ouvrages. */
     protected const TOTAUX = ['SOUSTOTAL', 'TOTALGENERAL', 'TOTALVRD'];
 
+    /** Poste facturé qui ne se rattache à aucun ouvrage. */
+    protected const REVISION = 'PROVISIONPOURREVISIONDEPRIX';
+
     protected const MOIS = [
         'jan' => 1, 'fev' => 2, 'mar' => 3, 'avr' => 4, 'mai' => 5, 'jui' => 6,
         'jul' => 7, 'aou' => 8, 'sep' => 9, 'oct' => 10, 'nov' => 11, 'dec' => 12,
@@ -148,6 +151,12 @@ class BaseDeCalculReader
             $anomalies[] = 'Aucun décompte n’a pu être lu dans la feuille de facturation.';
         }
 
+        // La révision de prix est facturée au marché sans se rattacher à un
+        // ouvrage : elle est lue à part pour être répartie à l'écriture.
+        $revision = $feuille('détail facturation PFO tache')
+            ? $this->lireRevision($feuille('détail facturation PFO tache'))
+            : 0.0;
+
         $total = round(array_sum(array_column($ouvrages, 'poids')), 2);
         if (abs($total - 100) > 0.5) {
             $anomalies[] = sprintf('La somme des pondérations lues atteint %s %% au lieu de 100 %%.', number_format($total, 2, ',', ' '));
@@ -160,6 +169,7 @@ class BaseDeCalculReader
             'ouvrages' => $ouvrages,
             'decomptes' => $decomptes,
             'ponderation_totale' => $total,
+            'revision_facturee' => $revision,
             'anomalies' => $anomalies,
         ];
     }
@@ -418,6 +428,18 @@ class BaseDeCalculReader
         }
 
         return $enveloppes;
+    }
+
+    /** Montant facturé au titre de la provision pour révision de prix. */
+    protected function lireRevision(Worksheet $ws): float
+    {
+        foreach ($this->grille($ws) as $ligne) {
+            if ($this->cle($ligne[2] ?? null) === self::REVISION && is_numeric($ligne[5] ?? null)) {
+                return round((float) $ligne[5], 2);
+            }
+        }
+
+        return 0.0;
     }
 
     /** @return array{montant: float, facture: float}|null */

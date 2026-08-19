@@ -195,6 +195,9 @@ class BaseDeCalculImporter
 
             $attributs = [
                 'weight_percentage' => $d['poids'],
+                // Enveloppe contractuelle : base de la valeur acquise, et
+                // budget à l'achèvement du périmètre suivi.
+                'contract_amount' => ($d['enveloppe'] ?? null) ?: null,
                 'duration_days' => $d['duree_jours'] ?? null,
                 'planned_start_date' => $d['debut_prevu'] ?? null,
                 'planned_end_date' => $d['fin_prevue'] ?? null,
@@ -301,6 +304,16 @@ class BaseDeCalculImporter
         $marche = (float) $projet->budget_allocated;
         $creees = 0;
 
+        // La provision pour révision de prix est facturée au marché sans se
+        // rattacher à un ouvrage. L'ignorer minorerait le coût réel ; elle est
+        // donc répartie au prorata de la facturation de chaque ouvrage, ce qui
+        // laisse le total exact et n'affecte pas la comparaison entre ouvrages.
+        $revision = (float) ($lecture['revision_facturee'] ?? 0);
+        $factureTotale = array_sum(array_map(
+            fn ($o) => (float) ($o['facture_cumulee'] ?? 0),
+            $lecture['ouvrages'],
+        ));
+
         foreach ($lecture['ouvrages'] as $d) {
             $ouvrage = $ouvrages[$this->normaliser($d['nom'])] ?? null;
             if (! $ouvrage) {
@@ -311,7 +324,12 @@ class BaseDeCalculImporter
             // à défaut sa part du marché au prorata de sa pondération.
             $enveloppe = (float) ($d['enveloppe'] ?? 0) ?: $marche * (float) $d['poids'] / 100;
             $connues = $ouvrage->financialProgresses()->get()->keyBy('period');
-            $couts = $this->repartirCout($d, $lecture['periodes']);
+
+            $facture = (float) ($d['facture_cumulee'] ?? 0);
+            $quotePart = ($revision > 0 && $factureTotale > 0)
+                ? $revision * $facture / $factureTotale
+                : 0.0;
+            $couts = $this->repartirCout($d, $lecture['periodes'], $quotePart);
 
             $prevuPrec = 0.0;
             $reelPrec = 0.0;
@@ -362,9 +380,9 @@ class BaseDeCalculImporter
      *
      * @return array<string, float>
      */
-    protected function repartirCout(array $ouvrage, array $periodes): array
+    protected function repartirCout(array $ouvrage, array $periodes, float $quotePartRevision = 0.0): array
     {
-        $total = (float) ($ouvrage['facture_cumulee'] ?? 0);
+        $total = (float) ($ouvrage['facture_cumulee'] ?? 0) + $quotePartRevision;
         if ($total <= 0) {
             return [];
         }
@@ -404,6 +422,7 @@ class BaseDeCalculImporter
                 'period' => $date->format('Y-m'),
                 'payment_date' => $date->toDateString(),
                 'gross_amount' => $d['brut'],
+                'is_advance' => $this->estUneAvance($d),
                 'startup_advance_recovery' => $d['recuperation_avance'],
                 'supply_advance_recovery' => 0,
                 'net_paid' => $d['net_paye'],
@@ -415,6 +434,16 @@ class BaseDeCalculImporter
         }
 
         return $ecrits;
+    }
+
+    /**
+     * Une avance versée à l'entreprise est enregistrée comme décompte, à
+     * l'exemple du tableau de facturation de la mission de contrôle. La
+     * distinguer évite de la compter deux fois dans l'encaissement.
+     */
+    protected function estUneAvance(array $ligne): bool
+    {
+        return (bool) preg_match('/avance|acompte/i', $ligne['nature'] ?? '');
     }
 
     /** Un décompte déposé le mois dernier peut avoir été réglé depuis. */

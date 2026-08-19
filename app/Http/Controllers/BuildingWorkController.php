@@ -111,7 +111,10 @@ class BuildingWorkController extends Controller
                     $others = (float) BuildingWork::where('pdu_project_id', $project->id)
                         ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
                         ->sum('weight_percentage');
-                    if ($others + (float) $value > 100.001) {
+                    // Une tolérance d'arrondi est admise : les pondérations
+                    // proviennent d'un classeur où elles totalisent parfois
+                    // 100,01 % du fait des décimales.
+                    if ($others + (float) $value > 100.05) {
                         $fail(sprintf(
                             'La somme des pondérations des ouvrages dépasserait 100 %% (%.1f %% déjà attribués).',
                             $others,

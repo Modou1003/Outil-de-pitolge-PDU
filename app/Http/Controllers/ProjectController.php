@@ -336,12 +336,21 @@ class ProjectController extends Controller
         $cpi = $sumAc > 0 ? round($sumEv / $sumAc, 3) : null;
         $spi = $sumPv > 0 ? round($sumEv / $sumPv, 3) : null;
 
+        // Le coût final estimé se rapporte au périmètre mesuré par les indices,
+        // c'est-à-dire à l'enveloppe des ouvrages suivis.
+        $bac = $project->evmBase();
+        $eac = $this->computeEacFromCpi($cpi, $bac);
+
         return [
             'cpi' => $cpi,
             'spi' => $spi,
             'cv' => $sumEv - $sumAc,
             'sv' => $sumEv - $sumPv,
-            'eac' => $this->computeEacFromCpi($cpi, $project->budget_revised),
+            'evm_base' => $bac,
+            'eac' => $eac,
+            // Reste à engager et écart à l'achèvement se déduisent du coût final.
+            'etc' => $eac !== null ? round($eac - $sumAc, 2) : null,
+            'vac' => $eac !== null ? round($bac - $eac, 2) : null,
             'alerts_open' => $project->alerts->count(),
             'milestones_total' => $project->milestones->count(),
             'milestones_reached' => $project->milestones->where('status', 'reached')->count(),

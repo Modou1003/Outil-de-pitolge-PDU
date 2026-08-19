@@ -15,6 +15,7 @@ class BuildingWork extends Model
         'description',
         'status',
         'weight_percentage',
+        'contract_amount',
         'duration_days',
         'planned_start_date',
         'planned_end_date',
