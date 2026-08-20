@@ -345,6 +345,34 @@ class BaseDeCalculImportTest extends TestCase
             'L’exposition porte sur les deux avances, déduction faite des récupérations.');
     }
 
+    /**
+     * La facturation est celle des travaux, avances exclues.
+     *
+     * Le rapport n° 14 énonce « total facturé sans avances : 19 101 798 996 »,
+     * soit 27,73 % du marché, et « % reste à facturer des travaux : 72,27 % ».
+     * Compter les avances dans la facturation ferait dépasser cent pour cent du
+     * marché avant l'achèvement.
+     */
+    public function test_la_facturation_exclut_les_avances(): void
+    {
+        $projet = $this->projet();
+        $projet->update([
+            'startup_advance_amount' => 13_775_927_213,
+            'supply_advance_amount' => 1_607_160_969,
+        ]);
+
+        $lecture = app(BaseDeCalculReader::class)->read($this->classeur());
+        app(BaseDeCalculImporter::class)->import($projet, $lecture, $this->utilisateur(), true);
+
+        $moa = $projet->fresh()->load(['payments', 'amendments'])->financialMoa();
+
+        $this->assertEqualsWithDelta(19_101_798_996, $moa['invoiced'], 1_000,
+            'Facturation des seuls décomptes de travaux, provision de révision comprise.');
+        $this->assertEqualsWithDelta(27.73, $moa['invoice_rate'], 0.02);
+        $this->assertEqualsWithDelta(49_777_837_071, $moa['remaining_to_invoice'], 1_000);
+        $this->assertEqualsWithDelta(72.27, $moa['remaining_to_invoice_rate'], 0.02);
+    }
+
     public function test_le_cout_final_estime_se_rapporte_au_perimetre_suivi(): void
     {
         $projet = $this->projet();

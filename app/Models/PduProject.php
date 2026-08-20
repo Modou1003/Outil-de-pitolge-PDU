@@ -220,7 +220,12 @@ class PduProject extends Model
         $budget = $this->budget_revised;
         $payments = $this->payments;
 
-        $invoiced = (float) $payments->sum('gross_amount');
+        // La facturation est celle des travaux : une avance n'est pas la
+        // contrepartie d'un ouvrage exécuté mais une somme consentie d'avance,
+        // récupérée ensuite sur les décomptes. L'y inclure ferait dépasser cent
+        // pour cent du marché avant l'achèvement, l'avance étant comptée une
+        // fois pour elle-même et une fois dans les travaux qu'elle finance.
+        $invoiced = (float) $payments->reject(fn ($p) => $p->is_advance)->sum('gross_amount');
         $netPaid = (float) $payments->sum('net_paid');
 
         $advanceGranted = (float) $this->startup_advance_amount + (float) $this->supply_advance_amount;
