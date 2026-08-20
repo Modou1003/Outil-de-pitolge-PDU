@@ -102,7 +102,7 @@ class RapportController extends Controller
             'buildingWorks.physicalProgresses',
             'lots',
             'milestones',
-            'physicalProgresses',
+            'physicalProgresses.work',
             'financialProgresses',
             'payments',
             'amendments',
@@ -227,18 +227,20 @@ class RapportController extends Controller
         foreach ($project->physicalProgresses as $p) {
             $k = (string) $p->period;
             if ($k === '') continue;
-            $grouped[$k] ??= ['pl' => 0.0, 'ac' => 0.0, 'c' => 0];
-            $grouped[$k]['pl'] += (float) $p->planned_percentage;
-            $grouped[$k]['ac'] += (float) $p->actual_percentage;
-            $grouped[$k]['c']++;
+            // Pondérée par le poids de l'ouvrage, comme l'avancement du projet.
+            $w = (float) ($p->work?->weight_percentage ?? 0) ?: 1.0;
+            $grouped[$k] ??= ['pl' => 0.0, 'ac' => 0.0, 'w' => 0.0];
+            $grouped[$k]['pl'] += $w * (float) $p->planned_percentage;
+            $grouped[$k]['ac'] += $w * (float) $p->actual_percentage;
+            $grouped[$k]['w'] += $w;
         }
         ksort($grouped);
         $labels = $planned = $actual = [];
         foreach ($grouped as $period => $g) {
-            if ($g['c'] === 0) continue;
+            if ($g['w'] <= 0) continue;
             $labels[] = $period;
-            $planned[] = round($g['pl'] / $g['c'], 1);
-            $actual[] = round($g['ac'] / $g['c'], 1);
+            $planned[] = round($g['pl'] / $g['w'], 1);
+            $actual[] = round($g['ac'] / $g['w'], 1);
         }
         return ['labels' => $labels, 'planned' => $planned, 'actual' => $actual];
     }

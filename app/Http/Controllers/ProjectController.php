@@ -285,6 +285,9 @@ class ProjectController extends Controller
                 'id' => $p->work->id,
                 'code' => $p->work->code,
                 'name' => $p->work->name,
+                // La pondération accompagne le relevé : la courbe en S consolide
+                // les ouvrages par leur poids, comme l'avancement du projet.
+                'weight' => (float) $p->work->weight_percentage,
             ] : null,
             'period' => $p->period,
             'measurement_date' => $p->measurement_date?->toDateString(),

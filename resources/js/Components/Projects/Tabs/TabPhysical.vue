@@ -65,19 +65,24 @@ const aggregateByPeriod = computed(() => {
         const key = String(p.period ?? '');
         if (!key) return;
         if (!grouped.has(key)) {
-            grouped.set(key, { period: key, planned: 0, actual: 0, count: 0 });
+            grouped.set(key, { period: key, planned: 0, actual: 0, weight: 0, count: 0 });
         }
+        // Consolidation pondérée : un ouvrage pèse dans la courbe ce qu'il pèse
+        // dans le marché, faute de quoi la courbe s'écarte de l'avancement du
+        // projet affiché en tête de fiche. Sans pondération connue, poids égal.
+        const w = Number(p.work?.weight ?? 0) || 1;
         const bucket = grouped.get(key);
-        bucket.planned += Number(p.planned_percentage ?? 0);
-        bucket.actual += Number(p.actual_percentage ?? 0);
+        bucket.planned += w * Number(p.planned_percentage ?? 0);
+        bucket.actual += w * Number(p.actual_percentage ?? 0);
+        bucket.weight += w;
         bucket.count += 1;
     });
 
     return [...grouped.values()]
-        .filter((x) => x.count > 0)
+        .filter((x) => x.weight > 0)
         .map((x) => {
-            const planned = x.planned / x.count;
-            const actual = x.actual / x.count;
+            const planned = x.planned / x.weight;
+            const actual = x.actual / x.weight;
             return {
                 period: x.period,
                 planned_percentage: planned,
