@@ -31,13 +31,6 @@ const Legende = (t, avant = false) => new Paragraph({
     spacing: avant ? { before: 200, after: 100 } : { before: 80, after: 200 },
 });
 
-/** Ligne de la table des notations. */
-const Nota = (symbole, sens) => new Paragraph({
-    children: [T(symbole, { bold: true }), T(' — ' + sens)],
-    bullet: { level: 0 },
-    alignment: AlignmentType.JUSTIFIED,
-    spacing: { after: 60, line: 264 },
-});
 
 const B = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
 const BORDS = { top: B, bottom: B, left: B, right: B };
@@ -96,7 +89,43 @@ const Somme = (children) => new MathSum({
     superScript: [R('n')],
 });
 
-const L = [15, 33, 26, 26]; // largeurs des colonnes
+const L = [15, 33, 26, 26]; // largeurs des colonnes du tableau V.8
+const LN = [18, 82];        // largeurs des colonnes de la table des notations
+
+// ─────────────────────────────────────────────── table des notations
+
+const NOTATIONS = [
+    [[Ind('E', 'i')],
+        'Enveloppe contractuelle de l’ouvrage i, telle qu’elle figure au classeur d’avancement'],
+    [[Ind('p', 'i'), R(' , '), Ind('r', 'i')],
+        'Taux d’avancement cumulés de l’ouvrage i, respectivement planifié et réalisé, à la date d’arrêté'],
+    [[Ind('F', 'i')],
+        'Facturation cumulée de l’ouvrage i'],
+    [[R('P')],
+        'Provision pour révision de prix facturée, ventilée entre les ouvrages au prorata de leur facturation'],
+    [[R('M')],
+        'Montant du marché de travaux'],
+    [[Ind('PV', 'k')],
+        'Valeur planifiée cumulée à la fin du k-ième mois ; k désigne le dernier mois dont la valeur planifiée demeure inférieure à la valeur acquise'],
+    [[Ind('D', 'OS')],
+        'Date de l’ordre de service de démarrage'],
+    [[Ind('D', 'arrêté')],
+        'Date d’arrêté du relevé, terme de la période mesurée'],
+    [[Ind('D', 'obs')],
+        'Date d’observation, à laquelle la fraîcheur de la donnée est appréciée'],
+    [[Ind('D', 'relevé')],
+        'Date du dernier relevé d’avancement enregistré'],
+    [[Ind('D', 'fin')],
+        'Date d’achèvement projetée par la valeur acquise temporelle'],
+    [[R('PD')],
+        'Durée contractuelle d’exécution, exprimée en jours'],
+    [[Ind('A', 'phys')],
+        'Avancement physique consolidé du projet, moyenne des ouvrages pondérée par leur poids'],
+    [[Ind('A', 'dém'), R(' , '), Ind('A', 'appro')],
+        'Avance de démarrage et acompte sur approvisionnement versés à l’entreprise'],
+    [[Ind('R', 'k')],
+        'Récupération d’avance opérée sur le décompte de rang k'],
+];
 
 // ─────────────────────────────────────────────── lignes du tableau
 
@@ -165,6 +194,19 @@ const LIGNES = [
 
 // ─────────────────────────────────────────────── assemblage
 
+const tableauNotations = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+        new TableRow({
+            tableHeader: true,
+            children: ['Notation', 'Signification'].map((e, i) => Cel(e, { entete: true, largeur: LN[i] })),
+        }),
+        ...NOTATIONS.map(([symbole, sens]) => new TableRow({
+            children: [CelMath(symbole, LN[0]), Cel(sens, { largeur: LN[1] })],
+        })),
+    ],
+});
+
 const tableau = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [
@@ -198,16 +240,9 @@ const doc = new Document({
 
             P('Le tableau ci-après fait apparaître, pour chaque indicateur, la formule effectivement appliquée et les entrées dont elle procède. Cette dernière colonne n’est pas de commodité : elle établit que le second niveau ne repose sur aucune donnée qui n’ait été validée au premier. Les notations retenues sont les suivantes.'),
 
-            Nota('Eᵢ', 'enveloppe contractuelle de l’ouvrage i, telle qu’elle figure au classeur d’avancement'),
-            Nota('pᵢ, rᵢ', 'taux d’avancement cumulés de l’ouvrage i, respectivement planifié et réalisé, à la date d’arrêté'),
-            Nota('Fᵢ', 'facturation cumulée de l’ouvrage i'),
-            Nota('P', 'provision pour révision de prix facturée, ventilée entre les ouvrages au prorata de leur facturation'),
-            Nota('M', 'montant du marché de travaux'),
-            Nota('PVₖ', 'valeur planifiée cumulée à la fin du k-ième mois ; k désigne le dernier mois dont la valeur planifiée reste inférieure à la valeur acquise'),
-            Nota('D_OS, D_arrêté, D_obs, D_relevé', 'dates d’ordre de service, d’arrêté du marché, d’observation et du dernier relevé enregistré'),
-            Nota('PD', 'durée contractuelle d’exécution, en jours'),
-            Nota('A_phys', 'avancement physique consolidé du projet'),
-            Nota('A_dém, A_appro, Rₖ', 'avance de démarrage, acompte sur approvisionnement, et récupérations opérées sur les décomptes'),
+            Legende('Tableau V.7 bis — Notations employées', true),
+            tableauNotations,
+            Legende('Source : élaboration personnelle'),
 
             Legende('Tableau V.8 — Indices dérivés, leurs formules et les valeurs restituées', true),
             tableau,
