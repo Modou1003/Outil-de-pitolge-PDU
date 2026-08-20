@@ -82,7 +82,6 @@ const aggregateByPeriod = computed(() => {
             planned_value: cpv,
             earned_value: cev,
             actual_cost: cac,
-            variance: cev - cpv,
         };
     });
 });
@@ -182,8 +181,6 @@ const chartOptions = {
 
 const formatMoney = (v) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(v ?? 0);
 
-const moneyColor = (val) => val >= 0 ? 'text-emerald-600' : 'text-red-600';
-
 const addWork = () => {
     if (!canManageWorks.value) return;
     const name = prompt("Nom de l'ouvrage :");
@@ -282,9 +279,9 @@ const addWork = () => {
                         <thead class="bg-gray-50">
                             <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                                 <th class="px-4 py-2">Période</th>
-                                <th class="px-4 py-2 text-right">Prévu</th>
-                                <th class="px-4 py-2 text-right">Réel</th>
-                                <th class="px-4 py-2 text-right">Écart</th>
+                                <th class="px-4 py-2 text-right">Valeur planifiée (PV)</th>
+                                <th class="px-4 py-2 text-right">Valeur acquise (EV)</th>
+                                <th class="px-4 py-2 text-right">Coût réel (AC)</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
@@ -292,9 +289,7 @@ const addWork = () => {
                                 <td class="px-4 py-2 font-mono text-xs">{{ p.period }}</td>
                                 <td class="px-4 py-2 text-right text-indigo-700">{{ formatMoney(p.planned_value) }}</td>
                                 <td class="px-4 py-2 text-right font-medium text-emerald-700">{{ formatMoney(p.earned_value) }}</td>
-                                <td class="px-4 py-2 text-right font-semibold" :class="moneyColor(p.variance)">
-                                    {{ p.variance >= 0 ? '+' : '' }}{{ formatMoney(p.variance) }}
-                                </td>
+                                <td class="px-4 py-2 text-right font-medium text-amber-700">{{ formatMoney(p.actual_cost) }}</td>
                             </tr>
                             <tr v-if="!aggregateHistorySorted.length">
                                 <td colspan="4" class="px-4 py-6 text-center text-sm text-gray-500">Aucune donnée.</td>
@@ -352,9 +347,9 @@ const addWork = () => {
                             <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                                 <th class="px-4 py-2">Période</th>
                                 <th class="px-4 py-2">Ouvrage</th>
-                                <th class="px-4 py-2 text-right">Prévu</th>
-                                <th class="px-4 py-2 text-right">Réel</th>
-                                <th class="px-4 py-2 text-right">Coût réel</th>
+                                <th class="px-4 py-2 text-right">Valeur planifiée (PV)</th>
+                                <th class="px-4 py-2 text-right">Valeur acquise (EV)</th>
+                                <th class="px-4 py-2 text-right">Coût réel (AC)</th>
                                 <th class="px-4 py-2 text-right">CPI</th>
                                 <th class="px-4 py-2 text-right">SPI</th>
                                 <th v-if="canWrite" class="px-4 py-2 text-right">Actions</th>
