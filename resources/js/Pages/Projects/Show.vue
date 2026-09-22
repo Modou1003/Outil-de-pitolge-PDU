@@ -248,6 +248,12 @@ const breadcrumbs = computed(() => ([
                     <div v-if="physFin" class="rounded-xl p-4 shadow-sm ring-1" :class="[physFinClasses.bg, physFinClasses.ring]" :title="physFinTitle">
                         <p class="text-[11px] uppercase tracking-wide" :class="physFinClasses.label">Écart physique/budget</p>
                         <p class="mt-1 text-2xl font-bold" :class="physFinClasses.text"><template v-if="physFin.level !== 'none'">{{ physFin.gap > 0 ? '+' : '' }}{{ physFin.gap }} pts</template><template v-else>—</template></p>
+                        <p v-if="physFin.level !== 'none'" class="text-[10px]" :class="physFinClasses.label">
+                            {{ physFin.earned }} % acquis · {{ physFin.financial }} % facturés, sur le périmètre suivi
+                        </p>
+                        <p v-if="physFin.level !== 'none'" class="text-[10px]" :class="physFinClasses.label">
+                            Mission de contrôle : {{ physFin.physical }} % réalisés · {{ physFin.contractual }} % facturés du marché
+                        </p>
                     </div>
                     <div v-if="forecast" class="rounded-xl p-4 shadow-sm ring-1" :class="[forecastClasses.bg, forecastClasses.ring]" :title="forecastTitle">
                         <p class="text-[11px] uppercase tracking-wide" :class="forecastClasses.label">Fin projetée</p>

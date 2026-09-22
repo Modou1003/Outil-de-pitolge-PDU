@@ -262,18 +262,21 @@ class AlerteService
             return false;
         }
 
-        $physical = (float) $project->progress_percentage;
-        $financial = (float) $project->budget_execution_rate;
+        // Même base des deux côtés : la valeur acquise et le coût réel sont
+        // divisés par le même budget et bâtis sur les mêmes enveloppes. Y mêler
+        // l'avancement consolidé, pondéré autrement, fausserait l'écart.
+        $acquis = (float) $project->perimeter_earned_rate;
+        $financial = (float) $project->perimeter_execution_rate;
 
-        // Alerte uniquement quand le décaissement dépasse la réalisation physique
+        // Alerte uniquement quand le décaissement dépasse la valeur acquise
         // (risque de façade / surfacturation), au-delà du seuil.
-        return ($financial - $physical) > $this->seuils->get('phys_fin_gap_points');
+        return ($financial - $acquis) > $this->seuils->get('phys_fin_gap_points');
     }
 
     protected function physicalFinancialPayload(PduProject $project): array
     {
-        $physical = round((float) $project->progress_percentage, 1);
-        $financial = round((float) $project->budget_execution_rate, 1);
+        $physical = round((float) $project->perimeter_earned_rate, 1);
+        $financial = round((float) $project->perimeter_execution_rate, 1);
         $gap = round($financial - $physical, 1);
         $critical = $gap > $this->seuils->get('phys_fin_gap_critical');
 

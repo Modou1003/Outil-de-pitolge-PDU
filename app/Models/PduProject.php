@@ -330,6 +330,55 @@ class PduProject extends Model
     }
 
     /**
+     * Taux de facturation rapporté au périmètre effectivement suivi.
+     *
+     * Le taux ci-dessus divise la dépense par le marché : il mesure
+     * l'engagement contractuel et c'est lui que publie la mission de contrôle.
+     * Mais l'avancement physique, lui, est pondéré sur les seuls ouvrages
+     * suivis. Les comparer reviendrait à diviser par deux enveloppes
+     * différentes, et l'écart physico-financier serait faussé de tout ce dont
+     * le marché excède le périmètre — postes non planifiés et provisions, qui
+     * ne peuvent porter aucun avancement physique.
+     *
+     * Ce second taux divise la même dépense par le budget à l'achèvement du
+     * périmètre : même population d'ouvrages des deux côtés, donc écart
+     * interprétable.
+     */
+    public function getPerimeterExecutionRateAttribute(): float
+    {
+        $base = $this->evmBase();
+        if ($base <= 0) {
+            return 0;
+        }
+
+        return round(((float) $this->budget_spent / $base) * 100, 2);
+    }
+
+    /**
+     * Avancement acquis : la valeur acquise rapportée au budget du périmètre.
+     *
+     * Il ne se confond pas avec l'avancement physique consolidé, qui est la
+     * moyenne des taux de réalisation pondérée par les poids des ouvrages.
+     * L'un valorise chaque ouvrage par son enveloppe, l'autre par sa
+     * pondération ; les deux coïncideraient si pondérations et enveloppes
+     * procédaient de la même colonne de montants du classeur, ce qui n'est pas
+     * le cas ici. L'écart entre les deux mesure exactement cette divergence.
+     */
+    public function getPerimeterEarnedRateAttribute(): float
+    {
+        $base = $this->evmBase();
+        if ($base <= 0) {
+            return 0;
+        }
+
+        $acquise = $this->relationLoaded('financialProgresses')
+            ? $this->financialProgresses->sum('earned_value')
+            : $this->financialProgresses()->sum('earned_value');
+
+        return round(((float) $acquise / $base) * 100, 2);
+    }
+
+    /**
      * Check if the project is overdue.
      */
     public function getIsOverdueAttribute(): bool
