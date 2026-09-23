@@ -61,6 +61,33 @@ const freshnessTitle = computed(() => {
 
 // Décalage physico-financier (effet de façade)
 const physFin = computed(() => props.kpis?.physical_financial ?? null);
+
+// Avancement physique : deux mesures d'une même réalité, à ne pas confondre.
+// La mission de contrôle pondère chaque ouvrage par son poids physique, établi
+// sur les montants révisés, et rapporte le tout au marché ; la valeur acquise
+// valorise le même ouvrage par son enveloppe contractuelle, sur le seul
+// périmètre décomposé. L'écart entre les deux mesure une divergence de
+// valorisation, non une divergence de constat : les taux de réalisation sont
+// les mêmes. Les afficher côte à côte évite de laisser croire à une mesure
+// unique là où le mémoire en discute deux.
+const progressConsolidated = computed(() => {
+    const v = props.project?.progress_percentage;
+    return v === null || v === undefined ? null : Number(v);
+});
+const progressEarned = computed(() => {
+    const p = physFin.value;
+    if (!p || p.level === 'none' || p.earned === null || p.earned === undefined) return null;
+    return Number(p.earned);
+});
+const progressTitle = computed(() => {
+    const c = progressConsolidated.value;
+    const e = progressEarned.value;
+    if (c === null) return "Avancement physique non renseigné.";
+    const mc = `Mission de contrôle : ${c.toFixed(1)} % — ouvrages pondérés par leur poids physique, rapportés au marché.`;
+    if (e === null) return mc;
+    return `${mc}\nValeur acquise (EVM) : ${e.toFixed(1)} % — ouvrages valorisés à leur enveloppe contractuelle, sur le périmètre suivi.`
+        + `\nÉcart de ${Math.abs(c - e).toFixed(1)} pt : divergence de valorisation, non de constat.`;
+});
 const physFinClasses = computed(() => {
     const p = physFin.value;
     const gray = { bg: 'bg-white', ring: 'ring-gray-200', text: 'text-gray-400', label: 'text-gray-500' };
@@ -226,9 +253,15 @@ const breadcrumbs = computed(() => ([
             <TabPlanning v-else-if="activeTab === 'planning'" :project="project" :building_works="building_works" :lots="lots" :milestones="milestones" />
             <div v-else-if="activeTab === 'indicators'" class="space-y-4">
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200" title="Avancement physique global — moyenne des ouvrages pondérée par leur pondération">
+                    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200" :title="progressTitle">
                         <p class="text-[11px] uppercase tracking-wide text-gray-500">Avancement physique</p>
-                        <p class="mt-1 text-2xl font-bold text-gray-900">{{ project.progress_percentage !== null && project.progress_percentage !== undefined ? `${Number(project.progress_percentage).toFixed(1)}%` : '—' }}</p>
+                        <p class="mt-1 text-2xl font-bold text-gray-900">
+                            <template v-if="progressConsolidated !== null">{{ progressConsolidated.toFixed(1) }}%</template>
+                            <template v-else>—</template>
+                            <template v-if="progressEarned !== null"><span class="font-normal text-gray-400"> · </span><span class="text-emerald-700">{{ progressEarned.toFixed(1) }}%</span></template>
+                        </p>
+                        <p v-if="progressEarned !== null" class="text-[10px] text-gray-500">Mission de contrôle, sur le marché</p>
+                        <p v-if="progressEarned !== null" class="text-[10px] text-emerald-600">Valeur acquise (EVM), sur le périmètre suivi</p>
                     </div>
                     <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200" title="Schedule Performance Index (avance/retard planning)">
                         <p class="text-[11px] uppercase tracking-wide text-gray-500">SPI</p>
